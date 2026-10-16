@@ -47,6 +47,10 @@
     scroll-behavior: smooth;
     scroll-padding-top: 6rem;
     -webkit-text-size-adjust: 100%;
+    /* `clip` (not `hidden`) stops stray decorative overflow from creating a
+       page-wide horizontal scrollbar without turning <html> into a scroll
+       container, which would break every `position: sticky` on the page. */
+    overflow-x: clip;
   }
 
   body {
@@ -120,6 +124,13 @@
     @apply font-medium text-brand-700 underline decoration-brand-200 decoration-2 underline-offset-4 transition-colors hover:decoration-brand-500;
   }
 
+  /* ---------- horizontally scrollable regions (tables on narrow screens) ----------
+     tabindex makes them keyboard-scrollable; the fade hints there is more to
+     see, since iOS/Android hide scrollbars until you actually scroll. */
+  .scroll-x {
+    @apply overflow-x-auto overscroll-x-contain;
+  }
+
   /* ---------- code ---------- */
   .code-block {
     @apply relative overflow-hidden rounded-2xl border border-ink-800/60 bg-ink-950;
@@ -158,7 +169,7 @@
   }
 
   .prose-docs :where(h2):not(:where([class~="not-prose"] *)) {
-    @apply mt-14 scroll-mt-28 border-t border-ink-100 pt-8 text-2xl;
+    @apply mt-10 scroll-mt-28 border-t border-ink-100 pt-7 text-xl sm:mt-14 sm:pt-8 sm:text-2xl;
   }
 
   .prose-docs :where(h3):not(:where([class~="not-prose"] *)) {

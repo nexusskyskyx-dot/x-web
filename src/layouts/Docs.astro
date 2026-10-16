@@ -42,11 +42,21 @@ const nav = [
 ];
 
 const path = Astro.url.pathname;
+
+const isActive = (href: string) =>
+  href === '/docs' ? path === '/docs' || path === '/docs/' : path.startsWith(href);
+
+const allItems = nav.flatMap((section) => section.items);
+const current = allItems.find((item) => isActive(item.href)) ?? allItems[0];
 ---
 
 <Base title={`${title} · x-web docs`} description={description}>
-  <div class="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[230px_minmax(0,1fr)] lg:px-8 lg:py-12">
-    <aside class="lg:sticky lg:top-24 lg:h-[calc(100vh-8rem)] lg:overflow-y-auto lg:pr-2">
+  <div
+    class="mx-auto grid max-w-7xl gap-10 px-4 py-8 sm:px-6 lg:grid-cols-[230px_minmax(0,1fr)] lg:px-8 lg:py-12"
+  >
+    <aside
+      class="hidden lg:sticky lg:top-24 lg:block lg:h-[calc(100vh-8rem)] lg:overflow-y-auto lg:pr-2"
+    >
       <p class="mb-4 px-3 text-xs font-semibold tracking-wider text-ink-400 uppercase">{eyebrow}</p>
       <nav class="space-y-6" aria-label="Documentation">
         {
@@ -60,10 +70,10 @@ const path = Astro.url.pathname;
                   <li>
                     <a
                       href={item.href}
+                      aria-current={isActive(item.href) ? 'page' : undefined}
                       class:list={[
                         'block rounded-lg px-3 py-1.5 text-sm transition',
-                        path === item.href ||
-                        (item.href !== '/docs' && path.startsWith(item.href))
+                        isActive(item.href)
                           ? 'bg-brand-50 font-semibold text-brand-700'
                           : 'text-ink-600 hover:bg-brand-50/60 hover:text-brand-700',
                       ]}
@@ -97,6 +107,54 @@ const path = Astro.url.pathname;
     </aside>
 
     <div class="min-w-0">
+      <!-- mobile / tablet: compact doc switcher instead of the full sidebar -->
+      <details class="group mb-6 lg:hidden" data-docs-nav>
+        <summary
+          class="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white px-4 py-3 text-sm font-semibold text-ink-900 shadow-card"
+        >
+          <span class="flex min-w-0 items-center gap-2">
+            <Icon name="book" class="h-4 w-4 shrink-0 text-brand-600" />
+            <span class="truncate">{current.label}</span>
+          </span>
+          <Icon
+            name="chevronDown"
+            class="h-4 w-4 shrink-0 text-ink-400 transition-transform group-open:rotate-180"
+          />
+        </summary>
+        <nav
+          class="mt-2 rounded-xl border border-ink-100 bg-white p-2 shadow-card"
+          aria-label="Documentation"
+        >
+          {
+            nav.map((section) => (
+              <div class="px-2 pt-3 pb-1 first:pt-1">
+                <p class="text-[11px] font-semibold tracking-wider text-ink-400 uppercase">
+                  {section.group}
+                </p>
+                <ul class="mt-1 space-y-0.5">
+                  {section.items.map((item) => (
+                    <li>
+                      <a
+                        href={item.href}
+                        aria-current={isActive(item.href) ? 'page' : undefined}
+                        class:list={[
+                          'block rounded-lg px-3 py-2.5 text-[15px] transition',
+                          isActive(item.href)
+                            ? 'bg-brand-50 font-semibold text-brand-700'
+                            : 'text-ink-700 hover:bg-brand-50 hover:text-brand-700',
+                        ]}
+                      >
+                        {item.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          }
+        </nav>
+      </details>
+
       <div class="mb-10">
         <p class="text-sm font-semibold text-brand-600">{eyebrow}</p>
         <h1 class="mt-2 text-3xl sm:text-4xl">{title}</h1>
@@ -107,6 +165,30 @@ const path = Astro.url.pathname;
           )
         }
       </div>
+
+      <!-- mobile / tablet: the on-page TOC is otherwise unreachable below xl -->
+      {
+        toc.length > 0 && (
+          <details class="group mb-8 rounded-xl border border-ink-100 bg-white xl:hidden" data-docs-toc>
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-ink-900">
+              On this page
+              <Icon
+                name="chevronDown"
+                class="h-4 w-4 shrink-0 text-ink-400 transition-transform group-open:rotate-180"
+              />
+            </summary>
+            <ul class="space-y-1 border-t border-ink-100 px-4 py-3 text-sm">
+              {toc.map((item) => (
+                <li>
+                  <a href={`#${item.id}`} class="block py-1.5 text-ink-600 transition-colors hover:text-brand-700">
+                    {item.text}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )
+      }
 
       <div class="grid gap-10 xl:grid-cols-[minmax(0,1fr)_210px]">
         <article class="prose-docs min-w-0">
@@ -137,3 +219,15 @@ const path = Astro.url.pathname;
     </div>
   </div>
 </Base>
+
+<script>
+  // Collapse the mobile nav / TOC disclosures after tapping a link inside them.
+  // Cross-page links reload anyway; in-page hash links do not.
+  document.querySelectorAll<HTMLDetailsElement>('[data-docs-nav], [data-docs-toc]').forEach((box) => {
+    box.querySelectorAll('a').forEach((link) => {
+      link.addEventListener('click', () => {
+        box.open = false;
+      });
+    });
+  });
+</script>
