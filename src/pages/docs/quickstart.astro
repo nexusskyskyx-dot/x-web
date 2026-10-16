@@ -7,213 +7,163 @@ import Icon from '../../components/Icons.astro';
 
 const toc = [
   { id: 'before-you-start', text: 'Before you start' },
-  { id: 'step-1', text: 'Get an API key' },
-  { id: 'step-2', text: 'Install the SDK' },
-  { id: 'step-3', text: 'Make your first search' },
-  { id: 'step-4', text: 'Read the response' },
-  { id: 'step-5', text: 'Give it to your agent' },
+  { id: 'step-1', text: 'Choose a provider key' },
+  { id: 'step-2', text: 'Search the live web' },
+  { id: 'step-3', text: 'Read the cited answer' },
+  { id: 'step-4', text: 'Add to an agent' },
 ];
 
-const firstSearch = [
+const requests = [
   {
     label: 'cURL',
     lang: 'bash',
-    code: `curl -X POST https://api.x-web.dev/v1/search \\
-  -H "Authorization: Bearer $XWEB_API_KEY" \\
+    code: `curl -X POST "$XWEB_BASE/api/v1/search" \\
+  -H "X-XWeb-Key: $TAVILY_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "query": "latest release notes for Astro",
+    "query": "What is the latest on the Model Context Protocol?",
     "max_results": 5,
     "include_answer": true
   }'`,
   },
   {
-    label: 'Python',
-    lang: 'python',
-    code: `import os
-from x_web import XWeb
-
-client = XWeb(api_key=os.environ["XWEB_API_KEY"])
-
-result = client.search(
-    "latest release notes for Astro",
-    max_results=5,
-    include_answer=True,
-)
-
-print(result.answer)
-for hit in result.results:
-    print(f"{hit.title}\\n  {hit.url}\\n  {hit.snippet[:120]}…")`,
-  },
-  {
-    label: 'Node',
+    label: 'JavaScript',
     lang: 'javascript',
-    code: `import { XWeb } from "x-web";
-
-const client = new XWeb({ apiKey: process.env.XWEB_API_KEY });
-
-const result = await client.search("latest release notes for Astro", {
-  maxResults: 5,
-  includeAnswer: true,
-});
-
-console.log(result.answer);
-for (const hit of result.results) {
-  console.log(hit.title, "\\n ", hit.url);
-}`,
+    code: `const response = await fetch(\${XWEB_BASE} + "/api/v1/search", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "X-XWeb-Key": process.env.TAVILY_API_KEY,
   },
-  {
-    label: 'Go',
-    lang: 'go',
-    code: `package main
-
-import (
-	"context"
-	"fmt"
-	"os"
-
-	"github.com/nexusskyskyx-dot/x-web-go"
-)
-
-func main() {
-	client := xweb.NewClient(os.Getenv("XWEB_API_KEY"))
-
-	result, err := client.Search(context.Background(), &xweb.SearchRequest{
-		Query:        "latest release notes for Astro",
-		MaxResults:   5,
-		IncludeAnswer: true,
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(result.Answer)
-	for _, hit := range result.Results {
-		fmt.Println(hit.Title, "->", hit.URL)
-	}
-}`,
+  body: JSON.stringify({
+    query: "What is the latest on the Model Context Protocol?",
+    max_results: 5,
+    include_answer: true,
+  }),
+});
+const search = await response.json();
+console.log(search.answer?.text, search.answer?.citations);`,
   },
 ];
 
-const agentSnippet = `from x_web import XWeb
-
-client = XWeb(api_key=os.environ["XWEB_API_KEY"])
-
-def web_search(query: str) -> str:
-    """Search the web for current information. Returns sources."""
-    result = client.search(query, max_results=5, include_answer=True)
-    lines = [result.answer or "", ""]
-    for hit in result.results:
-        lines.append(f"- {hit.title} ({hit.url}): {hit.snippet[:200]}")
-    return "\\n".join(lines)
-
-tools = [{"type": "function", "function": {
-    "name": "web_search",
-    "description": "Search the live web for current information.",
-    "parameters": {
-        "type": "object",
-        "properties": {"query": {"type": "string"}},
-        "required": ["query"],
+const agentSnippet = `async function webSearch(query) {
+  const response = await fetch(\${XWEB_BASE} + "/api/v1/search", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-XWeb-Key": process.env.TAVILY_API_KEY,
     },
-}}]`;
+    body: JSON.stringify({
+      query,
+      max_results: 5,
+      include_answer: true,
+    }),
+  });
+
+  if (!response.ok) throw new Error(await response.text());
+  const data = await response.json();
+  return {
+    answer: data.answer?.text,
+    citations: data.answer?.citations,
+    results: data.results,
+  };
+}`;
 ---
 
 <Docs
   title="Quickstart"
-  description="From zero to a cited web search in your AI agent in about five minutes."
+  description="Call the real x-web search pipeline from your app or AI agent."
   toc={toc}
   updated="October 2026"
 >
   <h2 id="before-you-start">Before you start</h2>
   <p>
-    You need an x-web API key. The sandbox key works against the test index — use it while you
-    build, then swap in a live key when you ship.
+    You need a key for a supported search provider: Tavily, Brave Search, Serper or Exa. x-web
+    currently proxies your provider key server-side; x-web account keys, subscriptions and billing
+    will come later.
   </p>
   <ul>
-    <li>A Node.js 20+ or Python 3.10+ runtime (or just <code>curl</code>).</li>
-    <li>An x-web API key from the dashboard.</li>
-    <li>Two minutes.</li>
+    <li>A server-side runtime that can make HTTP requests.</li>
+    <li>A key from one of the supported search providers.</li>
+    <li>Your x-web deployment URL as <code>XWEB_BASE</code>.</li>
   </ul>
 
-  <h2 id="step-1">Step 1 — Get an API key</h2>
+  <Callout type="warning" title="Never expose provider keys in browser code">
+    Call x-web from your server or agent backend. Do not put the provider key in a public JavaScript
+    bundle, mobile app or checked-in source file. The API key is used for this request and is not
+    persisted as an x-web account credential.
+  </Callout>
+
+  <h2 id="step-1">Step 1 — Choose a provider key</h2>
   <p>
-    Create a key in the dashboard and export it. Keys are namespaced by environment so a test key
-    can never spend production credits.
+    Get a key directly from your chosen provider and set it as a server environment variable. The
+    value is sent as <code>X-XWeb-Key</code>; <code>Authorization: Bearer …</code> also works.
   </p>
   <CodeBlock
     lang="bash"
-    title="terminal"
-    code={`export XWEB_API_KEY="xw_test_8f2c41ab…"`}
+    title="server environment"
+    code={`export XWEB_BASE="https://your-x-web-deployment.vercel.app"
+export TAVILY_API_KEY="tvly-…"`}
   />
 
-  <Callout type="tip" title="Keep the key server-side">
-    Put the key in an environment variable, never in a browser bundle. If your agent runs in the
-    browser, proxy the call through your own endpoint — that is exactly what the MCP server does for
-    you.
-  </Callout>
-
-  <h2 id="step-2">Step 2 — Install the SDK</h2>
-  <p>Pick the client you already use. The REST API works without any SDK at all.</p>
-  <CodeTabs
-    tabs={[
-      { label: 'Python', lang: 'bash', code: 'pip install x-web' },
-      { label: 'Node', lang: 'bash', code: 'npm install x-web' },
-      { label: 'Go', lang: 'bash', code: 'go get github.com/nexusskyskyx-dot/x-web-go' },
-      { label: 'REST', lang: 'bash', code: '# no install needed — just curl' },
-    ]}
-  />
-
-  <h2 id="step-3">Step 3 — Make your first search</h2>
-  <CodeTabs tabs={firstSearch} />
-
-  <h2 id="step-4">Step 4 — Read the response</h2>
+  <h2 id="step-2">Step 2 — Search the live web</h2>
+  <p>Both examples call the deployed API; use the one that fits your backend.</p>
+  <CodeTabs tabs={requests} />
   <p>
-    Every search returns an <code>answer</code> (a synthesised summary with citations) plus a ranked
-    list of <code>results</code>. Each result carries the URL it came from, so the model can cite
-    the source and you can verify the claim.
+    For current results, ask naturally (“latest”, “today”, “this week”) or set <code>time_range</code>
+    to <code>day</code>, <code>week</code>, <code>month</code> or <code>year</code>. The API detects
+    query language by default; pass a language code to override it.
+  </p>
+
+  <h2 id="step-3">Step 3 — Read the cited answer</h2>
+  <p>
+    <code>answer</code> is an object, not a plain string. It contains the answer text, the synthesis
+    mode actually used, confidence and citation metadata. Follow the citations to verify claims.
   </p>
   <CodeBlock
     lang="json"
-    title="response.json"
+    title="response (trimmed)"
     code={`{
-  "id": "xweb_9f3c1a20",
-  "query": "latest release notes for Astro",
+  "object": "search",
+  "query": "What is the latest on MCP?",
   "provider": "tavily",
-  "answer": "Astro 7.4.0 ships with Vite 8 and the Rust compiler…",
-  "results": [
-    {
-      "title": "Upgrade to Astro v7",
-      "url": "https://docs.astro.build/en/guides/upgrade-to/v7/",
-      "snippet": "Astro v7.0 upgrades to Vite 8…",
-      "score": 0.98
-    },
-    {
-      "title": "Astro 7.4.0",
-      "url": "https://github.com/withastro/astro/releases",
-      "snippet": "Bug fixes and improvements…",
-      "score": 0.91
-    }
-  ],
-  "took_ms": 412
+  "answer": {
+    "text": "… [1]",
+    "mode": "provider",
+    "confidence": 0.7,
+    "citations": [{
+      "index": 1,
+      "title": "Model Context Protocol",
+      "url": "https://…",
+      "result": 0
+    }]
+  },
+  "results": [{
+    "title": "Model Context Protocol",
+    "url": "https://…",
+    "snippet": "…",
+    "published_date": "2026-10-16T…Z"
+  }],
+  "language": { "requested": "auto", "resolved": "en", "detected": { "code": "en" } },
+  "intent": { "type": "news", "time_sensitive": true },
+  "meta": { "effective_query": "latest mcp", "rewritten": true }
 }`}
   />
-
-  <Callout type="note" title="Scores are relative">
-    A score of 0.98 means “the most relevant result for this query”, not “98% correct”. Use it to
-    order results, not to decide whether a result is true.
+  <Callout type="note" title="Answer modes are explicit">
+    <code>llm</code> means a configured OpenAI-compatible or Anthropic model synthesized the answer.
+    <code>provider</code> means the search provider supplied it. <code>extractive</code> means x-web
+    selected relevant sentences and attached citations. Add an answer-model key on the server if you
+    specifically need LLM synthesis.
   </Callout>
 
-  <h2 id="step-5">Step 5 — Give it to your agent</h2>
+  <h2 id="step-4">Step 4 — Add it to your agent</h2>
+  <p>Register this server-side function as a tool in your agent framework:</p>
+  <CodeBlock lang="javascript" title="web-search-tool.js" code={agentSnippet} />
   <p>
-    Register the search endpoint as a tool and your model can call it whenever it needs a fact it
-    does not have. The function description is what makes the difference — say when to use it.
-  </p>
-  <CodeBlock lang="python" title="tools.py" code={agentSnippet} />
-
-  <p class="mt-8">
-    Want the same thing without writing the glue? Run the
-    <a href="/docs/mcp">MCP server</a> and every MCP-aware client gets search, scrape and extract
-    as built-in tools.
+    The response includes <code>intent</code> (what x-web inferred), <code>language</code>, live
+    <code>results</code> and optional <code>extracted</code> page text. See the
+    <a href="/docs/api">API reference</a> for the full request/response contract and standalone
+    intent and extraction endpoints.
   </p>
 
   <div class="not-prose mt-10 flex flex-wrap items-center gap-3 rounded-2xl border border-brand-200 bg-brand-50/70 p-6">
@@ -222,9 +172,7 @@ tools = [{"type": "function", "function": {
     </span>
     <div class="min-w-0 flex-1">
       <p class="font-semibold text-brand-900">Try a real search right now</p>
-      <p class="text-sm text-ink-600">
-        The playground hits Tavily, Brave, Serper or Exa with your own key.
-      </p>
+      <p class="text-sm text-ink-600">The playground uses your own key through the server-side proxy.</p>
     </div>
     <a href="/docs/api#playground" class="btn-primary btn-sm">Open playground</a>
   </div>

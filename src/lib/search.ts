@@ -10,6 +10,8 @@
  * (e.g. https://api.x-web.dev/v1) instead of talking to a provider directly.
  */
 
+import type { TimeRange } from './intent.ts';
+
 export const PROVIDERS = ['tavily', 'brave', 'serper', 'exa'] as const;
 export type ProviderId = (typeof PROVIDERS)[number];
 
@@ -47,6 +49,35 @@ export const PROVIDER_META: Record<
   },
 };
 
+/**
+ * What each provider can actually do. The API reports anything a caller asked
+ * for that the selected provider silently ignores — a caller switching from
+ * Brave to Exa should find out that its recency window stopped working rather
+ * than quietly getting stale results.
+ */
+export interface ProviderCapabilities {
+  /** Can restrict results to a recency window. */
+  timeRange: boolean;
+  /** Accepts an explicit language parameter. */
+  language: boolean;
+  /** Accepts a country/region parameter. */
+  country: boolean;
+  /** Returns its own synthesised answer alongside results. */
+  answer: boolean;
+  /** Can return full page text, not just a snippet. */
+  rawContent: boolean;
+  /** Has a first-class domain filter (others fall back to `site:` operators). */
+  domainFilter: boolean;
+  maxResults: number;
+}
+
+export const PROVIDER_CAPABILITIES: Record<ProviderId, ProviderCapabilities> = {
+  tavily: { timeRange: true, language: false, country: true, answer: true, rawContent: true, domainFilter: true, maxResults: 20 },
+  brave: { timeRange: true, language: true, country: true, answer: false, rawContent: false, domainFilter: false, maxResults: 20 },
+  serper: { timeRange: true, language: true, country: true, answer: true, rawContent: false, domainFilter: false, maxResults: 20 },
+  exa: { timeRange: true, language: false, country: false, answer: false, rawContent: true, domainFilter: true, maxResults: 20 },
+};
+
 export interface SearchRequest {
   query: string;
   provider?: ProviderId;
@@ -59,6 +90,8 @@ export interface SearchRequest {
   topic?: 'general' | 'news';
   language?: string;
   country?: string;
+  /** Recency window — "live / current results, not stale training data". */
+  time_range?: TimeRange;
 }
 
 export interface SearchHit {
@@ -66,8 +99,11 @@ export interface SearchHit {
   url: string;
   snippet: string;
   score?: number;
+  /** Normalised to ISO-8601 (UTC) wherever the provider gives us a date. */
   published_date?: string;
   raw_content?: string;
+  /** Detected or provider-reported language of the result. */
+  language?: string;
 }
 
 export interface SearchResponse {
@@ -77,6 +113,8 @@ export interface SearchResponse {
   answer?: string;
   results: SearchHit[];
   took_ms: number;
+  /** Params the caller set that this provider cannot honour. */
+  unsupported_params?: string[];
 }
 
 export class SearchError extends Error {
@@ -91,6 +129,120 @@ export class SearchError extends Error {
 }
 
 const TIMEOUT_MS = 25_000;
+
+/* ------------------------------------------------------------------ */
+/* Recency                                                             */
+/* ------------------------------------------------------------------ */
+
+const TIME_RANGE_DAYS: Record<TimeRange, number> = { day: 1, week: 7, month: 30, year: 365 };
+
+function rangeToStartDate(range: TimeRange): string {
+  const days = TIME_RANGE_DAYS[range] ?? 7;
+  return new Date(Date.now() - days * 86_400_000).toISOString();
+}
+
+/** Brave's freshness codes. */
+const BRAVE_FRESHNESS: Record<TimeRange, string> = {
+  day: 'pd',
+  week: 'pw',
+  month: 'pm',
+  year: 'py',
+};
+
+/** Serper's `tbs` recency codes. */
+const SERPER_TBS: Record<TimeRange, string> = {
+  day: 'qdr:d',
+  week: 'qdr:w',
+  month: 'qdr:m',
+  year: 'qdr:y',
+};
+
+/**
+ * Providers report dates in wildly different shapes: ISO strings,
+ * "3 days ago", "Dec 18, 2022", "2022-12-18T…". Normalise to ISO-8601 UTC so
+ * agents can sort and filter without a parser of their own.
+ */
+export function normalizePublishedDate(raw: unknown): string | undefined {
+  if (typeof raw !== 'string' || !raw.trim()) return undefined;
+  const value = raw.trim();
+
+  const iso = new Date(value);
+  if (!Number.isNaN(iso.getTime()) && /\d{4}-\d{2}-\d{2}/.test(value)) {
+    const year = iso.getUTCFullYear();
+    if (year >= 1990 && year <= new Date().getUTCFullYear() + 1) return iso.toISOString();
+  }
+
+  // "3 days ago", "12 hours ago", "2 weeks ago"
+  const relative = value.match(/^(\d+)\s+(minute|min|hour|hr|day|week|month|year)s?\s+ago$/i);
+  if (relative) {
+    const amount = Number(relative[1]);
+    const unit = relative[2].toLowerCase();
+    const ms: Record<string, number> = {
+      minute: 60_000, min: 60_000,
+      hour: 3_600_000, hr: 3_600_000,
+      day: 86_400_000,
+      week: 604_800_000,
+      month: 2_592_000_000,
+      year: 31_536_000_000,
+    };
+    const factor = ms[unit];
+    if (factor) return new Date(Date.now() - amount * factor).toISOString();
+  }
+
+  // "Dec 18, 2022" / "18 December 2022" / "Dec 2022"
+  const textual = new Date(value.replace(/(\d+)\s+([A-Za-z]+)\s+(\d{4})/i, '$2 $1, $3'));
+  if (!Number.isNaN(textual.getTime())) {
+    const year = textual.getUTCFullYear();
+    if (year >= 1990 && year <= new Date().getUTCFullYear() + 1) return textual.toISOString();
+  }
+
+  return undefined;
+}
+
+/**
+ * Nudge recently published results up when the query is time sensitive.
+ * Only used when a recency window was requested, so ordinary relevance
+ * ordering is left untouched.
+ */
+export function rankByFreshness(hits: SearchHit[], range: TimeRange): SearchHit[] {
+  const windowMs = TIME_RANGE_DAYS[range] * 86_400_000;
+  const now = Date.now();
+
+  return hits
+    .map((hit, index) => {
+      let boost = 1;
+      if (hit.published_date) {
+        const age = now - new Date(hit.published_date).getTime();
+        if (Number.isFinite(age) && age >= 0 && age <= windowMs) {
+          // 1.0 at the edge of the window, 1.6 for something published now.
+          boost += 0.6 * (1 - age / windowMs);
+        }
+      }
+      return { hit, index, weight: boost / (1 + index * 0.02) };
+    })
+    .sort((a, b) => b.weight - a.weight)
+    .map((entry) => entry.hit);
+}
+
+/** Params the caller asked for that this provider will silently drop. */
+export function unsupportedParams(req: SearchRequest, provider: ProviderId): string[] {
+  const caps = PROVIDER_CAPABILITIES[provider];
+  const dropped: string[] = [];
+  if (req.time_range && !caps.timeRange) dropped.push('time_range');
+  if (req.language && !caps.language) dropped.push('language');
+  if (req.country && !caps.country) dropped.push('country');
+  if (req.include_raw_content && !caps.rawContent) dropped.push('include_raw_content');
+  if (req.include_answer && !caps.answer) dropped.push('include_answer');
+  if ((req.include_domains?.length || req.exclude_domains?.length) && !caps.domainFilter) {
+    // Brave and Serper still honour these via `site:` operators, so this is
+    // a capability note rather than a dropped parameter.
+  }
+  return dropped;
+}
+
+/* ------------------------------------------------------------------ */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
 
 function cleanList(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -134,6 +286,10 @@ function upstreamError(provider: ProviderId, status: number, payload: any): Sear
   return new SearchError(friendly[status] ? `${friendly[status]} ${detail}` : String(detail), status, provider);
 }
 
+function newId(): string {
+  return `xweb_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+}
+
 /* ------------------------------------------------------------------ */
 /* Providers                                                           */
 /* ------------------------------------------------------------------ */
@@ -150,7 +306,13 @@ async function searchTavily(key: string, req: SearchRequest): Promise<SearchResp
     topic: req.topic ?? 'general',
   };
   if (req.country) body.country = req.country;
-  if (req.language) body.language = req.language;
+
+  // Tavily only applies `days` to the news topic, so a recency window implies
+  // news here. Documented on /docs/providers.
+  if (req.time_range) {
+    body.topic = 'news';
+    body.days = TIME_RANGE_DAYS[req.time_range];
+  }
 
   const response = await fetch('https://api.tavily.com/search', {
     method: 'POST',
@@ -163,7 +325,7 @@ async function searchTavily(key: string, req: SearchRequest): Promise<SearchResp
   if (!response.ok) throw upstreamError('tavily', response.status, payload);
 
   return {
-    id: `xweb_${crypto.randomUUID().slice(0, 8)}`,
+    id: newId(),
     query: payload.query ?? req.query,
     provider: 'tavily',
     answer: payload.answer || undefined,
@@ -172,10 +334,11 @@ async function searchTavily(key: string, req: SearchRequest): Promise<SearchResp
       url: item.url ?? '',
       snippet: item.content ?? '',
       score: typeof item.score === 'number' ? item.score : undefined,
-      published_date: item.published_date,
+      published_date: normalizePublishedDate(item.published_date),
       raw_content: item.raw_content,
     })),
     took_ms: 0,
+    unsupported_params: unsupportedParams(req, 'tavily'),
   };
 }
 
@@ -187,6 +350,7 @@ async function searchBrave(key: string, req: SearchRequest): Promise<SearchRespo
   url.searchParams.set('count', String(Math.min(req.max_results ?? 5, 20)));
   if (req.country) url.searchParams.set('country', req.country);
   if (req.language) url.searchParams.set('search_lang', req.language);
+  if (req.time_range) url.searchParams.set('freshness', BRAVE_FRESHNESS[req.time_range]);
   url.searchParams.set('extra_snippets', 'true');
 
   const response = await fetch(url, {
@@ -198,7 +362,7 @@ async function searchBrave(key: string, req: SearchRequest): Promise<SearchRespo
   if (!response.ok) throw upstreamError('brave', response.status, payload);
 
   return {
-    id: `xweb_${crypto.randomUUID().slice(0, 8)}`,
+    id: newId(),
     query: req.query,
     provider: 'brave',
     results: (payload?.web?.results ?? []).map((item: any) => ({
@@ -206,9 +370,11 @@ async function searchBrave(key: string, req: SearchRequest): Promise<SearchRespo
       url: item.url ?? '',
       snippet: item.description ?? '',
       score: undefined,
-      published_date: item.page_age ? item.page_age : undefined,
+      published_date: normalizePublishedDate(item.page_age ?? item.age),
+      language: typeof item.language === 'string' ? item.language : undefined,
     })),
     took_ms: 0,
+    unsupported_params: unsupportedParams(req, 'brave'),
   };
 }
 
@@ -221,6 +387,7 @@ async function searchSerper(key: string, req: SearchRequest): Promise<SearchResp
   };
   if (req.country) body.gl = req.country;
   if (req.language) body.hl = req.language;
+  if (req.time_range) body.tbs = SERPER_TBS[req.time_range];
 
   const response = await fetch('https://google.serper.dev/search', {
     method: 'POST',
@@ -244,7 +411,7 @@ async function searchSerper(key: string, req: SearchRequest): Promise<SearchResp
     url: item.link ?? '',
     snippet: item.snippet ?? '',
     score: undefined,
-    published_date: item.date,
+    published_date: normalizePublishedDate(item.date),
   }));
 
   if (answerBox?.link && !results.some((r) => r.url === answerBox.link)) {
@@ -256,12 +423,13 @@ async function searchSerper(key: string, req: SearchRequest): Promise<SearchResp
   }
 
   return {
-    id: `xweb_${crypto.randomUUID().slice(0, 8)}`,
+    id: newId(),
     query: req.query,
     provider: 'serper',
     answer,
     results,
     took_ms: 0,
+    unsupported_params: unsupportedParams(req, 'serper'),
   };
 }
 
@@ -273,6 +441,7 @@ async function searchExa(key: string, req: SearchRequest): Promise<SearchRespons
     excludeDomains: cleanList(req.exclude_domains),
     contents: { text: { maxCharacters: req.include_raw_content ? 4000 : 1200 } },
   };
+  if (req.time_range) body.startPublishedDate = rangeToStartDate(req.time_range);
 
   const response = await fetch('https://api.exa.ai/search', {
     method: 'POST',
@@ -285,7 +454,7 @@ async function searchExa(key: string, req: SearchRequest): Promise<SearchRespons
   if (!response.ok) throw upstreamError('exa', response.status, payload);
 
   return {
-    id: `xweb_${crypto.randomUUID().slice(0, 8)}`,
+    id: newId(),
     query: req.query,
     provider: 'exa',
     results: (payload?.results ?? []).map((item: any) => ({
@@ -293,10 +462,11 @@ async function searchExa(key: string, req: SearchRequest): Promise<SearchRespons
       url: item.url ?? '',
       snippet: (item.text ?? '').slice(0, 600),
       score: typeof item.score === 'number' ? item.score : undefined,
-      published_date: item.publishedDate,
+      published_date: normalizePublishedDate(item.publishedDate),
       raw_content: item.text,
     })),
     took_ms: 0,
+    unsupported_params: unsupportedParams(req, 'exa'),
   };
 }
 
@@ -340,7 +510,7 @@ export async function runSearch(
       );
     }
     return {
-      id: payload.id ?? `xweb_${crypto.randomUUID().slice(0, 8)}`,
+      id: payload.id ?? newId(),
       query: payload.query ?? req.query,
       provider: payload.provider ?? 'x-web',
       answer: payload.answer,
@@ -350,5 +520,10 @@ export async function runSearch(
   }
 
   const provider = req.provider ?? 'tavily';
-  return RUNNERS[provider](key, req);
+  const result = await RUNNERS[provider](key, req);
+
+  if (req.time_range) {
+    result.results = rankByFreshness(result.results, req.time_range);
+  }
+  return result;
 }

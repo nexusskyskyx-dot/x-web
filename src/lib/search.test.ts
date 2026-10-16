@@ -115,7 +115,8 @@ describe('provider adapters', () => {
     // The answer box is promoted to the top of the result list.
     assert.equal(result.results[0].url, 'https://astro.build/');
     assert.equal(result.results[1].url, 'https://docs.astro.build/');
-    assert.equal(result.results[1].published_date, '2026-09-01');
+    // Dates are normalised to full ISO-8601 UTC regardless of provider.
+    assert.equal(result.results[1].published_date, '2026-09-01T00:00:00.000Z');
   });
 
   test('exa sends includeDomains natively and maps the text field', async () => {

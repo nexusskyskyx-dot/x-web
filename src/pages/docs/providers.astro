@@ -75,8 +75,8 @@ const providers = [
     between them, or pin a single one for reproducible tests.
   </p>
   <p>
-    You do not need any of these keys to use the hosted x-web API — pooled credits are included. Add
-    your own key when you want to stay on your own provider account, or when you are self-hosting.
+    x-web does not issue its own API keys or provide pooled search credits yet. For now, supply a
+    provider key with each search request, or configure one on the deployment server.
   </p>
 
   {
@@ -125,16 +125,16 @@ const providers = [
 
   <h2 id="routing">How routing works</h2>
   <p>
-    By default x-web picks the provider that best fits the request. A news topic goes to the news
-    index, a recent question goes to the freshest index, and a hard research question goes to the
-    deepest pass. The response always names the provider that answered.
+    Today each request uses the explicitly selected provider, the server's configured default, or
+    Tavily. Intent inference can add a news topic or recency window; x-web does not yet automatically
+    route or fail over between multiple provider accounts. The response names the provider used.
   </p>
   <p>Pin one explicitly when you need deterministic behaviour:</p>
   <CodeBlock
     lang="bash"
     title="request"
-    code={`curl -X POST https://api.x-web.dev/v1/search \\
-  -H "Authorization: Bearer $XWEB_API_KEY" \\
+    code={`curl -X POST "$XWEB_BASE/api/v1/search" \\
+  -H "X-XWeb-Key: $TAVILY_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{"query": "astro v7 upgrade guide", "provider": "brave"}'`}
   />

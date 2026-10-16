@@ -22,7 +22,7 @@ npm run dev      # http://localhost:4321
 | `npm run build`   | Production build (static pages + Vercel serverless routes) |
 | `npm run preview` | Serve the production build locally                        |
 | `npm run check`   | Astro + TypeScript diagnostics                            |
-| `npm test`        | Unit tests for the search provider adapters                |
+| `npm test`        | Unit tests for providers, intent, languages, extraction, answers and pipeline |
 | `npm run test:layout` | Builds, then fails if anything can force horizontal page scroll |
 
 ---
@@ -48,33 +48,33 @@ src/
 ├── pages/
 │   ├── index.astro         # Landing page
 │   ├── docs/               # index, quickstart, api, mcp, providers
-│   └── api/search.ts       # Serverless search proxy
+│   └── api/                 # playground proxy + v1 search, intent, extract
+├── lib/                     # provider adapters, intent, language, answers, extraction
 └── styles/global.css       # Tailwind theme tokens (purple + white)
 ```
 
-The site is **static by default** — every docs page is prerendered HTML. Only `/api/search` opts out
-of prerendering (`export const prerender = false`) and is deployed as a Vercel serverless function.
+The docs pages are prerendered HTML. The API routes opt out of prerendering and are deployed as
+Vercel serverless functions.
 
 ---
 
 ## The search proxy
 
-`POST /api/search` is a thin, provider-agnostic proxy. It takes a query plus a provider key and
-returns one normalised x-web response:
+`POST /api/v1/search` is the first public API surface. It accepts a natural-language query and a
+provider key, then returns live provider results, detected language, inspectable query intent,
+optional cited answer synthesis, and optionally extracted page text. The playground uses the same
+pipeline at `POST /api/search`.
 
-```json
-{
-  "id": "xweb_9f3c1a20",
-  "query": "astro v7 release notes",
-  "provider": "tavily",
-  "answer": "Astro 7.4.0 ships with Vite 8…",
-  "results": [{ "title": "…", "url": "…", "snippet": "…", "score": 0.98 }],
-  "took_ms": 412
-}
-```
+Additional endpoints:
 
-Supported providers — `tavily`, `brave`, `serper`, `exa` — are implemented in
-[`src/lib/search.ts`](src/lib/search.ts) and covered by unit tests.
+- `POST /api/v1/intent` — classify a query, detect language/entities, infer recency, and rewrite it
+  for a search index. No provider key required.
+- `POST /api/v1/extract` — fetch and clean up to ten public URLs. Private/local IPs and redirects
+  to them are blocked.
+
+Supported search providers — `tavily`, `brave`, `serper`, `exa` — are implemented in
+[`src/lib/search.ts`](src/lib/search.ts). The pipeline, language detector, extractive answerer,
+page extractor and provider adapters are all covered by tests.
 
 ### Where the key comes from
 
@@ -85,11 +85,13 @@ Supported providers — `tavily`, `brave`, `serper`, `exa` — are implemented i
 The key is used for that single request only. It is never stored, never logged, and never written
 to the browser's storage.
 
-### Pointing the proxy at a real x-web deployment
+### What is not live yet
 
-Set `XWEB_API_BASE` (for example `https://api.x-web.dev/v1`) and the proxy forwards the request to
-`{XWEB_API_BASE}/search` with a bearer token instead of calling a search provider. The documented
-response shape stays the same, so the playground keeps working once the hosted API is live.
+x-web does not yet issue its own API keys or accounts. There is no account creation, plan selection,
+subscription or payment flow in this milestone. Users currently supply a key for one of the four
+supported search providers, or the site owner configures a provider key server-side. The future
+account/billing layer can replace that credential model without changing these search, intent and
+extraction contracts.
 
 ---
 

@@ -8,400 +8,206 @@ import Playground from '../../components/Playground.astro';
 
 const toc = [
   { id: 'authentication', text: 'Authentication' },
-  { id: 'search', text: 'POST /v1/search' },
-  { id: 'get-search', text: 'GET /v1/search' },
-  { id: 'scrape', text: 'POST /v1/scrape' },
-  { id: 'extract', text: 'POST /v1/extract' },
-  { id: 'crawl', text: 'POST /v1/crawl' },
-  { id: 'usage', text: 'GET /v1/usage' },
+  { id: 'search', text: 'POST /api/v1/search' },
+  { id: 'intent', text: 'POST /api/v1/intent' },
+  { id: 'extract', text: 'POST /api/v1/extract' },
+  { id: 'response', text: 'Response shape' },
   { id: 'errors', text: 'Errors' },
-  { id: 'rate-limits', text: 'Rate limits' },
+  { id: 'providers', text: 'Providers & capabilities' },
   { id: 'playground', text: 'Live playground' },
 ];
 
 const searchParams = [
-  {
-    name: 'query',
-    type: 'string',
-    required: true,
-    description: 'The search query. Supports operator syntax such as quotes, minus and site:.',
-  },
-  {
-    name: 'max_results',
-    type: 'integer',
-    default: '5',
-    description: 'How many results to return. 1–20.',
-  },
-  {
-    name: 'include_answer',
-    type: 'boolean',
-    default: 'true',
-    description: 'Return a synthesised answer alongside the raw results.',
-  },
-  {
-    name: 'include_raw_content',
-    type: 'boolean',
-    default: 'false',
-    description: 'Include the cleaned page text for every result. Increases response size significantly.',
-  },
-  {
-    name: 'include_domains',
-    type: 'string[]',
-    description: 'Only return results from these domains.',
-  },
-  {
-    name: 'exclude_domains',
-    type: 'string[]',
-    description: 'Never return results from these domains.',
-  },
-  {
-    name: 'search_depth',
-    type: '"basic" | "advanced"',
-    default: '"basic"',
-    description: 'How hard to look. "advanced" runs a deeper pass and costs more credits.',
-  },
-  {
-    name: 'topic',
-    type: '"general" | "news"',
-    default: '"general"',
-    description: 'Use the general web index or the news index.',
-  },
-  {
-    name: 'language',
-    type: 'string',
-    description: 'ISO 639-1 language code, e.g. "en" or "es".',
-  },
-  {
-    name: 'country',
-    type: 'string',
-    description: 'Two-letter country code to bias results towards, e.g. "US", "GT".',
-  },
-  {
-    name: 'provider',
-    type: '"tavily" | "brave" | "serper" | "exa"',
-    description: 'Pin a single provider instead of letting x-web route the request.',
-  },
+  { name: 'query', type: 'string', required: true, description: 'Natural-language question or keyword query. Maximum 2,000 characters.' },
+  { name: 'provider', type: '"tavily" | "brave" | "serper" | "exa"', description: 'Provider to use. Defaults to the configured server provider, or Tavily.' },
+  { name: 'max_results', type: 'integer', default: '5', description: 'Number of results. Clamped to 1–20.' },
+  { name: 'include_answer', type: 'boolean', default: 'true', description: 'Return a grounded answer with citation metadata. Uses a configured OpenAI/Anthropic model when available, otherwise a provider answer or extractive synthesis.' },
+  { name: 'include_raw_content', type: 'boolean', default: 'false', description: 'Fetch clean page text for up to extract_depth results. Pages are fetched server-side; private/local IPs are blocked.' },
+  { name: 'extract_depth', type: 'integer', default: '3', description: 'Maximum result pages to extract when include_raw_content is true. 1–10.' },
+  { name: 'time_range', type: '"day" | "week" | "month" | "year"', description: 'Restrict results to a recent window. Also inferred from wording such as “latest” or “today”.' },
+  { name: 'language', type: 'string', default: '"auto"', description: 'BCP-47/ISO language code. Auto-detected from the query by default; explicit value wins.' },
+  { name: 'country', type: 'string', description: 'Country code to bias results, e.g. "US", "GT". Some providers do not support it.' },
+  { name: 'topic', type: '"general" | "news"', description: 'Search topic. News phrasing can be inferred automatically.' },
+  { name: 'search_depth', type: '"basic" | "advanced"', default: '"basic"', description: 'Provider search depth where supported.' },
+  { name: 'include_domains', type: 'string[]', description: 'Restrict results to these domains. Accepts site: operators in the query too.' },
+  { name: 'exclude_domains', type: 'string[]', description: 'Exclude these domains.' },
+  { name: 'understand', type: 'boolean', default: 'true', description: 'Infer intent, entities, query keywords and useful filters before searching.' },
+  { name: 'query_rewrite', type: '"auto" | "off" | "force"', default: '"auto"', description: 'Whether to send the index a shorter keyword query. Auto rewrites verbose questions only.' },
 ];
 
-const scrapeParams = [
-  { name: 'url', type: 'string', required: true, description: 'A single URL to fetch and clean.' },
-  { name: 'urls', type: 'string[]', description: 'Several URLs, fetched in parallel.' },
-  {
-    name: 'formats',
-    type: '"markdown" | "html" | "text" | "links"',
-    default: '["markdown"]',
-    description: 'Which representations to return. "links" lists every link found on the page.',
-  },
-  {
-    name: 'only_main_content',
-    type: 'boolean',
-    default: 'true',
-    description: 'Strip navigation, footers, cookie banners and other chrome.',
-  },
-  {
-    name: 'include_links',
-    type: 'boolean',
-    default: 'true',
-    description: 'Keep the internal links discovered on the page.',
-  },
-];
-
-const extractParams = [
-  {
-    name: 'urls',
-    type: 'string[]',
-    required: true,
-    description: 'The pages to read and structure.',
-  },
-  {
-    name: 'schema',
-    type: 'object',
-    description: 'JSON Schema describing the fields you want back.',
-  },
-  {
-    name: 'instruction',
-    type: 'string',
-    description: 'Natural-language instruction, used when you prefer not to write a schema.',
-  },
-  {
-    name: 'format',
-    type: '"json" | "schema"',
-    default: '"json"',
-    description: 'Return raw JSON or a JSON Schema inferred from the page.',
-  },
-];
-
-const crawlParams = [
-  { name: 'url', type: 'string', required: true, description: 'Seed URL to start crawling from.' },
-  { name: 'limit', type: 'integer', default: '10', description: 'Maximum number of pages to return.' },
-  { name: 'depth', type: 'integer', default: '1', description: 'How many link hops away from the seed to follow.' },
-  { name: 'include_paths', type: 'string[]', description: 'Only crawl URLs matching these path prefixes.' },
-  { name: 'exclude_paths', type: 'string[]', description: 'Skip URLs matching these path prefixes.' },
-  { name: 'allow_subdomains', type: 'boolean', default: 'false', description: 'Follow links to subdomains.' },
+const intentParams = [
+  { name: 'query', type: 'string', required: true, description: 'Natural-language query to classify and rewrite.' },
+  { name: 'topic', type: '"general" | "news"', description: 'Explicit topic override; wins over inferred topic.' },
+  { name: 'time_range', type: '"day" | "week" | "month" | "year"', description: 'Explicit recency override; wins over inferred range.' },
+  { name: 'country', type: 'string', description: 'Optional country override.' },
 ];
 
 const errorRows = [
-  { code: '400', type: 'invalid_request_error', message: 'The request body is malformed or a parameter is invalid.' },
-  { code: '401', type: 'authentication_error', message: 'The API key is missing, malformed or revoked.' },
-  { code: '402', type: 'quota_exceeded', message: 'The account is out of credits for this billing period.' },
-  { code: '403', type: 'permission_error', message: 'The key does not have access to this endpoint or model.' },
-  { code: '429', type: 'rate_limit_error', message: 'Too many requests. Back off and retry with jitter.' },
-  { code: '502', type: 'upstream_error', message: 'A provider failed or returned something we could not parse.' },
-  { code: '504', type: 'timeout_error', message: 'The provider did not answer in time.' },
+  { code: '400', type: 'invalid_request_error', message: 'Malformed JSON, missing query, or invalid parameter.' },
+  { code: '401', type: 'authentication_error', message: 'No provider key was supplied or configured.' },
+  { code: '402', type: 'upstream_error', message: 'The provider account is out of credit.' },
+  { code: '429', type: 'rate_limit_error', message: 'The provider or x-web rate limiter rejected the request.' },
+  { code: '502', type: 'upstream_error', message: 'The search provider failed or returned an error.' },
+  { code: '500', type: 'internal_error', message: 'Unexpected server-side failure.' },
 ];
 ---
 
 <Docs
   title="API reference"
-  description="Every x-web endpoint, every parameter, and every error code — in one place."
+  description="Live web search, query understanding and page extraction — the current x-web API surface."
   toc={toc}
   updated="October 2026"
 >
+  <Callout type="note" title="API base path">
+    These endpoints currently live under <code>/api/v1</code> on this Astro app. An account-based
+    <code>api.x-web.dev/v1</code> service is a later step; it is not live yet.
+  </Callout>
+
   <h2 id="authentication">Authentication</h2>
   <p>
-    Send your key as a bearer token. Requests without a valid key return
-    <code>401 authentication_error</code>.
+    x-web does not issue its own account keys yet. For now, send your search provider's key using
+    <code>x-xweb-key</code> or <code>Authorization: Bearer …</code>. You can also configure a provider
+    key on the server with <code>XWEB_SEARCH_API_KEY</code> (or a provider-specific key).
   </p>
   <CodeBlock
     lang="bash"
     title="headers"
-    code={`Authorization: Bearer xw_live_8f2c41ab…
+    code={`X-XWeb-Key: $TAVILY_API_KEY
 Content-Type: application/json`}
   />
+  <Callout type="warning" title="Keep provider keys private">
+    Never put a provider key in browser code or a public repository. The playground sends a key to
+    this site's server-side proxy; production API keys, accounts, plans and billing are not part of
+    this first API milestone.
+  </Callout>
 
   <h2 id="search">Search the web</h2>
   <Endpoint
     method="POST"
-    path="/v1/search"
-    description="Search the live web and return ranked, citable results plus an optional synthesised answer."
+    path="/api/v1/search"
+    description="Run a live provider search, optionally understand and rewrite the query, synthesize a cited answer, and extract page text."
   />
-
   <ParamTable params={searchParams} />
-
   <CodeBlock
     lang="bash"
     title="request"
-    code={`curl -X POST https://api.x-web.dev/v1/search \\
-  -H "Authorization: Bearer $XWEB_API_KEY" \\
+    code={`curl -X POST "$XWEB_BASE/api/v1/search" \\
+  -H "X-XWeb-Key: $TAVILY_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "query": "who won the last world cup",
-    "max_results": 3,
+    "query": "What is the latest on the Model Context Protocol?",
+    "max_results": 5,
     "include_answer": true,
-    "include_domains": ["fifa.com"]
+    "include_raw_content": false,
+    "language": "auto"
   }'`}
   />
-
-  <CodeBlock
-    lang="json"
-    title="200 OK"
-    code={`{
-  "id": "xweb_9f3c1a20",
-  "query": "who won the last world cup",
-  "provider": "tavily",
-  "answer": "Argentina won the 2022 FIFA World Cup…",
-  "results": [
-    {
-      "title": "FIFA World Cup Qatar 2022",
-      "url": "https://www.fifa.com/tournaments/mens/worldcup/qatar2022",
-      "snippet": "Argentina defeated France in the final…",
-      "score": 0.97
-    }
-  ],
-  "took_ms": 412
-}`}
-  />
-
-  <h3 id="get-search">GET /v1/search</h3>
   <p>
-    A convenience wrapper for quick queries and links. Only <code>q</code> is required; the same
-    parameters work as query strings.
+    <code>GET /api/v1/search?query=…</code> is also available for simple searches. POST is recommended
+    so longer queries and options remain out of URLs and logs.
   </p>
-  <CodeBlock
-    lang="bash"
-    title="request"
-    code={`curl "https://api.x-web.dev/v1/search?q=model+context+protocol&max_results=3" \\
-  -H "Authorization: Bearer $XWEB_API_KEY"`}
-  />
 
-  <h2 id="scrape">Scrape a page</h2>
+  <h2 id="intent">Understand a query</h2>
   <Endpoint
     method="POST"
-    path="/v1/scrape"
-    description="Fetch one or more URLs and return clean, model-ready content."
+    path="/api/v1/intent"
+    description="Classify search intent, detect language and entities, infer freshness and return a search-oriented rewrite. No provider key required."
   />
-
-  <ParamTable params={scrapeParams} />
-
+  <ParamTable params={intentParams} />
   <CodeBlock
     lang="bash"
     title="request"
-    code={`curl -X POST https://api.x-web.dev/v1/scrape \\
-  -H "Authorization: Bearer $XWEB_API_KEY" \\
+    code={`curl -X POST "$XWEB_BASE/api/v1/intent" \\
   -H "Content-Type: application/json" \\
-  -d '{
-    "url": "https://modelcontextprotocol.io",
-    "formats": ["markdown", "links"]
-  }'`}
+  -d '{"query":"What is the latest news on MCP?"}'`}
   />
+  <p>
+    Intent is deterministic and rule-based today, not an LLM call. The response includes a
+    <code>signals</code> array to make the interpretation inspectable. Explicit search parameters
+    override inferred values.
+  </p>
 
+  <h2 id="extract">Extract page content</h2>
+  <Endpoint
+    method="POST"
+    path="/api/v1/extract"
+    description="Fetch one or more public web pages and return cleaned, readable text plus metadata."
+  />
+  <ParamTable
+    params={[
+      { name: 'urls', type: 'string[]', required: true, description: '1–10 absolute HTTP(S) URLs.' },
+      { name: 'url', type: 'string', description: 'Convenience alias for one URL.' },
+      { name: 'max_chars', type: 'integer', default: '12000', description: 'Maximum extracted characters per page, clamped to 500–100000.' },
+    ]}
+  />
+  <CodeBlock
+    lang="bash"
+    title="request"
+    code={`curl -X POST "$XWEB_BASE/api/v1/extract" \\
+  -H "Content-Type: application/json" \\
+  -d '{"urls":["https://modelcontextprotocol.io/"]}'`}
+  />
+  <Callout type="warning" title="Public URLs only">
+    Extraction blocks localhost, private/reserved IP ranges, and redirects to them to mitigate SSRF.
+    Pages are fetched by the server, so do not use this endpoint for secrets or private network resources.
+  </Callout>
+
+  <h2 id="response">Response shape</h2>
+  <p>Search returns result snippets plus optional answer and intent metadata. Dates are normalized to UTC ISO-8601 where the provider supplies a parseable date.</p>
   <CodeBlock
     lang="json"
-    title="200 OK"
+    title="200 OK (trimmed)"
     code={`{
-  "id": "xweb_1b7e44c1",
-  "url": "https://modelcontextprotocol.io",
-  "status": 200,
-  "title": "Model Context Protocol",
-  "markdown": "# Model Context Protocol\\n\\nAn open protocol…",
-  "links": ["https://modelcontextprotocol.io/docs", "…"],
-  "took_ms": 218
+  "id": "xweb_…",
+  "object": "search",
+  "query": "What is the latest on MCP?",
+  "provider": "tavily",
+  "language": { "requested": "auto", "resolved": "en", "detected": { "code": "en", "language": "en", "confidence": 0.95, "name": "English" } },
+  "intent": { "type": "news", "time_sensitive": true, "filters": { "topic": "news", "time_range": "week" } },
+  "answer": { "text": "… [1]", "mode": "provider", "confidence": 0.7, "citations": [{ "index": 1, "title": "…", "url": "https://…", "result": 0 }] },
+  "results": [{ "title": "…", "url": "https://…", "snippet": "…", "published_date": "2026-10-16T…Z" }],
+  "meta": { "effective_query": "latest mcp", "rewritten": true, "time_sensitive": true, "extracted_count": 0, "stages_ms": { "understand": 0, "search": 420, "extract": 0, "answer": 2 } }
 }`}
   />
-
-  <h2 id="extract">Extract structured data</h2>
-  <Endpoint
-    method="POST"
-    path="/v1/extract"
-    description="Read pages and return structured data that matches your schema."
-  />
-
-  <ParamTable params={extractParams} />
-
-  <CodeBlock
-    lang="bash"
-    title="request"
-    code={`curl -X POST https://api.x-web.dev/v1/extract \\
-  -H "Authorization: Bearer $XWEB_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "urls": ["https://example.com/pricing"],
-    "schema": {
-      "type": "object",
-      "properties": {
-        "plans": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "name": {"type": "string"},
-              "price": {"type": "number"}
-            }
-          }
-        }
-      }
-    }
-  }'`}
-  />
-
-  <h2 id="crawl">Crawl a site</h2>
-  <Endpoint
-    method="POST"
-    path="/v1/crawl"
-    description="Start from a seed URL and walk the site under your depth and path rules."
-  />
-
-  <ParamTable params={crawlParams} />
-
-  <CodeBlock
-    lang="bash"
-    title="request"
-    code={`curl -X POST https://api.x-web.dev/v1/crawl \\
-  -H "Authorization: Bearer $XWEB_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "url": "https://docs.astro.build/en/",
-    "limit": 20,
-    "depth": 1,
-    "include_paths": ["/en/guides"]
-  }'`}
-  />
-
-  <h2 id="usage">Check usage</h2>
-  <Endpoint
-    method="GET"
-    path="/v1/usage"
-    description="Current request count and credit balance for the billing period."
-  />
-  <CodeBlock
-    lang="json"
-    title="200 OK"
-    code={`{
-  "requests_used": 12480,
-  "requests_limit": 100000,
-  "credits_used": 18240,
-  "credits_limit": 200000,
-  "period_start": "2026-10-01T00:00:00Z",
-  "period_end": "2026-11-01T00:00:00Z"
-}`}
-  />
+  <p>
+    Answer modes are <code>llm</code> (configured OpenAI-compatible or Anthropic model),
+    <code>provider</code> (answer returned by the search provider, with source citations attached), or
+    <code>extractive</code> (relevant retrieved sentences selected and cited). Without a configured
+    model, “AI-synthesized” is not an LLM guarantee; the API reports the mode it actually used.
+  </p>
 
   <h2 id="errors">Errors</h2>
-  <p>
-    Errors return a non-2xx status and an <code>error</code> object. The <code>code</code> is
-    stable and safe to branch on; the <code>message</code> is written for humans.
-  </p>
+  <ParamTable
+    params={errorRows.map((row) => ({ name: row.code, type: row.type, description: row.message }))}
+  />
   <CodeBlock
     lang="json"
-    title="401 Unauthorized"
+    title="error envelope"
     code={`{
   "error": {
-    "type": "authentication_error",
-    "code": "invalid_api_key",
-    "message": "The API key is malformed or has been revoked."
+    "type": "invalid_request_error",
+    "code": "missing_query",
+    "message": "\`query\` is required.",
+    "param": "query"
   }
 }`}
   />
 
-  <div class="not-prose my-6 overflow-hidden rounded-xl border border-ink-100 bg-white">
-    <div class="scroll-x" tabindex="0" role="region" aria-label="Error codes, scroll horizontally">
-      <table class="w-full min-w-[620px] text-left text-sm">
-        <thead class="bg-brand-50/70 text-[11px] tracking-wide text-ink-500 uppercase">
-          <tr>
-            <th class="px-4 py-2.5 font-semibold">Status</th>
-            <th class="px-4 py-2.5 font-semibold">Type</th>
-            <th class="px-4 py-2.5 font-semibold">Meaning</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-ink-100">
-          {
-            errorRows.map((row) => (
-              <tr>
-                <td class="px-4 py-3 font-mono text-[13px] font-semibold text-ink-900">{row.code}</td>
-                <td class="px-4 py-3 font-mono text-[12px] text-brand-800">{row.type}</td>
-                <td class="px-4 py-3 text-ink-600">{row.message}</td>
-              </tr>
-            ))
-          }
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <h2 id="rate-limits">Rate limits</h2>
+  <h2 id="providers">Providers & capabilities</h2>
   <p>
-    Limits are per key and per minute. The response headers always tell you where you stand.
+    The API currently supports Tavily, Brave Search, Serper and Exa. Each upstream provider requires
+    its own key and has different language, freshness, answer and raw-content support. When an
+    inferred or explicit filter cannot be sent to the selected provider, the response lists it in
+    <code>unsupported_params</code> instead of pretending it was applied.
   </p>
-  <CodeBlock
-    lang="http"
-    title="response headers"
-    code={`X-RateLimit-Limit: 60
-X-RateLimit-Remaining: 57
-X-RateLimit-Reset: 42
-Retry-After: 42`}
-  />
-
-  <Callout type="tip" title="Back off, do not hammer">
-    On <code>429</code>, wait for <code>Retry-After</code> seconds and add random jitter. Retrying
-    immediately is the fastest way to get your key throttled harder.
-  </Callout>
+  <p>
+    Multi-language support consists of local query language detection plus provider pass-through
+    where supported; it does not translate queries or guarantee that every provider indexes every
+    language. Live/current results come from the selected provider at request time, not from model
+    training data. Freshness depends on provider coverage and date metadata.
+  </p>
 
   <h2 id="playground">Live playground</h2>
-  <p>
-    The same search endpoint, running for real. Paste a provider key and query the live web — this
-    page talks to the search providers through a serverless proxy, so your key never touches the
-    browser's storage.
-  </p>
-
-  <Playground id="playground" />
+  <p>Try the same live search pipeline from the browser. Use a provider key you control.</p>
+  <Playground />
 </Docs>

@@ -1,0 +1,58 @@
+import { test, describe } from 'node:test';
+import assert from 'node:assert/strict';
+import { BodyError, readJsonBody, searchParamsToBody, resolveKey } from './http.ts';
+
+describe('HTTP request helpers', () => {
+  test('reads a JSON object', async () => {
+    const request = new Request('https://x.test/api', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: 'hello', max_results: 5 }),
+    });
+    assert.deepEqual(await readJsonBody(request), { query: 'hello', max_results: 5 });
+  });
+
+  test('rejects malformed JSON, primitives, arrays and oversized bodies', async () => {
+    for (const body of ['{bad', 'null', '[]', JSON.stringify({ data: 'x'.repeat(1_000_001) })]) {
+      const request = new Request('https://x.test/api', { method: 'POST', body });
+      await assert.rejects(() => readJsonBody(request), BodyError);
+    }
+  });
+
+  test('accepts JSON without a content-type for forgiving clients', async () => {
+    const request = new Request('https://x.test/api', { method: 'POST', body: '{"query":"hi"}' });
+    assert.deepEqual(await readJsonBody(request), { query: 'hi' });
+  });
+
+  test('parses simple GET search options and comma-separated arrays', () => {
+    const body = searchParamsToBody(
+      new URL('https://x.test/api?q=latest+MCP&max_results=3&time_range=week&include_answer=false&include_domains=a.com,b.com'),
+    );
+    assert.deepEqual(body, {
+      query: 'latest MCP',
+      max_results: 3,
+      time_range: 'week',
+      include_answer: false,
+      include_domains: ['a.com', 'b.com'],
+    });
+  });
+
+  test('resolves credentials in header → body → server order', () => {
+    const header = resolveKey(
+      new Request('https://x.test', { headers: { 'x-xweb-key': 'header-key' } }),
+      { api_key: 'body-key', provider: 'brave' },
+    );
+    assert.equal(header.key, 'header-key');
+    assert.equal(header.provider, 'brave');
+    assert.equal(header.source, 'header');
+
+    const body = resolveKey(new Request('https://x.test'), { api_key: 'body-key', provider: 'exa' });
+    assert.equal(body.key, 'body-key');
+    assert.equal(body.provider, 'exa');
+    assert.equal(body.source, 'body');
+
+    const none = resolveKey(new Request('https://x.test'), {});
+    assert.equal(none.key, '');
+    assert.equal(none.source, 'none');
+  });
+});

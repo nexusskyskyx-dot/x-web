@@ -77,6 +77,43 @@ const { id = 'playground' } = Astro.props;
       />
     </label>
 
+    <div class="grid gap-4 sm:grid-cols-2">
+      <label class="block">
+        <span class="mb-1.5 block text-[11px] font-semibold tracking-wider text-ink-500 uppercase">
+          Recency
+        </span>
+        <select
+          name="time_range"
+          class="w-full rounded-xl border border-ink-200 bg-white px-3 py-3 text-base text-ink-800 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100 sm:py-2.5 sm:text-sm"
+        >
+          <option value="">Any time</option>
+          <option value="day">Past day</option>
+          <option value="week">Past week</option>
+          <option value="month">Past month</option>
+          <option value="year">Past year</option>
+        </select>
+      </label>
+
+      <label class="block">
+        <span class="mb-1.5 block text-[11px] font-semibold tracking-wider text-ink-500 uppercase">
+          Language
+        </span>
+        <select
+          name="language"
+          class="w-full rounded-xl border border-ink-200 bg-white px-3 py-3 text-base text-ink-800 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100 sm:py-2.5 sm:text-sm"
+        >
+          <option value="auto">Auto-detect</option>
+          <option value="en">English</option>
+          <option value="es">Spanish</option>
+          <option value="fr">French</option>
+          <option value="de">German</option>
+          <option value="pt">Portuguese</option>
+          <option value="ja">Japanese</option>
+          <option value="zh">Chinese</option>
+        </select>
+      </label>
+    </div>
+
     <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
       <label class="block w-full sm:w-52">
         <span
@@ -96,7 +133,7 @@ const { id = 'playground' } = Astro.props;
         />
       </label>
 
-      <div class="flex items-center gap-4 sm:gap-3">
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-2 sm:gap-3">
         <label class="flex shrink-0 items-center gap-2 text-sm text-ink-600">
           <input
             type="checkbox"
@@ -104,7 +141,15 @@ const { id = 'playground' } = Astro.props;
             checked
             class="h-5 w-5 rounded border-ink-300 accent-brand-600 sm:h-4 sm:w-4"
           />
-          Include answer
+          Answer
+        </label>
+        <label class="flex shrink-0 items-center gap-2 text-sm text-ink-600">
+          <input
+            type="checkbox"
+            name="include_raw_content"
+            class="h-5 w-5 rounded border-ink-300 accent-brand-600 sm:h-4 sm:w-4"
+          />
+          Extract pages
         </label>
         <button type="submit" class="btn-primary ml-auto sm:ml-0" data-playground-submit>
           Run search
@@ -133,6 +178,16 @@ const { id = 'playground' } = Astro.props;
       };
       return map[char] ?? char;
     });
+
+  const safeUrl = (raw: unknown): string => {
+    if (typeof raw !== 'string') return '#';
+    try {
+      const url = new URL(raw);
+      return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : '#';
+    } catch {
+      return '#';
+    }
+  };
 
   const hostOf = (url: string): string => {
     try {
@@ -185,12 +240,76 @@ const { id = 'playground' } = Astro.props;
         .filter(Boolean)
         .join(' · ');
 
-      const answerBlock = answer
+      // v1 returns an answer object: { text, mode, confidence, citations[] }
+      const answerText = typeof answer === 'string' ? answer : (answer?.text ?? '');
+      const citations: any[] = Array.isArray(answer?.citations) ? answer.citations : [];
+
+      const answerBlock = answerText
         ? `<div class="m-4 rounded-xl border border-brand-200 bg-brand-50/70 p-4">
-             <p class="text-[11px] font-semibold tracking-wider text-brand-700 uppercase">Answer</p>
-             <p class="mt-1.5 text-sm leading-relaxed text-ink-700">${escapeHtml(answer)}</p>
+             <div class="flex flex-wrap items-center gap-2">
+               <p class="text-[11px] font-semibold tracking-wider text-brand-700 uppercase">Answer</p>
+               ${
+                 answer?.mode
+                   ? `<span class="rounded-full bg-white px-2 py-0.5 font-mono text-[10px] font-semibold text-brand-700 ring-1 ring-brand-200">${escapeHtml(answer.mode)}</span>`
+                   : ''
+               }
+               ${
+                 answer?.confidence
+                   ? `<span class="font-mono text-[10px] text-ink-400">confidence ${escapeHtml(answer.confidence)}</span>`
+                   : ''
+               }
+             </div>
+             <p class="mt-1.5 text-sm leading-relaxed text-ink-700">${escapeHtml(answerText)}</p>
+             ${
+               citations.length > 0
+                 ? `<ol class="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-brand-200/70 pt-2.5">
+                      ${citations
+                        .map(
+                          (citation: any) =>
+                            `<li class="text-[11px] text-ink-500"><a href="${escapeHtml(safeUrl(citation.url))}" target="_blank" rel="noreferrer noopener" class="font-semibold text-brand-700 hover:underline">[${escapeHtml(citation.index)}]</a> ${escapeHtml(hostOf(citation.url ?? ''))}</li>`,
+                        )
+                        .join('')}
+                    </ol>`
+                 : ''
+             }
            </div>`
         : '';
+
+      // Query understanding: what we inferred before searching.
+      const intent = data?.intent;
+      const intentChips = intent
+        ? [
+            intent.type,
+            intent.time_sensitive ? `recency: ${intent.filters?.time_range ?? 'on'}` : '',
+            intent.language?.code && intent.language.code !== 'und' ? intent.language.code : '',
+          ].filter(Boolean)
+        : [];
+
+      const intentBlock =
+        intentChips.length > 0
+          ? `<div class="flex flex-wrap items-center gap-2 border-t border-ink-100 bg-white px-4 py-2.5">
+               <span class="text-[11px] font-semibold tracking-wider text-ink-400 uppercase">Understood</span>
+               ${intentChips
+                 .map(
+                   (chip: string) =>
+                     `<span class="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700">${escapeHtml(chip)}</span>`,
+                 )
+                 .join('')}
+               ${
+                 intent.rewritten_query && intent.rewritten_query !== data?.query
+                   ? `<span class="min-w-0 font-mono text-[11px] text-ink-400">searched: ${escapeHtml(intent.rewritten_query)}</span>`
+                   : ''
+               }
+             </div>`
+          : '';
+
+      const dropped = Array.isArray(data?.unsupported_params) ? data.unsupported_params : [];
+      const warnBlock =
+        dropped.length > 0
+          ? `<p class="border-t border-amber-100 bg-amber-50 px-4 py-2 text-[11px] text-amber-800">
+               ${escapeHtml(dropped.join(', '))} not supported by this provider — ignored.
+             </p>`
+          : '';
 
       const items = results
         .map(
@@ -199,7 +318,7 @@ const { id = 'playground' } = Astro.props;
               <div class="flex items-start gap-3">
                 <span class="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-md bg-brand-50 font-mono text-[11px] font-semibold text-brand-700">${index + 1}</span>
                 <div class="min-w-0 flex-1">
-                  <a href="${escapeHtml(item.url)}" target="_blank" rel="noreferrer noopener" class="group block text-sm font-semibold text-ink-900 hover:text-brand-700">
+                  <a href="${escapeHtml(safeUrl(item.url))}" target="_blank" rel="noreferrer noopener" class="group block text-sm font-semibold text-ink-900 hover:text-brand-700">
                     <span class="line-clamp-2">${escapeHtml(item.title)}</span>
                     <span class="mt-0.5 block truncate font-mono text-[11px] font-normal text-brand-700">${escapeHtml(hostOf(item.url))}</span>
                   </a>
@@ -216,6 +335,8 @@ const { id = 'playground' } = Astro.props;
           <span class="font-mono text-[11px] text-ink-500">${meta}</span>
           <button type="button" class="text-[11px] font-semibold text-brand-700 hover:text-brand-800" data-toggle-json>View raw JSON</button>
         </div>
+        ${intentBlock}
+        ${warnBlock}
         ${answerBlock}
         <ul class="border-t border-ink-100">${items || '<li class="px-4 py-6 text-sm text-ink-500">No results returned.</li>'}</ul>
         <pre data-json class="hidden overflow-x-auto border-t border-ink-100 bg-ink-950 p-4 font-mono text-[12px] leading-relaxed text-ink-100">${escapeHtml(JSON.stringify(data, null, 2))}</pre>`;
@@ -234,12 +355,17 @@ const { id = 'playground' } = Astro.props;
       event.preventDefault();
       const data = new FormData(form);
       const key = String(data.get('api_key') ?? '').trim();
-      const body = {
+      const timeRange = String(data.get('time_range') ?? '').trim();
+      const language = String(data.get('language') ?? 'auto').trim();
+      const body: Record<string, unknown> = {
         query: String(data.get('query') ?? '').trim(),
         provider: String(data.get('provider') ?? 'tavily'),
         max_results: Number(data.get('max_results') ?? 5),
         include_answer: data.get('include_answer') === 'on',
+        include_raw_content: data.get('include_raw_content') === 'on',
       };
+      if (timeRange) body.time_range = timeRange;
+      if (language && language !== 'auto') body.language = language;
 
       if (!body.query) return;
 

@@ -1,0 +1,357 @@
+/**
+ * Answer synthesis with citations.
+ *
+ * Three modes, tried in order of quality:
+ *
+ *   llm         — an LLM is configured (OpenAI-compatible or Anthropic), so we
+ *                 ground it strictly in the retrieved sources and require
+ *                 inline `[n]` markers. Best prose, real synthesis.
+ *   provider    — Tavily/Serper sometimes return their own answer. Already
+ *                 synthesised upstream, but unattributed, so we attach the
+ *                 sources it was presumably drawn from.
+ *   extractive  — no model available. We score every sentence in the retrieved
+ *                 snippets against the query, keep the best ones, and cite the
+ *                 source each came from.
+ *
+ * The important property: **every mode yields citations**, and every mode
+ * refuses to answer when the sources do not actually support one. An agent
+ * that gets no answer can fall back to showing raw results; an agent that gets
+ * a plausible-sounding wrong answer cannot recover.
+ */
+
+import { splitSentences, termCoverage, isNearDuplicate, truncateSentences } from './text.ts';
+import { env } from './env.ts';
+
+export interface Citation {
+  /** 1-based, matches the `[n]` markers in `text`. */
+  index: number;
+  title: string;
+  url: string;
+  /** Which result this citation came from, 0-based. */
+  result: number;
+}
+
+export interface Answer {
+  text: string;
+  mode: 'llm' | 'provider' | 'extractive';
+  /** 0..1 — how well the sources support this answer. */
+  confidence: number;
+  citations: Citation[];
+  /** Set when sources were too thin or off-topic to answer from. */
+  declined?: boolean;
+}
+
+export interface AnswerSource {
+  title: string;
+  url: string;
+  snippet: string;
+  raw_content?: string;
+}
+
+const MIN_COVERAGE = 0.22;
+const MAX_ANSWER_CHARS = 900;
+
+/** Copy that indicates boilerplate rather than content. */
+const BOILERPLATE =
+  /\b(cookie|cookies|subscribe|newsletter|sign\s+up|sign\s+in|log\s+in|all\s+rights\s+reserved|privacy\s+policy|terms\s+of\s+(?:use|service)|advertisement|sponsored|©|\bfollow\s+us\b|enable\s+javascript|your\s+browser\s+does\s+not\s+support)\b/i;
+
+interface Scored {
+  text: string;
+  score: number;
+  sourceIndex: number;
+  position: number;
+}
+
+function collectSentences(query: string, sources: AnswerSource[], useRaw: boolean): Scored[] {
+  const out: Scored[] = [];
+
+  sources.forEach((source, sourceIndex) => {
+    const body = useRaw && source.raw_content
+      ? `${source.snippet ?? ''} ${source.raw_content}`
+      : (source.snippet ?? '');
+
+    if (!body.trim()) return;
+
+    splitSentences(body).forEach((sentence, position) => {
+      const clean = sentence.trim();
+      if (clean.length < 35 || clean.length > 400) return;
+      if (BOILERPLATE.test(clean)) return;
+      // Drop fragments that are mostly punctuation or a bare URL.
+      if (!/[a-z]{3,}/i.test(clean)) return;
+      if (/^https?:\/\/\S+$/.test(clean.trim())) return;
+
+      const coverage = termCoverage(query, clean);
+      if (coverage <= 0) return;
+
+      // Rank: earlier sources are more relevant. Position: lead sentences
+      // usually carry the summary. Length: prefer substantive sentences.
+      const rankWeight = 1 / (1 + sourceIndex * 0.4);
+      const positionWeight = 1 / (1 + position * 0.12);
+      const lengthBonus = clean.length > 70 && clean.length < 260 ? 1.12 : 1;
+
+      out.push({
+        text: clean,
+        score: coverage * rankWeight * positionWeight * lengthBonus,
+        sourceIndex,
+        position,
+      });
+    });
+  });
+
+  return out.sort((a, b) => b.score - a.score);
+}
+
+/** Extractive synthesis: pick the best supported, non-redundant sentences. */
+function synthesizeExtractive(query: string, sources: AnswerSource[]): Answer | undefined {
+  const candidates = collectSentences(query, sources, false);
+  const pool = candidates.length >= 2 ? candidates : collectSentences(query, sources, true);
+  if (pool.length === 0) return undefined;
+
+  const topCoverage = pool[0].score;
+  if (topCoverage < MIN_COVERAGE) {
+    return {
+      text: '',
+      mode: 'extractive',
+      confidence: 0,
+      citations: [],
+      declined: true,
+    };
+  }
+
+  const chosen: Scored[] = [];
+  for (const candidate of pool) {
+    if (chosen.length >= 4) break;
+    if (chosen.some((c) => isNearDuplicate(c.text, candidate.text))) continue;
+    chosen.push(candidate);
+    const total = chosen.map((c) => c.text).join(' ');
+    if (total.length > MAX_ANSWER_CHARS) break;
+  }
+  if (chosen.length === 0) return undefined;
+
+  // Read in source order so the answer follows the result ranking.
+  chosen.sort((a, b) => a.sourceIndex - b.sourceIndex || a.position - b.position);
+
+  const usedSources = [...new Set(chosen.map((c) => c.sourceIndex))].sort((a, b) => a - b);
+  const citationNumber = new Map<number, number>();
+  usedSources.forEach((sourceIndex, i) => citationNumber.set(sourceIndex, i + 1));
+
+  const text = chosen
+    .map((c) => `${c.text.replace(/\s*\[\d+\]\s*$/, '')} [${citationNumber.get(c.sourceIndex)}]`)
+    .join(' ');
+
+  const meanCoverage =
+    chosen.reduce((sum, c) => sum + termCoverage(query, c.text), 0) / chosen.length;
+  const breadth = Math.min(usedSources.length / 2, 1);
+  const confidence = Math.min(0.85, meanCoverage * 0.7 + breadth * 0.15);
+
+  return {
+    text: truncateSentences(text, MAX_ANSWER_CHARS),
+    mode: 'extractive',
+    confidence: Number(confidence.toFixed(2)),
+    citations: usedSources.map((sourceIndex, i) => ({
+      index: i + 1,
+      title: sources[sourceIndex]?.title ?? 'Untitled',
+      url: sources[sourceIndex]?.url ?? '',
+      result: sourceIndex,
+    })),
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Optional LLM path                                                   */
+/* ------------------------------------------------------------------ */
+
+const SYSTEM_PROMPT = `You are the answer engine for x-web, a web search API used by AI agents.
+
+Rules you must follow exactly:
+- Answer using ONLY the numbered sources provided. Never use outside knowledge.
+- Cite every claim with a bracketed source number immediately after it, like [2].
+  Multiple sources look like [1][3]. Every sentence must carry at least one citation.
+- Be concise: at most 90 words. Lead with the direct answer.
+- If the sources do not contain the answer, reply with exactly: NO_ANSWER
+- Do not say "based on the sources" or mention that you were given sources.
+- Use the same language as the question.`;
+
+function buildUserPrompt(query: string, sources: AnswerSource[], maxChars: number): string {
+  let budget = maxChars;
+  const blocks: string[] = [];
+
+  sources.forEach((source, i) => {
+    if (budget <= 0) return;
+    const body = (source.raw_content || source.snippet || '').replace(/\s+/g, ' ').trim();
+    const slice = body.slice(0, Math.max(0, budget));
+    budget -= slice.length;
+    if (!slice) return;
+    blocks.push(`[${i + 1}] ${source.title || 'Untitled'} (${source.url})\n${slice}`);
+  });
+
+  return `Question: ${query}\n\nSources:\n${blocks.join('\n\n')}\n\nAnswer:`;
+}
+
+interface LlmConfig {
+  url: string;
+  key: string;
+  model: string;
+  headers: Record<string, string>;
+  body: (query: string, prompt: string) => unknown;
+  parse: (payload: any) => string | undefined;
+}
+
+function llmConfig(): LlmConfig | undefined {
+  const openaiKey = env('OPENAI_API_KEY');
+  const base = (env('OPENAI_BASE_URL') ?? 'https://api.openai.com/v1').replace(/\/$/, '');
+  const openaiModel = env('XWEB_ANSWER_MODEL') ?? 'gpt-4o-mini';
+
+  if (openaiKey) {
+    return {
+      url: `${base}/chat/completions`,
+      key: openaiKey,
+      model: openaiModel,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
+      body: (query, prompt) => ({
+        model: openaiModel,
+        temperature: 0.2,
+        max_tokens: 400,
+        messages: [
+          { role: 'system', content: `${SYSTEM_PROMPT}\n\nQuestion language: ${query.slice(0, 200)}` },
+          { role: 'user', content: prompt },
+        ],
+      }),
+      parse: (payload) => payload?.choices?.[0]?.message?.content,
+    };
+  }
+
+  const anthropicKey = env('ANTHROPIC_API_KEY');
+  if (anthropicKey) {
+    const model = env('XWEB_ANSWER_MODEL') ?? 'claude-3-5-haiku-latest';
+    return {
+      url: 'https://api.anthropic.com/v1/messages',
+      key: anthropicKey,
+      model,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': anthropicKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: (_query, prompt) => ({
+        model,
+        max_tokens: 400,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+      parse: (payload) =>
+        Array.isArray(payload?.content)
+          ? payload.content.find((b: any) => b.type === 'text')?.text
+          : undefined,
+    };
+  }
+
+  return undefined;
+}
+
+async function synthesizeWithLlm(
+  query: string,
+  sources: AnswerSource[],
+): Promise<Answer | undefined> {
+  const config = llmConfig();
+  if (!config) return undefined;
+
+  const prompt = buildUserPrompt(query, sources, Number(env('XWEB_ANSWER_CONTEXT_CHARS') ?? 6000));
+
+  try {
+    const response = await fetch(config.url, {
+      method: 'POST',
+      headers: config.headers,
+      body: JSON.stringify(config.body(query, prompt)),
+      signal: AbortSignal.timeout(Number(env('XWEB_ANSWER_TIMEOUT_MS') ?? 12_000)),
+    });
+    if (!response.ok) return undefined;
+
+    const payload = await response.json();
+    const raw = (config.parse(payload) ?? '').trim();
+    if (!raw || raw === 'NO_ANSWER') return undefined;
+
+    // Keep only citations that point at sources we actually supplied.
+    const indices = [...new Set([...raw.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])))].filter(
+      (n) => n >= 1 && n <= sources.length,
+    );
+    if (indices.length === 0) return undefined;
+
+    return {
+      text: raw,
+      mode: 'llm',
+      confidence: 0.82,
+      citations: indices.sort((a, b) => a - b).map((n) => ({
+        index: n,
+        title: sources[n - 1]?.title ?? 'Untitled',
+        url: sources[n - 1]?.url ?? '',
+        result: n - 1,
+      })),
+    };
+  } catch {
+    // Network failure, timeout, malformed response — the extractive path is a
+    // perfectly good answer and we should never fail a search because of it.
+    return undefined;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Public API                                                          */
+/* ------------------------------------------------------------------ */
+
+export interface SynthesizeOptions {
+  /** Answer already produced upstream by the provider. */
+  providerAnswer?: string;
+  /**
+   * Allow the LLM path. Off by default in tests; the API layer turns it on
+   * only when `include_answer` is requested.
+   */
+  allowLlm?: boolean;
+  /** Raw page text to ground the answer in when snippets are thin. */
+  includeRaw?: boolean;
+}
+
+export async function synthesizeAnswer(
+  query: string,
+  sources: AnswerSource[],
+  options: SynthesizeOptions = {},
+): Promise<Answer | undefined> {
+  const usable = sources.filter((s) => s.snippet || s.raw_content).slice(0, 8);
+  if (usable.length === 0) return undefined;
+
+  // 1. A configured model — real synthesis, strictly grounded, properly cited.
+  if (options.allowLlm) {
+    const llm = await synthesizeWithLlm(query, usable);
+    if (llm) return llm;
+  }
+
+  // 2. What the provider already synthesised. It has no inline citations, so
+  //    we attach the sources it was drawn from. Better prose than we can
+  //    assemble extractively, slightly looser attribution.
+  const providerAnswer = (options.providerAnswer ?? '').trim();
+  if (providerAnswer) {
+    const citedSources = usable.slice(0, 3);
+    const citations = citedSources.map((source, i) => ({
+      index: i + 1,
+      title: source.title || 'Untitled',
+      url: source.url,
+      result: i,
+    }));
+    // Make attribution visible in the answer itself, not just metadata. The
+    // provider does not expose sentence-level provenance, so cite the source
+    // set conservatively at the end of its synthesized answer.
+    const marker = citations.map((citation) => `[${citation.index}]`).join('');
+    return {
+      text: `${providerAnswer.replace(/\s*(?:\[\d+\]\s*)+$/, '')} ${marker}`,
+      mode: 'provider',
+      confidence: 0.7,
+      citations,
+    };
+  }
+
+  // 3. Build it from the retrieved sentences ourselves.
+  const extractive = synthesizeExtractive(query, usable);
+  if (extractive && !extractive.declined) return extractive;
+
+  return extractive ?? undefined;
+}

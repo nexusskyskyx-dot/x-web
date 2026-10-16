@@ -9,73 +9,65 @@ const heroTabs = [
   {
     label: 'cURL',
     lang: 'bash',
-    code: `curl -X POST https://api.x-web.dev/v1/search \\
-  -H "Authorization: Bearer $XWEB_API_KEY" \\
+    code: `curl -X POST "$XWEB_BASE/api/v1/search" \\
+  -H "X-XWeb-Key: $TAVILY_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "query": "What is the Model Context Protocol?",
+    "query": "What is the latest on the Model Context Protocol?",
     "max_results": 5,
     "include_answer": true
   }'`,
   },
   {
-    label: 'Python',
-    lang: 'python',
-    code: `from x_web import XWeb
-
-client = XWeb(api_key=os.environ["XWEB_API_KEY"])
-
-result = client.search(
-    "What is the Model Context Protocol?",
-    max_results=5,
-    include_answer=True,
-)
-
-print(result.answer)
-for hit in result.results:
-    print(hit.title, "->", hit.url)`,
-  },
-  {
-    label: 'Node',
+    label: 'JavaScript',
     lang: 'javascript',
-    code: `import { XWeb } from "x-web";
-
-const client = new XWeb({ apiKey: process.env.XWEB_API_KEY });
-
-const result = await client.search("What is the Model Context Protocol?", {
-  maxResults: 5,
-  includeAnswer: true,
+    code: `const response = await fetch(process.env.XWEB_BASE + "/api/v1/search", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "X-XWeb-Key": process.env.TAVILY_API_KEY,
+  },
+  body: JSON.stringify({
+    query: "What is the latest on the Model Context Protocol?",
+    max_results: 5,
+    include_answer: true,
+  }),
 });
-
-console.log(result.answer);
-result.results.forEach((hit) => console.log(hit.title, "->", hit.url));`,
+const search = await response.json();
+console.log(search.answer?.text, search.answer?.citations);`,
   },
 ];
 
 const capabilities = [
   {
     icon: 'search' as const,
-    title: 'Search',
-    body: 'One endpoint, four independent indexes. Answers with citations, ranked snippets, and raw page text when you need it.',
+    title: 'Live web search',
+    body: 'One query endpoint over Tavily, Brave Search, Serper or Exa. Results are fetched live, not recalled from model training data.',
     accent: 'from-brand-500 to-brand-700',
   },
   {
-    icon: 'scrape' as const,
-    title: 'Scrape',
-    body: 'Turn any URL into clean markdown, HTML or plain text — navigation stripped, boilerplate removed, ready to drop into a context window.',
+    icon: 'extract' as const,
+    title: 'Cited answers',
+    body: 'Get answers with source citations. x-web reports whether synthesis came from an LLM, the provider or extractive selection.',
     accent: 'from-brand-400 to-brand-600',
   },
   {
-    icon: 'extract' as const,
-    title: 'Extract',
-    body: 'Give it a JSON Schema and get structured objects back. Prices, specs, article metadata — parsed, not scraped.',
+    icon: 'globe' as const,
+    title: 'Multi-language',
+    body: 'Detect query language and pass it through where the chosen provider supports language filtering.',
     accent: 'from-brand-600 to-brand-800',
   },
   {
-    icon: 'crawl' as const,
-    title: 'Crawl',
-    body: 'Follow links with depth and path rules. Walk a docs site or a whole section without writing a scraper.',
+    icon: 'code' as const,
+    title: 'Query understanding',
+    body: 'Infer question intent, key entities and recency. Inspect the signals and rewritten query before your agent acts on them.',
     accent: 'from-brand-300 to-brand-500',
+  },
+  {
+    icon: 'scrape' as const,
+    title: 'Page extraction',
+    body: 'Turn public result URLs into clean readable text, with page metadata and the navigation clutter removed.',
+    accent: 'from-brand-400 to-brand-700',
   },
 ];
 
@@ -83,74 +75,65 @@ const features = [
   {
     icon: 'layers' as const,
     title: 'One response shape',
-    body: 'Every provider is normalised into the same JSON. Swap Tavily for Brave without touching your agent code.',
+    body: 'Tavily, Brave, Serper and Exa return a normalized result contract, so your integration can stay consistent.',
   },
   {
     icon: 'shield' as const,
-    title: 'Keys stay server-side',
-    body: 'Your provider key never has to live in a browser or a prompt. x-web holds it, rotates it and scopes it.',
+    title: 'Server-side key handling',
+    body: 'Call the API from your server or agent backend; provider credentials are not stored in browser local storage.',
   },
   {
-    icon: 'bolt' as const,
-    title: 'Fast by default',
-    body: 'Parallel provider fan-out, cached repeats and streaming responses keep tool calls inside your latency budget.',
+    icon: 'clock' as const,
+    title: 'Freshness controls',
+    body: 'Use day, week, month or year windows, or phrase a question naturally with “latest” or “today”.',
   },
   {
-    icon: 'plug' as const,
-    title: 'MCP native',
-    body: 'Run x-web as a Model Context Protocol server and every MCP-aware agent gets web access with no glue code.',
+    icon: 'globe' as const,
+    title: 'Inspectable understanding',
+    body: 'See detected language, intent signals and the effective query instead of trusting an opaque rewrite.',
   },
 ];
 
 const steps = [
   {
-    title: 'Create a key',
-    body: 'Sign up and get an x-web key. Use our pooled credits or bring your own provider key.',
+    title: 'Choose a provider',
+    body: 'Use a Tavily, Brave, Serper or Exa key. x-web account keys and paid plans are a later milestone.',
   },
   {
-    title: 'Point your agent at it',
-    body: 'Call the REST API, install the SDK, or register the MCP server in your favourite client.',
+    title: 'Call the search API',
+    body: 'Send a natural-language query to /api/v1/search from your server-side application.',
   },
   {
-    title: 'Let the agent read the web',
-    body: 'Search, scrape, extract and cite — with the same two or three lines of code every time.',
+    title: 'Use current, cited results',
+    body: 'Read the normalized snippets, optional answer and citations, plus the intent and language metadata.',
   },
 ];
 
 const faqs = [
   {
-    q: 'Do I need my own search provider key?',
-    a: 'No. x-web routes every request across Tavily, Brave, Serper and Exa using pooled credits. If you would rather stay on your own account, add your provider key and x-web will use it exclusively.',
+    q: 'Do I need a provider key?',
+    a: 'Yes, for search today. Use a key from Tavily, Brave Search, Serper or Exa, or configure one on your server. x-web account keys and pooled credits are not live yet.',
   },
   {
-    q: 'Which engine answers my query?',
-    a: 'x-web fans out to the providers that fit the request — topic, freshness, language and country — and returns one merged, ranked answer. The response always tells you which provider answered.',
+    q: 'Are the results current?',
+    a: 'Search calls a provider at request time, so results come from its live index rather than model training data. Use a recency window for time-sensitive queries; freshness still depends on provider coverage.',
   },
   {
-    q: 'Can my agent scrape a page it found?',
-    a: 'Yes. Every search result URL can be handed to the scrape endpoint to get clean markdown, and then to the extract endpoint to pull structured fields out of it.',
+    q: 'Does every answer use an LLM?',
+    a: 'No. If you configure an OpenAI-compatible or Anthropic model, x-web can synthesize from sources. Otherwise it uses an upstream provider answer or extractive synthesis. The response says which mode ran.',
   },
   {
-    q: 'Which clients can use the MCP server?',
-    a: 'Anything that speaks the Model Context Protocol — Claude Desktop, Claude Code, Cursor, Windsurf, Zed and your own agents. The server ships as a single command.',
+    q: 'Can I create an account or select a payment plan?',
+    a: 'Not yet. We are building the API capabilities first. Accounts, plan selection and payments are the next product milestone.',
   },
 ];
 
-const integrations = [
-  'OpenAI',
-  'Anthropic',
-  'LangChain',
-  'LlamaIndex',
-  'CrewAI',
-  'AutoGen',
-  'Vercel AI SDK',
-  'MCP clients',
-];
+const integrations = ['Tavily', 'Brave Search', 'Serper', 'Exa'];
 ---
 
 <Base
   title="x-web — Give your AI access to the web"
-  description="x-web is one API for web search, scraping, extraction and crawling. Drop it into any AI agent and give it live, cited access to the web."
+  description="x-web is a web-search API for AI agents: live results, cited answers, extracted page text, multilingual queries and transparent query understanding."
 >
   <!-- ============================= HERO ============================= -->
   <section class="relative overflow-hidden">
@@ -166,7 +149,7 @@ const integrations = [
         <div class="min-w-0">
           <span class="chip">
             <span class="h-1.5 w-1.5 rounded-full bg-brand-500"></span>
-            MCP server included
+            Text &amp; Search API
           </span>
 
           <h1
@@ -177,13 +160,13 @@ const integrations = [
           </h1>
 
           <p class="mt-6 max-w-xl text-lg leading-relaxed text-ink-600">
-            x-web is a single API for search, scraping, extraction and crawling. Your agent stops
-            guessing what happened yesterday and starts reading the live web — with citations.
+            x-web gives your agent one API for live web search, cited answers, page text and query
+            understanding — so it can look up what happened today, not guess from training data.
           </p>
 
           <div class="mt-8 flex flex-wrap items-center gap-3">
             <a href="/docs/quickstart" class="btn-primary">
-              Get an API key
+              Read the quickstart
               <Icon name="arrowRight" class="h-4 w-4" />
             </a>
             <a href="/docs" class="btn-secondary">Read the docs</a>
@@ -192,10 +175,10 @@ const integrations = [
           <ul class="mt-10 flex flex-wrap gap-x-6 gap-y-2.5">
             {
               [
-                'Free tier, no card',
-                '4 search providers',
-                'Citations in every result',
-                'Cancel anytime',
+                'Live provider results',
+                '4 search integrations',
+                'Optional cited answers',
+                'No x-web account needed yet',
               ].map((item) => (
                 <li class="flex items-center gap-2 text-sm text-ink-500">
                   <span class="grid h-5 w-5 place-items-center rounded-full bg-brand-50 text-brand-600">
@@ -251,7 +234,7 @@ const integrations = [
   <section class="border-y border-ink-100 bg-ink-50/50">
     <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <p class="text-center text-xs font-semibold tracking-wider text-ink-400 uppercase">
-        Drop into the stack you already run
+        Live search providers supported today
       </p>
       <ul class="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-3">
         {
@@ -269,7 +252,7 @@ const integrations = [
   <section class="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
     <div class="max-w-2xl">
       <p class="text-sm font-semibold text-brand-600">Capabilities</p>
-      <h2 class="mt-2 text-3xl sm:text-4xl">One API for every corner of the web</h2>
+      <h2 class="mt-2 text-3xl sm:text-4xl">Text &amp; Search, ready for your agent</h2>
       <p class="mt-4 text-lg leading-relaxed text-ink-600">
         Search finds the page. Scrape reads it. Extract structures it. Crawl maps it. Every step
         returns the same predictable JSON your agent already knows how to parse.
@@ -355,49 +338,57 @@ const integrations = [
       <div class="min-w-0">
         <h3 class="text-xl">Answer with citations</h3>
         <p class="mt-2 text-ink-600">
-          Every result carries the URL it came from, so the model can cite the source and you can
-          check the claim.
+          The answer object includes citation metadata and says whether synthesis came from a model,
+          the provider or extractive selection.
         </p>
         <div class="mt-5">
           <CodeBlock
             lang="json"
             title="response.json"
             code={`{
-  "id": "xweb_9f3c1a20",
+  "object": "search",
   "query": "Model Context Protocol",
   "provider": "tavily",
-  "answer": "The Model Context Protocol is an open protocol…",
-  "results": [
-    {
+  "answer": {
+    "text": "An open protocol for… [1]",
+    "mode": "provider",
+    "confidence": 0.7,
+    "citations": [{
+      "index": 1,
       "title": "Model Context Protocol",
       "url": "https://modelcontextprotocol.io",
-      "snippet": "An open protocol for connecting AI assistants…",
-      "score": 0.98
-    }
-  ],
-  "took_ms": 412
+      "result": 0
+    }]
+  },
+  "results": [{
+    "title": "Model Context Protocol",
+    "url": "https://modelcontextprotocol.io",
+    "snippet": "An open protocol for connecting AI assistants…"
+  }]
 }`}
           />
         </div>
       </div>
 
       <div class="min-w-0">
-        <h3 class="text-xl">Wire it into an agent in minutes</h3>
+        <h3 class="text-xl">Give your agent a web-search tool</h3>
         <p class="mt-2 text-ink-600">
-          Register the MCP server once and every tool-aware client can search the web.
+          Wrap the REST endpoint in your agent framework and return the answer with its citations.
         </p>
         <div class="mt-5">
           <CodeBlock
-            lang="json"
-            title="mcp.json"
-            code={`{
-  "mcpServers": {
-    "x-web": {
-      "command": "npx",
-      "args": ["-y", "x-web-mcp"],
-      "env": { "XWEB_API_KEY": "$XWEB_API_KEY" }
-    }
-  }
+            lang="javascript"
+            title="web-search.js"
+            code={`async function webSearch(query) {
+  const response = await fetch(process.env.XWEB_BASE + "/api/v1/search", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-XWeb-Key": process.env.TAVILY_API_KEY
+    },
+    body: JSON.stringify({ query, include_answer: true })
+  });
+  return response.json();
 }`}
           />
         </div>
@@ -423,97 +414,16 @@ const integrations = [
     </div>
   </section>
 
-  <!-- ============================= PRICING ============================= -->
-  <section class="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
-    <div class="max-w-2xl">
-      <p class="text-sm font-semibold text-brand-600">Pricing</p>
-      <h2 class="mt-2 text-3xl sm:text-4xl">Start free, scale when it works</h2>
-      <p class="mt-4 text-lg leading-relaxed text-ink-600">
-        Every plan includes all four providers, the full API and the MCP server.
+  <!-- ============================= NEXT MILESTONE ============================= -->
+  <section class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+    <div class="rounded-3xl border border-brand-200 bg-brand-50/70 p-8 sm:p-12">
+      <p class="text-sm font-semibold text-brand-700">Next milestone</p>
+      <h2 class="mt-2 text-3xl sm:text-4xl">Accounts and billing come after the API</h2>
+      <p class="mt-4 max-w-2xl leading-relaxed text-ink-600">
+        This first stage focuses on making web search, query understanding and page extraction work.
+        Account creation, API keys issued by x-web, plan selection and payment are not live yet.
       </p>
-    </div>
-
-    <div class="mt-12 grid gap-6 lg:grid-cols-3">
-      {
-        [
-          {
-            name: 'Free',
-            price: '$0',
-            cadence: 'forever',
-            description: 'For side projects and evaluation.',
-            features: ['1,000 searches / month', 'All four providers', 'MCP server', 'Community support'],
-            cta: 'Start free',
-            highlight: false,
-          },
-          {
-            name: 'Pro',
-            price: '$29',
-            cadence: 'per month',
-            description: 'For agents running in production.',
-            features: [
-              '100,000 searches / month',
-              'Raw content + extraction',
-              'Priority provider routing',
-              'Bring your own provider key',
-              'Email support',
-            ],
-            cta: 'Start 14-day trial',
-            highlight: true,
-          },
-          {
-            name: 'Team',
-            price: 'Custom',
-            cadence: 'per seat',
-            description: 'For companies shipping AI products.',
-            features: [
-              'Everything in Pro',
-              'SSO and audit logs',
-              'Self-hosted or VPC deploy',
-              '99.9% uptime SLA',
-              'Dedicated support',
-            ],
-            cta: 'Talk to us',
-            highlight: false,
-          },
-        ].map((plan) => (
-          <div
-            class:list={[
-              'relative flex flex-col rounded-2xl border bg-white p-7',
-              plan.highlight
-                ? 'border-brand-300 shadow-glow ring-1 ring-brand-200'
-                : 'border-ink-100 shadow-card',
-            ]}
-          >
-            {plan.highlight && (
-              <span class="ring-gradient absolute -top-3 left-7 rounded-full px-3 py-1 text-[11px] font-bold tracking-wide text-white uppercase">
-                Most popular
-              </span>
-            )}
-            <h3 class="text-lg">{plan.name}</h3>
-            <p class="mt-1 text-sm text-ink-500">{plan.description}</p>
-            <p class="mt-5 flex items-baseline gap-1.5">
-              <span class="text-4xl font-bold tracking-tight text-ink-900">{plan.price}</span>
-              <span class="text-sm text-ink-500">{plan.cadence}</span>
-            </p>
-            <ul class="mt-6 flex-1 space-y-2.5">
-              {plan.features.map((feature) => (
-                <li class="flex items-start gap-2.5 text-sm text-ink-600">
-                  <span class="mt-0.5 grid h-4.5 w-4.5 shrink-0 place-items-center rounded-full bg-brand-50 text-brand-600">
-                    <Icon name="check" class="h-3 w-3" />
-                  </span>
-                  {feature}
-                </li>
-              ))}
-            </ul>
-            <a
-              href="/docs/quickstart"
-              class:list={['mt-7 w-full', plan.highlight ? 'btn-primary' : 'btn-secondary']}
-            >
-              {plan.cta}
-            </a>
-          </div>
-        ))
-      }
+      <a href="/docs/quickstart" class="btn-primary mt-6 inline-flex">Start with the API</a>
     </div>
   </section>
 
@@ -548,13 +458,13 @@ const integrations = [
       >
       </div>
       <div class="relative">
-        <h2 class="text-3xl text-white sm:text-4xl">Give your agent the whole web</h2>
+        <h2 class="text-3xl text-white sm:text-4xl">Give your agent live web search</h2>
         <p class="mx-auto mt-4 max-w-xl text-lg text-ink-300">
-          One API key, one endpoint, and an AI that knows what happened today.
+          One search API for current results, citations and query understanding. Bring a provider key to get started.
         </p>
         <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
           <a href="/docs/quickstart" class="btn-primary">
-            Get an API key
+            Open the quickstart
             <Icon name="arrowRight" class="h-4 w-4" />
           </a>
           <a

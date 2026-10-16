@@ -12,7 +12,7 @@
     "build": "astro build",
     "preview": "astro preview --host 0.0.0.0 --port 4321",
     "check": "astro check",
-    "test": "node --experimental-strip-types --test src/lib/search.test.ts",
+    "test": "node --experimental-strip-types --test src/lib/*.test.ts",
     "test:layout": "astro build && node scripts/check-horizontal-overflow.mjs",
     "astro": "astro"
   },
@@ -22,6 +22,7 @@
     "@tailwindcss/typography": "^0.5.20",
     "@tailwindcss/vite": "^4.3.3",
     "astro": "^7.4.0",
+    "node-html-parser": "^9.0.4",
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
