@@ -1,0 +1,55 @@
+---
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import '../styles/global.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+  ogType?: string;
+}
+
+const {
+  title = 'x-web — Give your AI access to the web',
+  description = 'x-web is one API for web search, scraping, extraction and crawling. Drop it into any AI agent and give it live, cited access to the web.',
+  ogType = 'website',
+} = Astro.props;
+
+const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#7c3aed" />
+    <meta name="generator" content={Astro.generator} />
+
+    <meta property="og:type" content={ogType} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:site_name" content="x-web" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+  </head>
+  <body class="flex min-h-screen flex-col bg-white">
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-[100] focus:rounded-lg focus:bg-brand-600 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
+    >
+      Skip to content
+    </a>
+    <Nav />
+    <main id="main" class="flex-1">
+      <slot />
+    </main>
+    <Footer />
+  </body>
+</html>

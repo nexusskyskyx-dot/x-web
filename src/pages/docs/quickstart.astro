@@ -1,0 +1,231 @@
+---
+import Docs from '../../layouts/Docs.astro';
+import CodeTabs from '../../components/CodeTabs.astro';
+import CodeBlock from '../../components/CodeBlock.astro';
+import Callout from '../../components/Callout.astro';
+import Icon from '../../components/Icons.astro';
+
+const toc = [
+  { id: 'before-you-start', text: 'Before you start' },
+  { id: 'step-1', text: 'Get an API key' },
+  { id: 'step-2', text: 'Install the SDK' },
+  { id: 'step-3', text: 'Make your first search' },
+  { id: 'step-4', text: 'Read the response' },
+  { id: 'step-5', text: 'Give it to your agent' },
+];
+
+const firstSearch = [
+  {
+    label: 'cURL',
+    lang: 'bash',
+    code: `curl -X POST https://api.x-web.dev/v1/search \\
+  -H "Authorization: Bearer $XWEB_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "query": "latest release notes for Astro",
+    "max_results": 5,
+    "include_answer": true
+  }'`,
+  },
+  {
+    label: 'Python',
+    lang: 'python',
+    code: `import os
+from x_web import XWeb
+
+client = XWeb(api_key=os.environ["XWEB_API_KEY"])
+
+result = client.search(
+    "latest release notes for Astro",
+    max_results=5,
+    include_answer=True,
+)
+
+print(result.answer)
+for hit in result.results:
+    print(f"{hit.title}\\n  {hit.url}\\n  {hit.snippet[:120]}…")`,
+  },
+  {
+    label: 'Node',
+    lang: 'javascript',
+    code: `import { XWeb } from "x-web";
+
+const client = new XWeb({ apiKey: process.env.XWEB_API_KEY });
+
+const result = await client.search("latest release notes for Astro", {
+  maxResults: 5,
+  includeAnswer: true,
+});
+
+console.log(result.answer);
+for (const hit of result.results) {
+  console.log(hit.title, "\\n ", hit.url);
+}`,
+  },
+  {
+    label: 'Go',
+    lang: 'go',
+    code: `package main
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/nexusskyskyx-dot/x-web-go"
+)
+
+func main() {
+	client := xweb.NewClient(os.Getenv("XWEB_API_KEY"))
+
+	result, err := client.Search(context.Background(), &xweb.SearchRequest{
+		Query:        "latest release notes for Astro",
+		MaxResults:   5,
+		IncludeAnswer: true,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(result.Answer)
+	for _, hit := range result.Results {
+		fmt.Println(hit.Title, "->", hit.URL)
+	}
+}`,
+  },
+];
+
+const agentSnippet = `from x_web import XWeb
+
+client = XWeb(api_key=os.environ["XWEB_API_KEY"])
+
+def web_search(query: str) -> str:
+    """Search the web for current information. Returns sources."""
+    result = client.search(query, max_results=5, include_answer=True)
+    lines = [result.answer or "", ""]
+    for hit in result.results:
+        lines.append(f"- {hit.title} ({hit.url}): {hit.snippet[:200]}")
+    return "\\n".join(lines)
+
+tools = [{"type": "function", "function": {
+    "name": "web_search",
+    "description": "Search the live web for current information.",
+    "parameters": {
+        "type": "object",
+        "properties": {"query": {"type": "string"}},
+        "required": ["query"],
+    },
+}}]`;
+---
+
+<Docs
+  title="Quickstart"
+  description="From zero to a cited web search in your AI agent in about five minutes."
+  toc={toc}
+  updated="October 2026"
+>
+  <h2 id="before-you-start">Before you start</h2>
+  <p>
+    You need an x-web API key. The sandbox key works against the test index — use it while you
+    build, then swap in a live key when you ship.
+  </p>
+  <ul>
+    <li>A Node.js 20+ or Python 3.10+ runtime (or just <code>curl</code>).</li>
+    <li>An x-web API key from the dashboard.</li>
+    <li>Two minutes.</li>
+  </ul>
+
+  <h2 id="step-1">Step 1 — Get an API key</h2>
+  <p>
+    Create a key in the dashboard and export it. Keys are namespaced by environment so a test key
+    can never spend production credits.
+  </p>
+  <CodeBlock
+    lang="bash"
+    title="terminal"
+    code={`export XWEB_API_KEY="xw_test_8f2c41ab…"`}
+  />
+
+  <Callout type="tip" title="Keep the key server-side">
+    Put the key in an environment variable, never in a browser bundle. If your agent runs in the
+    browser, proxy the call through your own endpoint — that is exactly what the MCP server does for
+    you.
+  </Callout>
+
+  <h2 id="step-2">Step 2 — Install the SDK</h2>
+  <p>Pick the client you already use. The REST API works without any SDK at all.</p>
+  <CodeTabs
+    tabs={[
+      { label: 'Python', lang: 'bash', code: 'pip install x-web' },
+      { label: 'Node', lang: 'bash', code: 'npm install x-web' },
+      { label: 'Go', lang: 'bash', code: 'go get github.com/nexusskyskyx-dot/x-web-go' },
+      { label: 'REST', lang: 'bash', code: '# no install needed — just curl' },
+    ]}
+  />
+
+  <h2 id="step-3">Step 3 — Make your first search</h2>
+  <CodeTabs tabs={firstSearch} />
+
+  <h2 id="step-4">Step 4 — Read the response</h2>
+  <p>
+    Every search returns an <code>answer</code> (a synthesised summary with citations) plus a ranked
+    list of <code>results</code>. Each result carries the URL it came from, so the model can cite
+    the source and you can verify the claim.
+  </p>
+  <CodeBlock
+    lang="json"
+    title="response.json"
+    code={`{
+  "id": "xweb_9f3c1a20",
+  "query": "latest release notes for Astro",
+  "provider": "tavily",
+  "answer": "Astro 7.4.0 ships with Vite 8 and the Rust compiler…",
+  "results": [
+    {
+      "title": "Upgrade to Astro v7",
+      "url": "https://docs.astro.build/en/guides/upgrade-to/v7/",
+      "snippet": "Astro v7.0 upgrades to Vite 8…",
+      "score": 0.98
+    },
+    {
+      "title": "Astro 7.4.0",
+      "url": "https://github.com/withastro/astro/releases",
+      "snippet": "Bug fixes and improvements…",
+      "score": 0.91
+    }
+  ],
+  "took_ms": 412
+}`}
+  />
+
+  <Callout type="note" title="Scores are relative">
+    A score of 0.98 means “the most relevant result for this query”, not “98% correct”. Use it to
+    order results, not to decide whether a result is true.
+  </Callout>
+
+  <h2 id="step-5">Step 5 — Give it to your agent</h2>
+  <p>
+    Register the search endpoint as a tool and your model can call it whenever it needs a fact it
+    does not have. The function description is what makes the difference — say when to use it.
+  </p>
+  <CodeBlock lang="python" title="tools.py" code={agentSnippet} />
+
+  <p class="mt-8">
+    Want the same thing without writing the glue? Run the
+    <a href="/docs/mcp">MCP server</a> and every MCP-aware client gets search, scrape and extract
+    as built-in tools.
+  </p>
+
+  <div class="not-prose mt-10 flex flex-wrap items-center gap-3 rounded-2xl border border-brand-200 bg-brand-50/70 p-6">
+    <span class="ring-gradient grid h-11 w-11 place-items-center rounded-xl text-white">
+      <Icon name="rocket" class="h-5 w-5" />
+    </span>
+    <div class="min-w-0 flex-1">
+      <p class="font-semibold text-brand-900">Try a real search right now</p>
+      <p class="text-sm text-ink-600">
+        The playground hits Tavily, Brave, Serper or Exa with your own key.
+      </p>
+    </div>
+    <a href="/docs/api#playground" class="btn-primary btn-sm">Open playground</a>
+  </div>
+</Docs>

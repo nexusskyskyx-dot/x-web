@@ -1,0 +1,175 @@
+---
+import Docs from '../../layouts/Docs.astro';
+import Icon from '../../components/Icons.astro';
+import CodeBlock from '../../components/CodeBlock.astro';
+import Callout from '../../components/Callout.astro';
+
+const toc = [
+  { id: 'overview', text: 'Overview' },
+  { id: 'tavily', text: 'Tavily' },
+  { id: 'brave', text: 'Brave Search' },
+  { id: 'serper', text: 'Serper' },
+  { id: 'exa', text: 'Exa' },
+  { id: 'routing', text: 'How routing works' },
+  { id: 'self-host', text: 'Self-hosted configuration' },
+];
+
+const providers = [
+  {
+    id: 'tavily',
+    name: 'Tavily',
+    tag: 'Agent-first',
+    icon: 'search' as const,
+    env: 'TAVILY_API_KEY',
+    prefix: 'tvly-',
+    site: 'https://app.tavily.com',
+    body: 'Purpose-built for agents. Returns an optional synthesised answer next to the results, and its "advanced" depth is tuned for research-style questions.',
+    strengths: ['Synthesised answer', 'Advanced research depth', 'Clean markdown extraction'],
+  },
+  {
+    id: 'brave',
+    name: 'Brave Search',
+    tag: 'Independent index',
+    icon: 'globe' as const,
+    env: 'BRAVE_API_KEY',
+    prefix: 'BSA',
+    site: 'https://api-dashboard.search.brave.com',
+    body: 'Runs on Brave’s own web index, which keeps results independent of the big search engines. Strong freshness filters and country targeting.',
+    strengths: ['Independent index', 'Freshness filters', 'Country targeting'],
+  },
+  {
+    id: 'serper',
+    name: 'Serper',
+    tag: 'Google results',
+    icon: 'chart' as const,
+    env: 'SERPER_API_KEY',
+    prefix: '',
+    site: 'https://serper.dev',
+    body: 'A thin, fast layer over Google results that also surfaces knowledge panels, answer boxes and top stories.',
+    strengths: ['Answer boxes', 'Knowledge panels', 'Top stories'],
+  },
+  {
+    id: 'exa',
+    name: 'Exa',
+    tag: 'Neural search',
+    icon: 'extract' as const,
+    env: 'EXA_API_KEY',
+    prefix: 'exa_',
+    site: 'https://dashboard.exa.ai',
+    body: 'Neural search built for semantic similarity. Great for finding conceptually related pages rather than exact keyword matches.',
+    strengths: ['Semantic similarity', 'Page text included', 'Domain filters'],
+  },
+];
+---
+
+<Docs
+  title="Search providers"
+  description="x-web routes every query across four independent search providers and normalises the answers into one response shape."
+  toc={toc}
+  updated="October 2026"
+>
+  <h2 id="overview">Overview</h2>
+  <p>
+    x-web does not own a web index. It talks to the providers that do, and gives your agent one
+    predictable response no matter which one answered. That means you can swap providers, fail over
+    between them, or pin a single one for reproducible tests.
+  </p>
+  <p>
+    You do not need any of these keys to use the hosted x-web API — pooled credits are included. Add
+    your own key when you want to stay on your own provider account, or when you are self-hosting.
+  </p>
+
+  {
+    providers.map((provider) => (
+      <>
+        <h2 id={provider.id}>{provider.name}</h2>
+        <div class="not-prose my-6 flex flex-col gap-5 rounded-2xl border border-ink-100 bg-white p-6 shadow-card sm:flex-row sm:items-start">
+          <span class="ring-gradient grid h-12 w-12 shrink-0 place-items-center rounded-xl text-white">
+            <Icon name={provider.icon} class="h-6 w-6" />
+          </span>
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <h3 class="text-lg">{provider.name}</h3>
+              <span class="chip">{provider.tag}</span>
+            </div>
+            <p class="mt-2 text-sm leading-relaxed text-ink-600">{provider.body}</p>
+            <ul class="mt-3 flex flex-wrap gap-2">
+              {provider.strengths.map((strength) => (
+                <li class="rounded-full border border-ink-200 px-2.5 py-1 text-[11px] font-medium text-ink-600">
+                  {strength}
+                </li>
+              ))}
+            </ul>
+            <div class="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+              <p class="font-mono text-[13px] text-ink-500">
+                env: <span class="text-brand-800">{provider.env}</span>
+              </p>
+              <p class="font-mono text-[13px] text-ink-500">
+                key prefix: <span class="text-brand-800">{provider.prefix || '—'}</span>
+              </p>
+            </div>
+            <a
+              href={provider.site}
+              target="_blank"
+              rel="noreferrer"
+              class="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:text-brand-800"
+            >
+              Get a {provider.name} key
+              <Icon name="arrowUpRight" class="h-4 w-4" />
+            </a>
+          </div>
+        </div>
+      </>
+    ))
+  }
+
+  <h2 id="routing">How routing works</h2>
+  <p>
+    By default x-web picks the provider that best fits the request. A news topic goes to the news
+    index, a recent question goes to the freshest index, and a hard research question goes to the
+    deepest pass. The response always names the provider that answered.
+  </p>
+  <p>Pin one explicitly when you need deterministic behaviour:</p>
+  <CodeBlock
+    lang="bash"
+    title="request"
+    code={`curl -X POST https://api.x-web.dev/v1/search \\
+  -H "Authorization: Bearer $XWEB_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"query": "astro v7 upgrade guide", "provider": "brave"}'`}
+  />
+
+  <Callout type="note" title="Domain filters">
+    Tavily and Exa filter domains natively. Brave and Serper have no domain parameter, so x-web
+    applies the same filter through the <code>site:</code> query operator instead.
+  </Callout>
+
+  <h2 id="self-host">Self-hosted configuration</h2>
+  <p>
+    Running the x-web proxy yourself? Point it at whichever providers you have keys for. Every
+    variable is optional — configure one provider and the rest stay disabled.
+  </p>
+  <CodeBlock
+    lang="bash"
+    title=".env"
+    code={`# Default provider used when a request does not pin one
+XWEB_SEARCH_PROVIDER=tavily
+
+# Provider keys
+TAVILY_API_KEY=tvly-…
+BRAVE_API_KEY=BSA…
+SERPER_API_KEY=…
+EXA_API_KEY=exa_…
+
+# Forward to a real x-web deployment instead of a provider
+# XWEB_API_BASE=https://api.x-web.dev/v1`}
+  />
+
+  <p>Then start the server:</p>
+  <CodeBlock lang="bash" title="terminal" code={`npm run build && node ./dist/server/entry.mjs`} />
+
+  <Callout type="tip" title="Rotate without downtime">
+    Provider keys are read per request, so replacing an environment variable takes effect on the
+    next call — no restart needed on serverless platforms.
+  </Callout>
+</Docs>

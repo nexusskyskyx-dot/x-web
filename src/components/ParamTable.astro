@@ -1,0 +1,51 @@
+---
+export interface Param {
+  name: string;
+  type: string;
+  required?: boolean;
+  default?: string;
+  description: string;
+}
+
+interface Props {
+  params: Param[];
+}
+
+const { params } = Astro.props;
+---
+
+<div class="not-prose my-6 overflow-hidden rounded-xl border border-ink-100 bg-white">
+  <div class="overflow-x-auto">
+    <table class="w-full min-w-[640px] text-left text-sm">
+      <thead class="bg-brand-50/70 text-[11px] tracking-wide text-ink-500 uppercase">
+        <tr>
+          <th class="px-4 py-2.5 font-semibold">Parameter</th>
+          <th class="px-4 py-2.5 font-semibold">Type</th>
+          <th class="px-4 py-2.5 font-semibold">Default</th>
+          <th class="px-4 py-2.5 font-semibold">Description</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-ink-100">
+        {
+          params.map((param) => (
+            <tr class="align-top">
+              <td class="px-4 py-3 whitespace-nowrap">
+                <code class="font-mono text-[13px] font-semibold text-brand-800">{param.name}</code>
+                {param.required && (
+                  <span class="ml-2 rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-rose-600 uppercase">
+                    required
+                  </span>
+                )}
+              </td>
+              <td class="px-4 py-3 font-mono text-[12px] whitespace-nowrap text-ink-500">{param.type}</td>
+              <td class="px-4 py-3 font-mono text-[12px] whitespace-nowrap text-ink-500">
+                {param.default ?? '—'}
+              </td>
+              <td class="px-4 py-3 text-ink-600">{param.description}</td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

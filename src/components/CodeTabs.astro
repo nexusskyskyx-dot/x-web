@@ -1,0 +1,70 @@
+---
+import CodeBlock from './CodeBlock.astro';
+
+export interface CodeTab {
+  label: string;
+  lang?: string;
+  code: string;
+  title?: string;
+}
+
+interface Props {
+  tabs: CodeTab[];
+  class?: string;
+}
+
+const { tabs, class: className = '' } = Astro.props;
+---
+
+<div class:list={['code-tabs overflow-hidden rounded-2xl border border-ink-800/60', className]} data-code-tabs>
+  <div
+    class="flex flex-wrap items-center gap-1 border-b border-ink-800/60 bg-white/[0.03] px-3 pt-2"
+    role="tablist"
+  >
+    {
+      tabs.map((tab, index) => (
+        <button
+          type="button"
+          role="tab"
+          aria-selected={index === 0 ? 'true' : 'false'}
+          data-tab-trigger={index}
+          class:list={[
+            'rounded-t-lg px-3 py-2 text-xs font-semibold transition',
+            index === 0 ? 'bg-white/[0.07] text-white' : 'text-ink-400 hover:text-white',
+          ]}
+        >
+          {tab.label}
+        </button>
+      ))
+    }
+  </div>
+  {
+    tabs.map((tab, index) => (
+      <div class="tab-panel" data-tab-panel={index} hidden={index !== 0}>
+        <CodeBlock code={tab.code} lang={tab.lang ?? 'bash'} title={tab.title} class="rounded-none border-0" />
+      </div>
+    ))
+  }
+</div>
+
+<script>
+  document.querySelectorAll('[data-code-tabs]').forEach((group) => {
+    const triggers = Array.from(group.querySelectorAll<HTMLElement>('[data-tab-trigger]'));
+    const panels = Array.from(group.querySelectorAll<HTMLElement>('[data-tab-panel]'));
+
+    triggers.forEach((trigger) => {
+      trigger.addEventListener('click', () => {
+        const active = trigger.dataset.tabTrigger;
+        triggers.forEach((item) => {
+          const isActive = item === trigger;
+          item.setAttribute('aria-selected', isActive ? 'true' : 'false');
+          item.classList.toggle('bg-white/[0.07]', isActive);
+          item.classList.toggle('text-white', isActive);
+        });
+        panels.forEach((panel) => {
+          panel.hidden = panel.dataset.tabPanel !== active;
+        });
+      });
+    });
+  });
+</script>

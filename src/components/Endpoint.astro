@@ -1,0 +1,22 @@
+---
+interface Props {
+  method?: 'GET' | 'POST';
+  path: string;
+  description?: string;
+}
+
+const { method = 'GET', path, description } = Astro.props;
+
+const methodClass =
+  method === 'GET' ? 'bg-brand-100 text-brand-700' : 'bg-emerald-100 text-emerald-700';
+---
+
+<div class="not-prose mt-10 mb-4">
+  <div class="flex flex-wrap items-center gap-3">
+    <span class:list={['rounded-md px-2 py-1 font-mono text-xs font-bold', methodClass]}>
+      {method}
+    </span>
+    <code class="font-mono text-[15px] font-semibold break-all text-ink-900">{path}</code>
+  </div>
+  {description && <p class="mt-2.5 text-ink-600">{description}</p>}
+</div>

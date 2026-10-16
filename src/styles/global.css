@@ -1,0 +1,229 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* ------------------------------------------------------------------
+   x-web design tokens — purple & white
+   ------------------------------------------------------------------ */
+@theme {
+  --color-brand-50: #f8f6ff;
+  --color-brand-100: #f0ebff;
+  --color-brand-200: #e2d9fe;
+  --color-brand-300: #c9b8fd;
+  --color-brand-400: #ab8efb;
+  --color-brand-500: #8b5cf6;
+  --color-brand-600: #7c3aed;
+  --color-brand-700: #6d28d9;
+  --color-brand-800: #5b21b6;
+  --color-brand-900: #4c1d95;
+  --color-brand-950: #2e1065;
+
+  --color-ink-50: #f8f8fb;
+  --color-ink-100: #f1f1f6;
+  --color-ink-200: #e4e3ec;
+  --color-ink-300: #c7c5d6;
+  --color-ink-400: #9d9ab3;
+  --color-ink-500: #77738f;
+  --color-ink-600: #5b5772;
+  --color-ink-700: #443f5b;
+  --color-ink-800: #2c2843;
+  --color-ink-900: #1a172e;
+  --color-ink-950: #100e1d;
+
+  --font-sans:
+    "Inter var", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --font-mono:
+    "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  --radius-4xl: 2rem;
+
+  --shadow-glow: 0 0 0 1px rgb(139 92 246 / 0.16), 0 18px 50px -18px rgb(109 40 217 / 0.4);
+  --shadow-card: 0 1px 2px rgb(26 23 46 / 0.04), 0 12px 32px -16px rgb(76 29 149 / 0.22);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 6rem;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: #ffffff;
+    color: var(--color-ink-800);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background-color: var(--color-brand-200);
+    color: var(--color-brand-950);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    color: var(--color-ink-900);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer components {
+  /* ---------- buttons ---------- */
+  .btn,
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200;
+  }
+
+  .btn-primary {
+    @apply bg-brand-600 text-white shadow-[0_10px_30px_-12px_rgb(109_40_217/0.9)] hover:bg-brand-700 hover:shadow-[0_14px_34px_-12px_rgb(109_40_217/0.95)] active:translate-y-px;
+  }
+
+  .btn-secondary {
+    @apply border border-brand-200 bg-white text-brand-700 hover:border-brand-300 hover:bg-brand-50;
+  }
+
+  .btn-ghost {
+    @apply text-ink-600 hover:bg-brand-50 hover:text-brand-700;
+  }
+
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+
+  /* ---------- surfaces ---------- */
+  .card {
+    @apply rounded-2xl border border-ink-100 bg-white shadow-card;
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-glow;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700;
+  }
+
+  .link {
+    @apply font-medium text-brand-700 underline decoration-brand-200 decoration-2 underline-offset-4 transition-colors hover:decoration-brand-500;
+  }
+
+  /* ---------- code ---------- */
+  .code-block {
+    @apply relative overflow-hidden rounded-2xl border border-ink-800/60 bg-ink-950;
+  }
+
+  .code-block pre {
+    @apply overflow-x-auto px-5 py-4 text-[13px] leading-relaxed;
+  }
+
+  .code-block pre code {
+    @apply bg-transparent p-0 font-mono text-ink-100;
+  }
+
+  .code-block[data-lang="bash"] pre code,
+  .code-block[data-lang="sh"] pre code,
+  .code-block[data-lang="shell"] pre code {
+    @apply text-ink-100;
+  }
+
+  /* ---------- prose (docs body) ---------- */
+  .prose-docs {
+    @apply prose prose-slate max-w-none text-ink-700;
+    --tw-prose-body: var(--color-ink-700);
+    --tw-prose-headings: var(--color-ink-900);
+    --tw-prose-links: var(--color-brand-700);
+    --tw-prose-bold: var(--color-ink-900);
+    --tw-prose-counters: var(--color-brand-600);
+    --tw-prose-bullets: var(--color-brand-300);
+    --tw-prose-hr: var(--color-ink-200);
+    --tw-prose-quotes: var(--color-ink-700);
+    --tw-prose-quote-borders: var(--color-brand-300);
+    --tw-prose-code: var(--color-brand-800);
+    --tw-prose-pre-bg: var(--color-ink-950);
+    --tw-prose-th-borders: var(--color-ink-200);
+    --tw-prose-td-borders: var(--color-ink-100);
+  }
+
+  .prose-docs :where(h2):not(:where([class~="not-prose"] *)) {
+    @apply mt-14 scroll-mt-28 border-t border-ink-100 pt-8 text-2xl;
+  }
+
+  .prose-docs :where(h3):not(:where([class~="not-prose"] *)) {
+    @apply mt-8 scroll-mt-28 text-lg;
+  }
+
+  .prose-docs :where(code):not(:where(pre *)):not(:where([class~="not-prose"] *)) {
+    @apply rounded-md bg-brand-50 px-1.5 py-0.5 font-normal text-[0.85em] font-medium text-brand-800 ring-1 ring-brand-100 ring-inset;
+  }
+
+  .prose-docs :where(pre):not(:where([class~="not-prose"] *)) {
+    @apply rounded-none border-0 bg-transparent p-0;
+  }
+
+  .prose-docs :where(pre code):not(:where([class~="not-prose"] *)) {
+    @apply bg-transparent p-0 text-ink-100;
+  }
+
+  .prose-docs :where(a):not(:where([class~="not-prose"] *)) {
+    @apply font-medium text-brand-700 no-underline underline-offset-4 hover:underline;
+  }
+
+  .prose-docs :where(table):not(:where([class~="not-prose"] *)) {
+    @apply text-sm;
+  }
+
+  .prose-docs :where(thead):not(:where([class~="not-prose"] *)) {
+    @apply bg-brand-50/60;
+  }
+
+  .prose-docs :where(th):not(:where([class~="not-prose"] *)) {
+    @apply text-brand-900;
+  }
+
+  /* ---------- misc ---------- */
+  .grid-fade {
+    background-image:
+      linear-gradient(to right, rgb(139 92 246 / 0.07) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(139 92 246 / 0.07) 1px, transparent 1px);
+    background-size: 56px 56px;
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+  }
+
+  .ring-gradient {
+    background-image: linear-gradient(
+      135deg,
+      var(--color-brand-600),
+      var(--color-brand-400) 45%,
+      var(--color-brand-700)
+    );
+  }
+}
+
+/* ---------- tabs (no framework, just CSS + a tiny script) ---------- */
+.tab-panel[hidden] {
+  display: none;
+}
+
+/* ---------- syntax theme (shiki css-variables) ---------- */
+.shiki,
+.shiki span {
+  color: var(--shiki-default, inherit);
+  background-color: transparent !important;
+  font-style: var(--shiki-font-style, inherit);
+  font-weight: var(--shiki-font-weight, inherit);
+  text-decoration: var(--shiki-text-decoration, inherit);
+}

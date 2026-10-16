@@ -1,0 +1,197 @@
+---
+import Docs from '../../layouts/Docs.astro';
+import Icon from '../../components/Icons.astro';
+import CodeBlock from '../../components/CodeBlock.astro';
+import Callout from '../../components/Callout.astro';
+
+const toc = [
+  { id: 'what-is-x-web', text: 'What is x-web?' },
+  { id: 'primitives', text: 'The four primitives' },
+  { id: 'base-url', text: 'Base URL & authentication' },
+  { id: 'response-shape', text: 'Response shape' },
+  { id: 'endpoints', text: 'Endpoints' },
+];
+
+const primitives = [
+  {
+    icon: 'search' as const,
+    title: 'search',
+    body: 'Find pages on the live web and get ranked, citable results with an optional synthesised answer.',
+  },
+  {
+    icon: 'scrape' as const,
+    title: 'scrape',
+    body: 'Fetch a URL and return clean markdown, HTML or text with the boilerplate stripped out.',
+  },
+  {
+    icon: 'extract' as const,
+    title: 'extract',
+    body: 'Read pages and return structured JSON that matches the schema you define.',
+  },
+  {
+    icon: 'crawl' as const,
+    title: 'crawl',
+    body: 'Walk a site from a seed URL, following links under depth and path rules.',
+  },
+];
+
+const endpoints = [
+  { method: 'POST', path: '/v1/search', description: 'Search the web and return ranked results' },
+  { method: 'GET', path: '/v1/search', description: 'Same as POST, for quick queries' },
+  { method: 'POST', path: '/v1/scrape', description: 'Fetch and clean one or more URLs' },
+  { method: 'POST', path: '/v1/extract', description: 'Return structured data matching a schema' },
+  { method: 'POST', path: '/v1/crawl', description: 'Crawl a site from a seed URL' },
+  { method: 'GET', path: '/v1/usage', description: 'Current usage for the billing period' },
+  { method: 'GET', path: '/v1/health', description: 'Service status and provider availability' },
+];
+---
+
+<Docs
+  title="Introduction"
+  description="x-web gives any AI agent live, cited access to the web through a single API — search, scrape, extract and crawl behind one key."
+  toc={toc}
+>
+  <h2 id="what-is-x-web">What is x-web?</h2>
+  <p>
+    x-web is a web access layer for AI agents. Your model does not know what happened today, and it
+    cannot open a browser on its own. x-web closes that gap with four HTTP endpoints that return
+    clean, structured, citable data in a shape a model can reason about directly.
+  </p>
+  <p>
+    Under the hood, x-web routes requests across independent search providers — Tavily, Brave
+    Search, Serper and Exa — and normalises every answer into one JSON response. Your agent code
+    never learns which index answered.
+  </p>
+
+  <Callout type="note" title="One key, many providers">
+    An x-web key works across every provider. You can also bring your own provider key and x-web
+    will route exclusively through it — see <a href="/docs/providers">Search providers</a>.
+  </Callout>
+
+  <h2 id="primitives">The four primitives</h2>
+  <div class="not-prose my-8 grid gap-4 sm:grid-cols-2">
+    {
+      primitives.map((item) => (
+        <div class="rounded-2xl border border-ink-100 bg-white p-5 shadow-card">
+          <div class="flex items-center gap-2.5">
+            <span class="grid h-9 w-9 place-items-center rounded-lg bg-brand-50 text-brand-600">
+              <Icon name={item.icon} class="h-4.5 w-4.5" />
+            </span>
+            <code class="font-mono text-sm font-semibold text-brand-800">/v1/{item.title}</code>
+          </div>
+          <p class="mt-3 text-sm leading-relaxed text-ink-600">{item.body}</p>
+        </div>
+      ))
+    }
+  </div>
+
+  <h2 id="base-url">Base URL &amp; authentication</h2>
+  <p>
+    Every request goes to <code>https://api.x-web.dev/v1</code> and authenticates with a bearer
+    token in the <code>Authorization</code> header.
+  </p>
+
+  <CodeBlock
+    lang="bash"
+    title="request"
+    code={`curl https://api.x-web.dev/v1/search \\
+  -H "Authorization: Bearer $XWEB_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"query":"who won the last world cup"}'`}
+  />
+
+  <p>
+    Keys are prefixed by environment: <code>xw_live_</code> for production and
+    <code>xw_test_</code> for the sandbox. Test keys never touch the live index.
+  </p>
+
+  <h2 id="response-shape">Response shape</h2>
+  <p>
+    Every endpoint returns the same envelope. Successful responses carry the payload in
+    <code>data</code>; errors carry an <code>error</code> object with a machine-readable
+    <code>code</code>.
+  </p>
+
+  <CodeBlock
+    lang="json"
+    title="200 OK"
+    code={`{
+  "id": "xweb_9f3c1a20",
+  "query": "who won the last world cup",
+  "provider": "tavily",
+  "answer": "Argentina won the 2022 FIFA World Cup…",
+  "results": [
+    {
+      "title": "FIFA World Cup 2022",
+      "url": "https://www.fifa.com/tournaments/mens/worldcup/qatar2022",
+      "snippet": "Argentina defeated France 3–3 (4–2 on penalties)…",
+      "score": 0.97,
+      "published_date": "2022-12-18"
+    }
+  ],
+  "took_ms": 412
+}`}
+  />
+
+  <h2 id="endpoints">Endpoints</h2>
+  <div class="not-prose my-6 overflow-hidden rounded-xl border border-ink-100 bg-white">
+    <div class="overflow-x-auto">
+      <table class="w-full min-w-[560px] text-left text-sm">
+        <thead class="bg-brand-50/70 text-[11px] tracking-wide text-ink-500 uppercase">
+          <tr>
+            <th class="px-4 py-2.5 font-semibold">Method</th>
+            <th class="px-4 py-2.5 font-semibold">Path</th>
+            <th class="px-4 py-2.5 font-semibold">Description</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-ink-100">
+          {
+            endpoints.map((endpoint) => (
+              <tr>
+                <td class="px-4 py-3">
+                  <span
+                    class:list={[
+                      'rounded-md px-2 py-0.5 font-mono text-[11px] font-bold',
+                      endpoint.method === 'GET'
+                        ? 'bg-brand-100 text-brand-700'
+                        : 'bg-emerald-100 text-emerald-700',
+                    ]}
+                  >
+                    {endpoint.method}
+                  </span>
+                </td>
+                <td class="px-4 py-3 font-mono text-[13px] font-semibold text-ink-900">
+                  {endpoint.path}
+                </td>
+                <td class="px-4 py-3 text-ink-600">{endpoint.description}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h2 id="next">Next steps</h2>
+  <div class="not-prose my-6 grid gap-4 sm:grid-cols-3">
+    {
+      [
+        { title: 'Quickstart', body: 'Make your first search in five minutes.', href: '/docs/quickstart' },
+        { title: 'API reference', body: 'Every endpoint, parameter and error code.', href: '/docs/api' },
+        { title: 'MCP server', body: 'Wire x-web into Claude, Cursor and more.', href: '/docs/mcp' },
+      ].map((card) => (
+        <a
+          href={card.href}
+          class="group rounded-2xl border border-ink-100 bg-white p-5 shadow-card transition hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-glow"
+        >
+          <h3 class="text-base">{card.title}</h3>
+          <p class="mt-1.5 text-sm text-ink-600">{card.body}</p>
+          <span class="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-brand-700">
+            Read
+            <Icon name="arrowRight" class="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          </span>
+        </a>
+      ))
+    }
+  </div>
+</Docs>

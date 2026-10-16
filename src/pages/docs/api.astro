@@ -1,0 +1,407 @@
+---
+import Docs from '../../layouts/Docs.astro';
+import Endpoint from '../../components/Endpoint.astro';
+import ParamTable from '../../components/ParamTable.astro';
+import CodeBlock from '../../components/CodeBlock.astro';
+import Callout from '../../components/Callout.astro';
+import Playground from '../../components/Playground.astro';
+
+const toc = [
+  { id: 'authentication', text: 'Authentication' },
+  { id: 'search', text: 'POST /v1/search' },
+  { id: 'get-search', text: 'GET /v1/search' },
+  { id: 'scrape', text: 'POST /v1/scrape' },
+  { id: 'extract', text: 'POST /v1/extract' },
+  { id: 'crawl', text: 'POST /v1/crawl' },
+  { id: 'usage', text: 'GET /v1/usage' },
+  { id: 'errors', text: 'Errors' },
+  { id: 'rate-limits', text: 'Rate limits' },
+  { id: 'playground', text: 'Live playground' },
+];
+
+const searchParams = [
+  {
+    name: 'query',
+    type: 'string',
+    required: true,
+    description: 'The search query. Supports operator syntax such as quotes, minus and site:.',
+  },
+  {
+    name: 'max_results',
+    type: 'integer',
+    default: '5',
+    description: 'How many results to return. 1–20.',
+  },
+  {
+    name: 'include_answer',
+    type: 'boolean',
+    default: 'true',
+    description: 'Return a synthesised answer alongside the raw results.',
+  },
+  {
+    name: 'include_raw_content',
+    type: 'boolean',
+    default: 'false',
+    description: 'Include the cleaned page text for every result. Increases response size significantly.',
+  },
+  {
+    name: 'include_domains',
+    type: 'string[]',
+    description: 'Only return results from these domains.',
+  },
+  {
+    name: 'exclude_domains',
+    type: 'string[]',
+    description: 'Never return results from these domains.',
+  },
+  {
+    name: 'search_depth',
+    type: '"basic" | "advanced"',
+    default: '"basic"',
+    description: 'How hard to look. "advanced" runs a deeper pass and costs more credits.',
+  },
+  {
+    name: 'topic',
+    type: '"general" | "news"',
+    default: '"general"',
+    description: 'Use the general web index or the news index.',
+  },
+  {
+    name: 'language',
+    type: 'string',
+    description: 'ISO 639-1 language code, e.g. "en" or "es".',
+  },
+  {
+    name: 'country',
+    type: 'string',
+    description: 'Two-letter country code to bias results towards, e.g. "US", "GT".',
+  },
+  {
+    name: 'provider',
+    type: '"tavily" | "brave" | "serper" | "exa"',
+    description: 'Pin a single provider instead of letting x-web route the request.',
+  },
+];
+
+const scrapeParams = [
+  { name: 'url', type: 'string', required: true, description: 'A single URL to fetch and clean.' },
+  { name: 'urls', type: 'string[]', description: 'Several URLs, fetched in parallel.' },
+  {
+    name: 'formats',
+    type: '"markdown" | "html" | "text" | "links"',
+    default: '["markdown"]',
+    description: 'Which representations to return. "links" lists every link found on the page.',
+  },
+  {
+    name: 'only_main_content',
+    type: 'boolean',
+    default: 'true',
+    description: 'Strip navigation, footers, cookie banners and other chrome.',
+  },
+  {
+    name: 'include_links',
+    type: 'boolean',
+    default: 'true',
+    description: 'Keep the internal links discovered on the page.',
+  },
+];
+
+const extractParams = [
+  {
+    name: 'urls',
+    type: 'string[]',
+    required: true,
+    description: 'The pages to read and structure.',
+  },
+  {
+    name: 'schema',
+    type: 'object',
+    description: 'JSON Schema describing the fields you want back.',
+  },
+  {
+    name: 'instruction',
+    type: 'string',
+    description: 'Natural-language instruction, used when you prefer not to write a schema.',
+  },
+  {
+    name: 'format',
+    type: '"json" | "schema"',
+    default: '"json"',
+    description: 'Return raw JSON or a JSON Schema inferred from the page.',
+  },
+];
+
+const crawlParams = [
+  { name: 'url', type: 'string', required: true, description: 'Seed URL to start crawling from.' },
+  { name: 'limit', type: 'integer', default: '10', description: 'Maximum number of pages to return.' },
+  { name: 'depth', type: 'integer', default: '1', description: 'How many link hops away from the seed to follow.' },
+  { name: 'include_paths', type: 'string[]', description: 'Only crawl URLs matching these path prefixes.' },
+  { name: 'exclude_paths', type: 'string[]', description: 'Skip URLs matching these path prefixes.' },
+  { name: 'allow_subdomains', type: 'boolean', default: 'false', description: 'Follow links to subdomains.' },
+];
+
+const errorRows = [
+  { code: '400', type: 'invalid_request_error', message: 'The request body is malformed or a parameter is invalid.' },
+  { code: '401', type: 'authentication_error', message: 'The API key is missing, malformed or revoked.' },
+  { code: '402', type: 'quota_exceeded', message: 'The account is out of credits for this billing period.' },
+  { code: '403', type: 'permission_error', message: 'The key does not have access to this endpoint or model.' },
+  { code: '429', type: 'rate_limit_error', message: 'Too many requests. Back off and retry with jitter.' },
+  { code: '502', type: 'upstream_error', message: 'A provider failed or returned something we could not parse.' },
+  { code: '504', type: 'timeout_error', message: 'The provider did not answer in time.' },
+];
+---
+
+<Docs
+  title="API reference"
+  description="Every x-web endpoint, every parameter, and every error code — in one place."
+  toc={toc}
+  updated="October 2026"
+>
+  <h2 id="authentication">Authentication</h2>
+  <p>
+    Send your key as a bearer token. Requests without a valid key return
+    <code>401 authentication_error</code>.
+  </p>
+  <CodeBlock
+    lang="bash"
+    title="headers"
+    code={`Authorization: Bearer xw_live_8f2c41ab…
+Content-Type: application/json`}
+  />
+
+  <h2 id="search">Search the web</h2>
+  <Endpoint
+    method="POST"
+    path="/v1/search"
+    description="Search the live web and return ranked, citable results plus an optional synthesised answer."
+  />
+
+  <ParamTable params={searchParams} />
+
+  <CodeBlock
+    lang="bash"
+    title="request"
+    code={`curl -X POST https://api.x-web.dev/v1/search \\
+  -H "Authorization: Bearer $XWEB_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "query": "who won the last world cup",
+    "max_results": 3,
+    "include_answer": true,
+    "include_domains": ["fifa.com"]
+  }'`}
+  />
+
+  <CodeBlock
+    lang="json"
+    title="200 OK"
+    code={`{
+  "id": "xweb_9f3c1a20",
+  "query": "who won the last world cup",
+  "provider": "tavily",
+  "answer": "Argentina won the 2022 FIFA World Cup…",
+  "results": [
+    {
+      "title": "FIFA World Cup Qatar 2022",
+      "url": "https://www.fifa.com/tournaments/mens/worldcup/qatar2022",
+      "snippet": "Argentina defeated France in the final…",
+      "score": 0.97
+    }
+  ],
+  "took_ms": 412
+}`}
+  />
+
+  <h3 id="get-search">GET /v1/search</h3>
+  <p>
+    A convenience wrapper for quick queries and links. Only <code>q</code> is required; the same
+    parameters work as query strings.
+  </p>
+  <CodeBlock
+    lang="bash"
+    title="request"
+    code={`curl "https://api.x-web.dev/v1/search?q=model+context+protocol&max_results=3" \\
+  -H "Authorization: Bearer $XWEB_API_KEY"`}
+  />
+
+  <h2 id="scrape">Scrape a page</h2>
+  <Endpoint
+    method="POST"
+    path="/v1/scrape"
+    description="Fetch one or more URLs and return clean, model-ready content."
+  />
+
+  <ParamTable params={scrapeParams} />
+
+  <CodeBlock
+    lang="bash"
+    title="request"
+    code={`curl -X POST https://api.x-web.dev/v1/scrape \\
+  -H "Authorization: Bearer $XWEB_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "url": "https://modelcontextprotocol.io",
+    "formats": ["markdown", "links"]
+  }'`}
+  />
+
+  <CodeBlock
+    lang="json"
+    title="200 OK"
+    code={`{
+  "id": "xweb_1b7e44c1",
+  "url": "https://modelcontextprotocol.io",
+  "status": 200,
+  "title": "Model Context Protocol",
+  "markdown": "# Model Context Protocol\\n\\nAn open protocol…",
+  "links": ["https://modelcontextprotocol.io/docs", "…"],
+  "took_ms": 218
+}`}
+  />
+
+  <h2 id="extract">Extract structured data</h2>
+  <Endpoint
+    method="POST"
+    path="/v1/extract"
+    description="Read pages and return structured data that matches your schema."
+  />
+
+  <ParamTable params={extractParams} />
+
+  <CodeBlock
+    lang="bash"
+    title="request"
+    code={`curl -X POST https://api.x-web.dev/v1/extract \\
+  -H "Authorization: Bearer $XWEB_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "urls": ["https://example.com/pricing"],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "plans": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {"type": "string"},
+              "price": {"type": "number"}
+            }
+          }
+        }
+      }
+    }
+  }'`}
+  />
+
+  <h2 id="crawl">Crawl a site</h2>
+  <Endpoint
+    method="POST"
+    path="/v1/crawl"
+    description="Start from a seed URL and walk the site under your depth and path rules."
+  />
+
+  <ParamTable params={crawlParams} />
+
+  <CodeBlock
+    lang="bash"
+    title="request"
+    code={`curl -X POST https://api.x-web.dev/v1/crawl \\
+  -H "Authorization: Bearer $XWEB_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "url": "https://docs.astro.build/en/",
+    "limit": 20,
+    "depth": 1,
+    "include_paths": ["/en/guides"]
+  }'`}
+  />
+
+  <h2 id="usage">Check usage</h2>
+  <Endpoint
+    method="GET"
+    path="/v1/usage"
+    description="Current request count and credit balance for the billing period."
+  />
+  <CodeBlock
+    lang="json"
+    title="200 OK"
+    code={`{
+  "requests_used": 12480,
+  "requests_limit": 100000,
+  "credits_used": 18240,
+  "credits_limit": 200000,
+  "period_start": "2026-10-01T00:00:00Z",
+  "period_end": "2026-11-01T00:00:00Z"
+}`}
+  />
+
+  <h2 id="errors">Errors</h2>
+  <p>
+    Errors return a non-2xx status and an <code>error</code> object. The <code>code</code> is
+    stable and safe to branch on; the <code>message</code> is written for humans.
+  </p>
+  <CodeBlock
+    lang="json"
+    title="401 Unauthorized"
+    code={`{
+  "error": {
+    "type": "authentication_error",
+    "code": "invalid_api_key",
+    "message": "The API key is malformed or has been revoked."
+  }
+}`}
+  />
+
+  <div class="not-prose my-6 overflow-hidden rounded-xl border border-ink-100 bg-white">
+    <div class="overflow-x-auto">
+      <table class="w-full min-w-[620px] text-left text-sm">
+        <thead class="bg-brand-50/70 text-[11px] tracking-wide text-ink-500 uppercase">
+          <tr>
+            <th class="px-4 py-2.5 font-semibold">Status</th>
+            <th class="px-4 py-2.5 font-semibold">Type</th>
+            <th class="px-4 py-2.5 font-semibold">Meaning</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-ink-100">
+          {
+            errorRows.map((row) => (
+              <tr>
+                <td class="px-4 py-3 font-mono text-[13px] font-semibold text-ink-900">{row.code}</td>
+                <td class="px-4 py-3 font-mono text-[12px] text-brand-800">{row.type}</td>
+                <td class="px-4 py-3 text-ink-600">{row.message}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h2 id="rate-limits">Rate limits</h2>
+  <p>
+    Limits are per key and per minute. The response headers always tell you where you stand.
+  </p>
+  <CodeBlock
+    lang="http"
+    title="response headers"
+    code={`X-RateLimit-Limit: 60
+X-RateLimit-Remaining: 57
+X-RateLimit-Reset: 42
+Retry-After: 42`}
+  />
+
+  <Callout type="tip" title="Back off, do not hammer">
+    On <code>429</code>, wait for <code>Retry-After</code> seconds and add random jitter. Retrying
+    immediately is the fastest way to get your key throttled harder.
+  </Callout>
+
+  <h2 id="playground">Live playground</h2>
+  <p>
+    The same search endpoint, running for real. Paste a provider key and query the live web — this
+    page talks to the search providers through a serverless proxy, so your key never touches the
+    browser's storage.
+  </p>
+
+  <Playground id="playground" />
+</Docs>

@@ -1,0 +1,90 @@
+---
+import Icon from './Icons.astro';
+
+const columns = [
+  {
+    title: 'Product',
+    links: [
+      { label: 'Overview', href: '/' },
+      { label: 'Quickstart', href: '/docs/quickstart' },
+      { label: 'API reference', href: '/docs/api' },
+      { label: 'Live playground', href: '/docs/api#playground' },
+    ],
+  },
+  {
+    title: 'Developers',
+    links: [
+      { label: 'MCP server', href: '/docs/mcp' },
+      { label: 'Search providers', href: '/docs/providers' },
+      { label: 'API reference', href: '/docs/api' },
+      { label: 'Rate limits', href: '/docs/api#rate-limits' },
+    ],
+  },
+  {
+    title: 'Company',
+    links: [
+      { label: 'GitHub', href: 'https://github.com/nexusskyskyx-dot/x-web' },
+      { label: 'Changelog', href: 'https://github.com/nexusskyskyx-dot/x-web/commits/main' },
+      { label: 'Issues', href: 'https://github.com/nexusskyskyx-dot/x-web/issues' },
+    ],
+  },
+];
+---
+
+<footer class="border-t border-ink-100 bg-white">
+  <div class="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+    <div class="grid gap-10 md:grid-cols-[1.4fr_repeat(3,1fr)]">
+      <div>
+        <a href="/" class="flex items-center gap-2.5" aria-label="x-web home">
+          <span class="ring-gradient grid h-9 w-9 place-items-center rounded-xl text-white">
+            <span class="font-mono text-lg leading-none font-bold">x</span>
+          </span>
+          <span class="text-[17px] font-bold tracking-tight text-ink-900">x-web</span>
+        </a>
+        <p class="mt-4 max-w-xs text-sm leading-relaxed text-ink-500">
+          One API for web search, scraping, extraction and crawling — so your AI can read the live
+          web instead of guessing.
+        </p>
+        <a
+          href="https://github.com/nexusskyskyx-dot/x-web"
+          target="_blank"
+          rel="noreferrer"
+          class="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-brand-700 hover:text-brand-800"
+        >
+          <Icon name="github" class="h-4 w-4" />
+          Star on GitHub
+        </a>
+      </div>
+
+      {
+        columns.map((column) => (
+          <div>
+            <h2 class="text-xs font-semibold tracking-wider text-ink-900 uppercase">{column.title}</h2>
+            <ul class="mt-4 space-y-2.5">
+              {column.links.map((link) => (
+                <li>
+                  <a
+                    href={link.href}
+                    class="text-sm text-ink-500 transition-colors hover:text-brand-700"
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))
+      }
+    </div>
+
+    <div
+      class="mt-12 flex flex-col items-start justify-between gap-3 border-t border-ink-100 pt-6 sm:flex-row sm:items-center"
+    >
+      <p class="text-xs text-ink-400">© {new Date().getFullYear()} x-web. Open source, MIT licensed.</p>
+      <p class="text-xs text-ink-400">
+        Built with <span class="font-semibold text-ink-500">Astro</span> · powered by
+        <span class="font-semibold text-ink-500">Tavily, Brave, Serper & Exa</span>
+      </p>
+    </div>
+  </div>
+</footer>

@@ -1,0 +1,263 @@
+---
+import Icon from './Icons.astro';
+
+interface Props {
+  id?: string;
+}
+
+const { id = 'playground' } = Astro.props;
+---
+
+<div
+  id={id}
+  data-playground
+  class="not-prose overflow-hidden rounded-2xl border border-brand-200 bg-white shadow-card"
+>
+  <div
+    class="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 bg-gradient-to-r from-brand-50 to-white px-5 py-3.5"
+  >
+    <div class="flex items-center gap-2.5">
+      <span class="ring-gradient grid h-8 w-8 place-items-center rounded-lg text-white">
+        <Icon name="rocket" class="h-4 w-4" />
+      </span>
+      <div>
+        <p class="text-sm font-semibold text-ink-900">Live playground</p>
+        <p class="text-xs text-ink-500">Real search — no mock data</p>
+      </div>
+    </div>
+    <span class="chip">
+      <span class="h-1.5 w-1.5 rounded-full bg-brand-500"></span>
+      runs on the server, key never stored
+    </span>
+  </div>
+
+  <form data-playground-form class="space-y-4 p-5">
+    <div class="grid gap-4 sm:grid-cols-2">
+      <label class="block">
+        <span class="mb-1.5 block text-[11px] font-semibold tracking-wider text-ink-500 uppercase">
+          Provider
+        </span>
+        <select
+          name="provider"
+          class="w-full rounded-xl border border-ink-200 bg-white px-3 py-2.5 text-sm text-ink-800 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+        >
+          <option value="tavily">Tavily</option>
+          <option value="brave">Brave Search</option>
+          <option value="serper">Serper</option>
+          <option value="exa">Exa</option>
+        </select>
+      </label>
+
+      <label class="block">
+        <span class="mb-1.5 block text-[11px] font-semibold tracking-wider text-ink-500 uppercase">
+          Provider API key
+        </span>
+        <input
+          type="password"
+          name="api_key"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="tvly-… / BSA… / exa_…"
+          class="w-full rounded-xl border border-ink-200 bg-white px-3 py-2.5 font-mono text-sm text-ink-800 outline-none transition placeholder:text-ink-300 focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+        />
+      </label>
+    </div>
+
+    <label class="block">
+      <span class="mb-1.5 block text-[11px] font-semibold tracking-wider text-ink-500 uppercase">
+        Query
+      </span>
+      <input
+        type="text"
+        name="query"
+        required
+        value="What is the Model Context Protocol?"
+        class="w-full rounded-xl border border-ink-200 bg-white px-3 py-2.5 text-sm text-ink-800 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+      />
+    </label>
+
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <label class="block w-48">
+        <span class="mb-1.5 block text-[11px] font-semibold tracking-wider text-ink-500 uppercase">
+          Max results
+        </span>
+        <input
+          type="range"
+          name="max_results"
+          min="1"
+          max="10"
+          value="5"
+          class="h-2 w-full cursor-pointer appearance-none rounded-full bg-brand-100 accent-brand-600"
+        />
+      </label>
+
+      <div class="flex items-center gap-3">
+        <label class="flex items-center gap-2 text-sm text-ink-600">
+          <input
+            type="checkbox"
+            name="include_answer"
+            checked
+            class="h-4 w-4 rounded border-ink-300 accent-brand-600"
+          />
+          Include answer
+        </label>
+        <button type="submit" class="btn-primary" data-playground-submit>
+          Run search
+        </button>
+      </div>
+    </div>
+
+    <p class="text-xs leading-relaxed text-ink-400">
+      Your key is sent to the x-web serverless proxy for the duration of the request only. It is never
+      written to disk, never logged, and never leaves the server except to reach the provider.
+    </p>
+  </form>
+
+  <div data-playground-output class="hidden border-t border-ink-100"></div>
+</div>
+
+<script>
+  const escapeHtml = (value: unknown): string =>
+    String(value ?? '').replace(/[&<>"']/g, (char) => {
+      const map: Record<string, string> = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      };
+      return map[char] ?? char;
+    });
+
+  const hostOf = (url: string): string => {
+    try {
+      return new URL(url).hostname.replace(/^www\./, '');
+    } catch {
+      return url;
+    }
+  };
+
+  document.querySelectorAll('[data-playground]').forEach((root) => {
+    const form = root.querySelector('[data-playground-form]');
+    const output = root.querySelector('[data-playground-output]');
+    const submit = root.querySelector('[data-playground-submit]');
+    if (!(form instanceof HTMLFormElement) || !(output instanceof HTMLElement)) return;
+
+    const setBusy = (busy: boolean) => {
+      if (submit instanceof HTMLButtonElement) {
+        submit.disabled = busy;
+        submit.textContent = busy ? 'Searching…' : 'Run search';
+        submit.classList.toggle('opacity-70', busy);
+      }
+    };
+
+    const renderError = (message: string, detail?: string) => {
+      output.classList.remove('hidden');
+      output.innerHTML = `
+        <div class="m-4 rounded-xl border border-rose-200 bg-rose-50 p-4">
+          <p class="text-sm font-semibold text-rose-800">Search failed</p>
+          <p class="mt-1 text-sm text-rose-700">${escapeHtml(message)}</p>
+          ${detail ? `<pre class="mt-2 overflow-x-auto text-xs text-rose-600">${escapeHtml(detail)}</pre>` : ''}
+        </div>`;
+    };
+
+    const renderResults = (data: any) => {
+      const results = Array.isArray(data?.results) ? data.results : [];
+      const answer = data?.answer;
+      const meta = [
+        `provider: ${escapeHtml(data?.provider ?? 'unknown')}`,
+        `${results.length} result${results.length === 1 ? '' : 's'}`,
+        data?.took_ms ? `${escapeHtml(data.took_ms)}ms` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ');
+
+      const answerBlock = answer
+        ? `<div class="m-4 rounded-xl border border-brand-200 bg-brand-50/70 p-4">
+             <p class="text-[11px] font-semibold tracking-wider text-brand-700 uppercase">Answer</p>
+             <p class="mt-1.5 text-sm leading-relaxed text-ink-700">${escapeHtml(answer)}</p>
+           </div>`
+        : '';
+
+      const items = results
+        .map(
+          (item: any, index: number) => `
+            <li class="border-t border-ink-100 px-4 py-3.5 first:border-t-0">
+              <div class="flex items-start gap-3">
+                <span class="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-md bg-brand-50 font-mono text-[11px] font-semibold text-brand-700">${index + 1}</span>
+                <div class="min-w-0 flex-1">
+                  <a href="${escapeHtml(item.url)}" target="_blank" rel="noreferrer noopener" class="group block truncate text-sm font-semibold text-ink-900 hover:text-brand-700">
+                    ${escapeHtml(item.title)}
+                    <span class="ml-1 font-normal text-ink-400">${escapeHtml(hostOf(item.url))}</span>
+                  </a>
+                  <p class="mt-1 line-clamp-3 text-sm leading-relaxed text-ink-600">${escapeHtml(item.snippet)}</p>
+                </div>
+              </div>
+            </li>`,
+        )
+        .join('');
+
+      output.classList.remove('hidden');
+      output.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-2 bg-ink-50 px-4 py-2.5">
+          <span class="font-mono text-[11px] text-ink-500">${meta}</span>
+          <button type="button" class="text-[11px] font-semibold text-brand-700 hover:text-brand-800" data-toggle-json>View raw JSON</button>
+        </div>
+        ${answerBlock}
+        <ul class="border-t border-ink-100">${items || '<li class="px-4 py-6 text-sm text-ink-500">No results returned.</li>'}</ul>
+        <pre data-json class="hidden overflow-x-auto border-t border-ink-100 bg-ink-950 p-4 font-mono text-[12px] leading-relaxed text-ink-100">${escapeHtml(JSON.stringify(data, null, 2))}</pre>`;
+
+      const toggle = output.querySelector('[data-toggle-json]');
+      const json = output.querySelector('[data-json]');
+      if (toggle && json instanceof HTMLElement) {
+        toggle.addEventListener('click', () => {
+          const hidden = json.classList.toggle('hidden');
+          toggle.textContent = hidden ? 'View raw JSON' : 'Hide raw JSON';
+        });
+      }
+    };
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const data = new FormData(form);
+      const key = String(data.get('api_key') ?? '').trim();
+      const body = {
+        query: String(data.get('query') ?? '').trim(),
+        provider: String(data.get('provider') ?? 'tavily'),
+        max_results: Number(data.get('max_results') ?? 5),
+        include_answer: data.get('include_answer') === 'on',
+      };
+
+      if (!body.query) return;
+
+      setBusy(true);
+      output.classList.remove('hidden');
+      output.innerHTML = `
+        <div class="flex items-center gap-3 p-5 text-sm text-ink-500">
+          <span class="h-4 w-4 animate-spin rounded-full border-2 border-brand-200 border-t-brand-600"></span>
+          Searching the live web…
+        </div>`;
+
+      try {
+        const response = await fetch('/api/search', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(key ? { 'x-xweb-key': key } : {}),
+          },
+          body: JSON.stringify(body),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          renderError(payload?.error?.message ?? `Request failed with ${response.status}`);
+        } else {
+          renderResults(payload);
+        }
+      } catch (error) {
+        renderError(error instanceof Error ? error.message : 'Network error');
+      } finally {
+        setBusy(false);
+      }
+    });
+  });
+</script>
