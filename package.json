@@ -13,6 +13,7 @@
     "preview": "astro preview --host 0.0.0.0 --port 4321",
     "check": "astro check",
     "test": "node --experimental-strip-types --test src/lib/search.test.ts",
+    "test:layout": "astro build && node scripts/check-horizontal-overflow.mjs",
     "astro": "astro"
   },
   "dependencies": {

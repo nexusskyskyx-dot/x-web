@@ -131,6 +131,16 @@
     @apply overflow-x-auto overscroll-x-contain;
   }
 
+  /* A code block's <pre> already scrolls horizontally, but a grid/flex item
+     sizes itself to its content unless you opt out (`min-width: auto`). So one
+     long line of code widens the column, and one level up, the whole page.
+     `min-w-0` lets the block shrink to its container so the <pre> scrolls
+     inside it instead of pushing the layout sideways. */
+  .code-block,
+  .code-tabs {
+    @apply min-w-0;
+  }
+
   /* ---------- code ---------- */
   .code-block {
     @apply relative overflow-hidden rounded-2xl border border-ink-800/60 bg-ink-950;

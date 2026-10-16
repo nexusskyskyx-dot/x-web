@@ -162,8 +162,8 @@ const integrations = [
     </div>
 
     <div class="relative mx-auto max-w-7xl px-4 pt-16 pb-20 sm:px-6 sm:pt-24 lg:px-8 lg:pt-28">
-      <div class="grid items-center gap-14 lg:grid-cols-[1.05fr_1fr]">
-        <div>
+      <div class="grid items-center gap-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+        <div class="min-w-0">
           <span class="chip">
             <span class="h-1.5 w-1.5 rounded-full bg-brand-500"></span>
             MCP server included
@@ -208,7 +208,7 @@ const integrations = [
           </ul>
         </div>
 
-        <div class="relative">
+        <div class="relative min-w-0">
           <div
             class="absolute -inset-3 rounded-[28px] bg-gradient-to-br from-brand-200/60 via-brand-100/20 to-transparent blur-2xl"
             aria-hidden="true"
@@ -352,7 +352,7 @@ const integrations = [
     </ol>
 
     <div class="mt-12 grid gap-6 lg:grid-cols-2">
-      <div>
+      <div class="min-w-0">
         <h3 class="text-xl">Answer with citations</h3>
         <p class="mt-2 text-ink-600">
           Every result carries the URL it came from, so the model can cite the source and you can
@@ -381,7 +381,7 @@ const integrations = [
         </div>
       </div>
 
-      <div>
+      <div class="min-w-0">
         <h3 class="text-xl">Wire it into an agent in minutes</h3>
         <p class="mt-2 text-ink-600">
           Register the MCP server once and every tool-aware client can search the web.

@@ -23,6 +23,7 @@ npm run dev      # http://localhost:4321
 | `npm run preview` | Serve the production build locally                        |
 | `npm run check`   | Astro + TypeScript diagnostics                            |
 | `npm test`        | Unit tests for the search provider adapters                |
+| `npm run test:layout` | Builds, then fails if anything can force horizontal page scroll |
 
 ---
 
