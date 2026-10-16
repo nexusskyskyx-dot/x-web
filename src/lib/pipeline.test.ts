@@ -66,6 +66,7 @@ describe('search pipeline', () => {
     assert.equal(result.language.resolved, 'en');
     assert.equal(result.language.detected.language, 'en');
     assert.equal(result.language.requested, 'auto');
+    assert.ok(!result.unsupported_params?.includes('language'));
 
     // query understanding
     assert.ok(result.intent, 'expected an intent block');

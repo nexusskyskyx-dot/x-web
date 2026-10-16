@@ -273,7 +273,11 @@ export async function runPipeline(
   const caps = PROVIDER_CAPABILITIES[resolvedProvider];
   const droppedParams: string[] = [];
   if (filters.time_range && !caps.timeRange) droppedParams.push('time_range');
-  if (language && !caps.language) droppedParams.push('language');
+  // Auto-detection is metadata and does not imply that the caller requested
+  // provider-side language filtering. Only flag an explicit language choice.
+  if (requestedLanguage.toLowerCase() !== 'auto' && language && !caps.language) {
+    droppedParams.push('language');
+  }
   if (filters.country && !caps.country) droppedParams.push('country');
 
   let results = search.results;

@@ -211,15 +211,18 @@ const integrations = ['Tavily', 'Brave Search', 'Serper', 'Exa'];
                   lang="json"
                   title="response.json"
                   code={`{
-  "answer": "The Model Context Protocol is an open protocol…",
-  "results": [
-    {
-      "title": "Model Context Protocol",
-      "url": "https://modelcontextprotocol.io",
-      "score": 0.98
-    }
-  ],
-  "took_ms": 412
+  "object": "search",
+  "provider": "tavily",
+  "answer": {
+    "text": "The Model Context Protocol is an open protocol… [1]",
+    "mode": "provider",
+    "citations": [{ "index": 1, "title": "Model Context Protocol", "url": "https://modelcontextprotocol.io", "result": 0 }]
+  },
+  "results": [{
+    "title": "Model Context Protocol",
+    "url": "https://modelcontextprotocol.io",
+    "snippet": "An open protocol for connecting AI assistants…"
+  }]
 }`}
                 />
               </div>
@@ -254,8 +257,8 @@ const integrations = ['Tavily', 'Brave Search', 'Serper', 'Exa'];
       <p class="text-sm font-semibold text-brand-600">Capabilities</p>
       <h2 class="mt-2 text-3xl sm:text-4xl">Text &amp; Search, ready for your agent</h2>
       <p class="mt-4 text-lg leading-relaxed text-ink-600">
-        Search finds the page. Scrape reads it. Extract structures it. Crawl maps it. Every step
-        returns the same predictable JSON your agent already knows how to parse.
+        Search the live web, understand what the query is asking, synthesize answers with source
+        citations, and optionally extract clean text from public result pages.
       </p>
     </div>
 
