@@ -99,9 +99,13 @@ key are usage-tracked and use the deployment's configured search-provider creden
 provider keys continue to work as before.
 
 This is an account foundation, not a billing launch: paid subscriptions, plan changes and quota
-enforcement are not enabled. To activate accounts, configure the Supabase variables in
-[`.env.example`](.env.example), enable Email and Google in Supabase Auth, and apply
-[`supabase/migrations/202610160001_account_dashboard.sql`](supabase/migrations/202610160001_account_dashboard.sql). Enable Email and Google providers in Supabase; add your production, local, and Vercel preview callback URLs (`/dashboard` and `/login?mode=update`) to its redirect allow-list. Google OAuth client credentials are configured in Supabase, not committed here.
+enforcement are not enabled. Apply
+[`supabase/migrations/202610160001_account_dashboard.sql`](supabase/migrations/202610160001_account_dashboard.sql)
+and enable Email in Supabase Auth. Because Astro statically builds `/login` and `/dashboard`, add
+`PUBLIC_SUPABASE_URL` and `PUBLIC_SUPABASE_ANON_KEY` to Vercel Preview (and Production when ready),
+using the same project URL and public anon/publishable key as the Supabase integration variables.
+These two values are public; never put `SUPABASE_SECRET_KEY` or `SUPABASE_SERVICE_ROLE_KEY` in a
+`PUBLIC_` variable. Google OAuth is optional and can be configured later.
 
 ---
 

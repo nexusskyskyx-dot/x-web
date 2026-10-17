@@ -1,9 +1,12 @@
 ---
 import Base from '../layouts/Base.astro';
+
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL ?? '';
+const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '';
 ---
 
 <Base title="Dashboard — x-web" description="Manage your x-web API keys, plan, and usage." >
-  <section data-dashboard class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+  <section data-dashboard data-supabase-url={supabaseUrl} data-supabase-anon-key={supabaseAnonKey} class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div><p class="text-xs font-semibold tracking-wider text-brand-700 uppercase">Developer console</p><h1 class="mt-1 text-3xl font-bold tracking-tight text-ink-950">Dashboard</h1><p class="mt-1 text-sm text-ink-500" data-welcome>Loading your account…</p></div>
       <div class="flex gap-2"><a href="/docs/quickstart" class="btn-ghost btn-sm">Quickstart</a><button type="button" data-signout class="btn-ghost btn-sm">Sign out</button></div>
@@ -65,11 +68,16 @@ import Base from '../layouts/Base.astro';
   const showError = (message: string) => { if (errorBox) { errorBox.textContent = message; errorBox.classList.remove('hidden'); } };
   const setText = (selector: string, value: string) => { const element = root?.querySelector<HTMLElement>(selector); if (element) element.textContent = value; };
 
-  let publicConfig: { supabaseUrl?: string; supabaseAnonKey?: string; detected?: { url?: string | null; public_key?: string | null; server_key?: string | null } } = {};
-  try {
-    const response = await fetch('/api/config', { cache: 'no-store' });
-    if (response.ok) publicConfig = await response.json();
-  } catch { /* Render a helpful setup state below. */ }
+  let publicConfig: { supabaseUrl?: string; supabaseAnonKey?: string; detected?: { url?: string | null; public_key?: string | null; server_key?: string | null } } = {
+    supabaseUrl: root.dataset.supabaseUrl || undefined,
+    supabaseAnonKey: root.dataset.supabaseAnonKey || undefined,
+  };
+  if (!publicConfig.supabaseUrl || !publicConfig.supabaseAnonKey) {
+    try {
+      const response = await fetch('/api/config', { cache: 'no-store' });
+      if (response.ok) publicConfig = { ...publicConfig, ...await response.json() };
+    } catch { /* Render a helpful setup state below. */ }
+  }
   const url = publicConfig.supabaseUrl;
   const anonKey = publicConfig.supabaseAnonKey;
 
