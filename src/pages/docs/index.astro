@@ -52,10 +52,11 @@ const capabilities = [
       </div>
     ))}
   </div>
-  <Callout type="note" title="Answer synthesis is transparent">
-    If an answer-model key is configured, x-web uses it to synthesize from retrieved sources. If
-    not, it returns an upstream provider answer when available or selects relevant source sentences.
-    The <code>answer.mode</code> field tells you which path actually ran.
+  <Callout type="note" title="Built-in AI and Bring Your Own Key">
+    Save an OpenAI, Anthropic (Claude), or Groq key in your account dashboard to choose the model
+    yourself; x-web encrypts it and sends it only to that provider. Without a personal key, x-web
+    uses its server-managed default AI model when enabled, then falls back to a provider answer or
+    cited source sentences. The response reports the actual answer mode and AI key source.
   </Callout>
 
   <h2 id="base-url">Base URL &amp; authentication</h2>
