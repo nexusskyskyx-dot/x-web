@@ -1,0 +1,176 @@
+---
+import Base from '../layouts/Base.astro';
+
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL ?? '';
+const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? '';
+---
+
+<Base title="Sign in — x-web" description="Sign in or create an x-web developer account." >
+  <section class="mx-auto flex min-h-[calc(100dvh-10rem)] max-w-7xl items-center justify-center px-4 py-12 sm:px-6">
+    <div class="w-full max-w-md">
+      <div class="mb-7 text-center">
+        <div class="ring-gradient mx-auto grid h-12 w-12 place-items-center rounded-2xl text-xl font-bold text-white shadow-card">x</div>
+        <h1 class="mt-4 text-3xl font-bold tracking-tight text-ink-950" data-auth-title>Welcome back</h1>
+        <p class="mt-2 text-sm text-ink-500" data-auth-subtitle>Sign in to manage your x-web account.</p>
+      </div>
+
+      <div data-auth-app data-supabase-url={supabaseUrl} data-supabase-anon-key={supabaseAnonKey} class="rounded-2xl border border-ink-100 bg-white p-5 shadow-card sm:p-7">
+        <div data-auth-status role="status" aria-live="polite" class="mb-4 hidden rounded-xl border px-3 py-2.5 text-sm"></div>
+        <button type="button" data-google class="flex min-h-12 w-full items-center justify-center gap-2.5 rounded-xl border border-ink-200 bg-white px-4 text-sm font-semibold text-ink-800 transition hover:border-brand-300 hover:bg-brand-50/40">
+          <svg aria-hidden="true" viewBox="0 0 24 24" class="h-4 w-4"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.75 3.27-8.1Z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.65l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.28-1.93-6.15-4.53H2.16v2.84A11 11 0 0 0 12 23Z"/><path fill="#FBBC05" d="M5.85 14.11a6.6 6.6 0 0 1 0-4.22V7.05H2.16a11 11 0 0 0 0 9.9l3.69-2.84Z"/><path fill="#EA4335" d="M12 4.36c1.62 0 3.06.56 4.2 1.66l3.15-3.15C17.45 1.09 14.97 0 12 0a11 11 0 0 0-9.84 6.05l3.69 2.84C6.72 6.29 9.14 4.36 12 4.36Z"/></svg>
+          Continue with Google
+        </button>
+        <div class="my-5 flex items-center gap-3 text-[11px] font-medium uppercase tracking-wider text-ink-400"><span class="h-px flex-1 bg-ink-100"></span>or with email<span class="h-px flex-1 bg-ink-100"></span></div>
+
+        <form data-auth-form class="space-y-4">
+          <label class="block" data-name-field>
+            <span class="mb-1.5 block text-xs font-semibold text-ink-600">Name</span>
+            <input name="name" autocomplete="name" class="w-full rounded-xl border border-ink-200 px-3.5 py-3 text-base text-ink-900 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100" placeholder="Your name" />
+          </label>
+          <label class="block" data-email-field>
+            <span class="mb-1.5 block text-xs font-semibold text-ink-600">Email</span>
+            <input name="email" type="email" autocomplete="email" required class="w-full rounded-xl border border-ink-200 px-3.5 py-3 text-base text-ink-900 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100" placeholder="you@example.com" />
+          </label>
+          <label class="block">
+            <span class="mb-1.5 block text-xs font-semibold text-ink-600" data-password-label>Password</span>
+            <input name="password" type="password" autocomplete="new-password" required minlength="8" class="w-full rounded-xl border border-ink-200 px-3.5 py-3 text-base text-ink-900 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100" placeholder="At least 8 characters" />
+          </label>
+          <button type="submit" data-submit class="btn-primary min-h-12 w-full justify-center">Create account</button>
+        </form>
+
+        <button type="button" data-forgot class="mt-3 hidden w-full py-1 text-center text-xs font-medium text-brand-700 hover:underline">Forgot password?</button>
+        <p class="mt-5 text-center text-sm text-ink-500"><span data-switch-prompt>Already have an account?</span> <button type="button" data-switch class="font-semibold text-brand-700 hover:underline">Sign in</button></p>
+        <p class="mt-5 border-t border-ink-100 pt-4 text-center text-xs leading-relaxed text-ink-400">By continuing, you agree to use x-web responsibly. API keys are shown only once when created.</p>
+      </div>
+      <p class="mt-5 text-center text-xs text-ink-400"><a href="/" class="hover:text-brand-700">← Back to x-web</a></p>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import { createClient } from '@supabase/supabase-js';
+
+  const root = document.querySelector<HTMLElement>('[data-auth-app]');
+  const form = root?.querySelector<HTMLFormElement>('[data-auth-form]');
+  const status = root?.querySelector<HTMLElement>('[data-auth-status]');
+  const title = document.querySelector<HTMLElement>('[data-auth-title]');
+  const subtitle = document.querySelector<HTMLElement>('[data-auth-subtitle]');
+  const nameField = root?.querySelector<HTMLElement>('[data-name-field]');
+  const emailField = root?.querySelector<HTMLElement>('[data-email-field]');
+  const emailInput = root?.querySelector<HTMLInputElement>('[name="email"]');
+  const submit = root?.querySelector<HTMLButtonElement>('[data-submit]');
+  const switchButton = root?.querySelector<HTMLButtonElement>('[data-switch]');
+  const switchPrompt = root?.querySelector<HTMLElement>('[data-switch-prompt]');
+  const forgot = root?.querySelector<HTMLButtonElement>('[data-forgot]');
+  const password = root?.querySelector<HTMLInputElement>('[name="password"]');
+  const passwordLabel = root?.querySelector<HTMLElement>('[data-password-label]');
+  const google = root?.querySelector<HTMLButtonElement>('[data-google]');
+  let mode: 'signup' | 'login' | 'recovery' | 'update' = new URLSearchParams(location.search).get('mode') === 'update' ? 'update' : 'signup';
+
+  const announce = (message: string, kind: 'error' | 'success' | 'info' = 'info') => {
+    if (!status) return;
+    status.textContent = message;
+    status.className = `mb-4 rounded-xl border px-3 py-2.5 text-sm ${kind === 'error' ? 'border-rose-200 bg-rose-50 text-rose-700' : kind === 'success' ? 'border-brand-200 bg-brand-50 text-brand-800' : 'border-ink-200 bg-ink-50 text-ink-700'}`;
+    status.classList.remove('hidden');
+  };
+
+  const setMode = (next: typeof mode) => {
+    mode = next;
+    const recovery = mode === 'recovery';
+    const update = mode === 'update';
+    const signup = mode === 'signup';
+    if (title) title.textContent = recovery ? 'Reset your password' : update ? 'Choose a new password' : signup ? 'Create your account' : 'Welcome back';
+    if (subtitle) subtitle.textContent = recovery ? 'We’ll email you a secure password reset link.' : update ? 'Set a new password for your x-web account.' : signup ? 'Get your API keys and usage in one place.' : 'Sign in to manage your x-web account.';
+    if (nameField) nameField.classList.toggle('hidden', !signup);
+    if (emailField) emailField.classList.toggle('hidden', update);
+    if (emailInput) emailInput.required = !update;
+    if (passwordLabel) passwordLabel.textContent = update ? 'New password' : 'Password';
+    if (password) {
+      password.autocomplete = signup || update ? 'new-password' : 'current-password';
+      password.required = !recovery;
+      password.placeholder = recovery ? 'Leave blank' : 'At least 8 characters';
+    }
+    if (google) google.classList.toggle('hidden', recovery || update);
+    if (forgot) forgot.classList.toggle('hidden', mode !== 'login');
+    if (submit) submit.textContent = recovery ? 'Send reset link' : update ? 'Update password' : signup ? 'Create account' : 'Sign in';
+    if (switchPrompt) switchPrompt.textContent = signup ? 'Already have an account?' : 'New to x-web?';
+    if (switchButton) {
+      switchButton.textContent = signup ? 'Sign in' : 'Create account';
+      switchButton.classList.toggle('hidden', recovery || update);
+    }
+  };
+
+  if (!root || !form || !status) throw new Error('Authentication UI failed to initialize.');
+  const url = root.dataset.supabaseUrl;
+  const anonKey = root.dataset.supabaseAnonKey;
+  if (!url || !anonKey) {
+    announce('Authentication is not configured yet. Set PUBLIC_SUPABASE_URL and PUBLIC_SUPABASE_ANON_KEY, then enable Email and Google sign-in in Supabase.', 'error');
+    if (submit) submit.disabled = true;
+    if (google) google.disabled = true;
+    setMode(mode);
+  } else {
+    const supabase = createClient(url, anonKey);
+    if (mode !== 'update') {
+      supabase.auth.getSession().then(({ data }) => { if (data.session) location.replace('/dashboard'); });
+    }
+    setMode(mode);
+
+    switchButton?.addEventListener('click', () => {
+      setMode(mode === 'signup' ? 'login' : 'signup');
+      status.classList.add('hidden');
+    });
+
+    forgot?.addEventListener('click', async () => {
+      const email = String(new FormData(form).get('email') ?? '').trim();
+      if (!email) return announce('Enter your email first.', 'error');
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}/login?mode=update` });
+      if (error) announce(error.message, 'error');
+      else announce('If that email has an account, a password reset link is on its way.', 'success');
+    });
+
+    google?.addEventListener('click', async () => {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: `${location.origin}/dashboard` },
+      });
+      if (error) announce(error.message, 'error');
+    });
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const data = new FormData(form);
+      const email = String(data.get('email') ?? '').trim();
+      const pass = String(data.get('password') ?? '');
+      if (submit) { submit.disabled = true; submit.textContent = 'Please wait…'; }
+      status.classList.add('hidden');
+      try {
+        if (mode === 'signup') {
+          const { data: result, error } = await supabase.auth.signUp({
+            email,
+            password: pass,
+            options: { data: { full_name: String(data.get('name') ?? '').trim() }, emailRedirectTo: `${location.origin}/dashboard` },
+          });
+          if (error) throw error;
+          if (result.session) location.assign('/dashboard');
+          else announce('Check your inbox to confirm your email, then sign in.', 'success');
+        } else if (mode === 'login') {
+          const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+          if (error) throw error;
+          location.assign('/dashboard');
+        } else if (mode === 'recovery') {
+          const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}/login?mode=update` });
+          if (error) throw error;
+          announce('If that email has an account, a password reset link is on its way.', 'success');
+        } else {
+          const { error } = await supabase.auth.updateUser({ password: pass });
+          if (error) throw error;
+          location.assign('/dashboard');
+        }
+      } catch (error) {
+        announce(error instanceof Error ? error.message : 'Could not complete sign-in.', 'error');
+      } finally {
+        if (submit) { submit.disabled = false; setMode(mode); }
+      }
+    });
+  }
+</script>

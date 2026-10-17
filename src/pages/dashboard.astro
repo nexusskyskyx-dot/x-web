@@ -1,0 +1,156 @@
+---
+import Base from '../layouts/Base.astro';
+
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL ?? '';
+const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? '';
+---
+
+<Base title="Dashboard — x-web" description="Manage your x-web API keys, plan, and usage." >
+  <section data-dashboard data-supabase-url={supabaseUrl} data-supabase-anon-key={supabaseAnonKey} class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div><p class="text-xs font-semibold tracking-wider text-brand-700 uppercase">Developer console</p><h1 class="mt-1 text-3xl font-bold tracking-tight text-ink-950">Dashboard</h1><p class="mt-1 text-sm text-ink-500" data-welcome>Loading your account…</p></div>
+      <div class="flex gap-2"><a href="/docs/quickstart" class="btn-ghost btn-sm">Quickstart</a><button type="button" data-signout class="btn-ghost btn-sm">Sign out</button></div>
+    </div>
+
+    <div data-dashboard-error role="status" aria-live="polite" class="mt-5 hidden rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"></div>
+
+    <div class="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4" data-stats>
+      <article class="rounded-2xl border border-ink-100 bg-white p-5 shadow-card"><p class="text-xs font-medium text-ink-500">Current plan</p><p class="mt-2 text-2xl font-bold text-ink-900" data-stat-plan>—</p><p class="mt-1 text-xs text-ink-400" data-stat-plan-note>Billing is not enabled yet.</p></article>
+      <article class="rounded-2xl border border-ink-100 bg-white p-5 shadow-card"><p class="text-xs font-medium text-ink-500">Requests this month</p><p class="mt-2 text-2xl font-bold text-ink-900" data-stat-usage>—</p><p class="mt-1 text-xs text-ink-400">Tracked through x-web API keys</p></article>
+      <article class="rounded-2xl border border-ink-100 bg-white p-5 shadow-card"><p class="text-xs font-medium text-ink-500">Active API keys</p><p class="mt-2 text-2xl font-bold text-ink-900" data-stat-keys>—</p><p class="mt-1 text-xs text-ink-400">Secrets are only shown once</p></article>
+      <article class="rounded-2xl border border-ink-100 bg-white p-5 shadow-card"><p class="text-xs font-medium text-ink-500">Account</p><p class="mt-2 truncate text-sm font-semibold text-ink-900" data-stat-email>—</p><p class="mt-1 text-xs text-ink-400">Authenticated with Supabase</p></article>
+    </div>
+
+    <div class="mt-7 grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
+      <section class="rounded-2xl border border-ink-100 bg-white shadow-card">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 px-5 py-4">
+          <div><h2 class="font-semibold text-ink-900">API keys</h2><p class="mt-0.5 text-xs text-ink-500">Use an x-web key with the <code>x-xweb-key</code> header.</p></div>
+          <div class="flex w-full gap-2 sm:w-auto">
+            <input data-key-name maxlength="48" aria-label="API key name" placeholder="Key name" class="min-w-0 flex-1 rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 sm:w-36 sm:flex-none" />
+            <button type="button" data-create-key class="btn-primary btn-sm">Create key</button>
+          </div>
+        </div>
+        <div data-new-key class="hidden border-b border-brand-200 bg-brand-50 p-5">
+          <p class="text-sm font-semibold text-brand-900">Copy your new key now</p>
+          <p class="mt-1 text-xs text-brand-800">For security, x-web will not show this secret again.</p>
+          <div class="mt-3 flex flex-col gap-2 sm:flex-row"><code data-secret class="min-w-0 flex-1 overflow-x-auto rounded-lg border border-brand-200 bg-white p-3 text-xs text-ink-800"></code><button type="button" data-copy-key class="btn-ghost btn-sm border-brand-200">Copy key</button></div>
+        </div>
+        <div data-key-list class="divide-y divide-ink-100"><p class="px-5 py-8 text-center text-sm text-ink-400">Loading keys…</p></div>
+      </section>
+
+      <section class="rounded-2xl border border-ink-100 bg-white shadow-card">
+        <div class="border-b border-ink-100 px-5 py-4"><h2 class="font-semibold text-ink-900">Plan</h2><p class="mt-0.5 text-xs text-ink-500">Your current account tier.</p></div>
+        <div class="p-5"><div class="flex items-center justify-between"><p class="text-2xl font-bold text-ink-900" data-plan-name>Free</p><span class="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700" data-plan-status>Active</span></div><p class="mt-2 text-sm leading-relaxed text-ink-500">Plan display is active. Paid upgrades, billing, and quota enforcement are not enabled yet.</p><a href="/docs/api" class="mt-4 inline-flex text-sm font-semibold text-brand-700 hover:underline">Explore the API →</a></div>
+      </section>
+    </div>
+
+    <section class="mt-6 rounded-2xl border border-ink-100 bg-white shadow-card">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 px-5 py-4"><div><h2 class="font-semibold text-ink-900">Recent API usage</h2><p class="mt-0.5 text-xs text-ink-500">Requests made with your x-web account keys this month.</p></div><span class="font-mono text-xs text-ink-400" data-usage-month></span></div>
+      <div class="overflow-x-auto"><table class="w-full min-w-[600px] text-left text-sm"><thead class="bg-ink-50 text-[11px] tracking-wider text-ink-500 uppercase"><tr><th class="px-5 py-3 font-semibold">Time</th><th class="px-5 py-3 font-semibold">Endpoint</th><th class="px-5 py-3 font-semibold">Provider</th><th class="px-5 py-3 text-right font-semibold">Results</th></tr></thead><tbody data-usage-list class="divide-y divide-ink-100"><tr><td colspan="4" class="px-5 py-8 text-center text-sm text-ink-400">Loading usage…</td></tr></tbody></table></div>
+    </section>
+    <p class="mt-5 text-xs leading-relaxed text-ink-400">Usage tracks successful requests authenticated with x-web API keys. Searches using your own provider key in the playground are not included.</p>
+  </section>
+</Base>
+
+<script>
+  import { createClient } from '@supabase/supabase-js';
+
+  const root = document.querySelector<HTMLElement>('[data-dashboard]');
+  if (!root) throw new Error('Dashboard failed to initialize.');
+  const url = root.dataset.supabaseUrl;
+  const anonKey = root.dataset.supabaseAnonKey;
+  const errorBox = root.querySelector<HTMLElement>('[data-dashboard-error]');
+  const keyList = root.querySelector<HTMLElement>('[data-key-list]');
+  const usageList = root.querySelector<HTMLElement>('[data-usage-list]');
+  const newKeyBox = root.querySelector<HTMLElement>('[data-new-key]');
+  const secretEl = root.querySelector<HTMLElement>('[data-secret]');
+  let revealedSecret = '';
+
+  const escapeHtml = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char);
+  const showError = (message: string) => { if (errorBox) { errorBox.textContent = message; errorBox.classList.remove('hidden'); } };
+  const setText = (selector: string, value: string) => { const element = root?.querySelector<HTMLElement>(selector); if (element) element.textContent = value; };
+
+  if (!url || !anonKey) {
+    showError('Dashboard authentication is not configured. Set PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY.');
+    root.querySelectorAll<HTMLButtonElement>('[data-signout], [data-create-key], [data-copy-key]').forEach((button) => { button.disabled = true; });
+    if (keyList) keyList.innerHTML = '<p class="px-5 py-8 text-center text-sm text-ink-500">Account setup is required.</p>';
+    if (usageList) usageList.innerHTML = '<tr><td colspan="4" class="px-5 py-8 text-center text-sm text-ink-500">Account setup is required.</td></tr>';
+  } else {
+    const supabase = createClient(url, anonKey);
+    const { data: sessionData } = await supabase.auth.getSession();
+    let session = sessionData.session;
+    if (!session) location.replace('/login');
+
+    const request = async (path: string, init: RequestInit = {}) => {
+      const { data } = await supabase.auth.getSession();
+      session = data.session;
+      if (!session) { location.replace('/login'); throw new Error('Sign-in required.'); }
+      const response = await fetch(path, {
+        ...init,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}`, ...(init.headers ?? {}) },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error?.message ?? `Request failed (${response.status}).`);
+      return payload;
+    };
+
+    const renderKeys = (keys: any[]) => {
+      if (!keyList) return;
+      if (!keys.length) { keyList.innerHTML = '<p class="px-5 py-8 text-center text-sm text-ink-500">No active keys. Create one to call the x-web API.</p>'; return; }
+      keyList.innerHTML = keys.map((item) => `<div class="flex flex-col justify-between gap-3 px-5 py-4 sm:flex-row sm:items-center"><div class="min-w-0"><p class="truncate text-sm font-semibold text-ink-800">${escapeHtml(item.name)}</p><p class="mt-1 font-mono text-xs text-ink-500">${escapeHtml(item.prefix)}••••••••</p><p class="mt-1 text-[11px] text-ink-400">Created ${escapeHtml(new Date(item.created_at).toLocaleDateString())}${item.last_used_at ? ` · Last used ${escapeHtml(new Date(item.last_used_at).toLocaleString())}` : ' · Never used'}</p></div><button type="button" data-revoke-key="${escapeHtml(item.id)}" class="btn-ghost btn-sm self-start text-rose-700 hover:bg-rose-50 sm:self-center">Revoke</button></div>`).join('');
+    };
+
+    const load = async () => {
+      try {
+        const data = await request('/api/account/overview');
+        setText('[data-welcome]', data.profile?.full_name ? `Welcome, ${data.profile.full_name}` : data.profile?.email ?? 'Welcome to x-web.');
+        setText('[data-stat-email]', data.profile?.email ?? '—');
+        setText('[data-stat-plan]', data.profile?.plan_label ?? 'Free');
+        setText('[data-plan-name]', data.profile?.plan_label ?? 'Free');
+        setText('[data-stat-plan-note]', 'Plan billing is not enabled');
+        setText('[data-stat-usage]', Number(data.usage?.requests_this_month ?? 0).toLocaleString());
+        setText('[data-stat-keys]', String(data.keys?.length ?? 0));
+        setText('[data-usage-month]', data.usage?.month_label ?? 'This month');
+        renderKeys(Array.isArray(data.keys) ? data.keys : []);
+        if (usageList) {
+          const rows = Array.isArray(data.usage?.recent) ? data.usage.recent : [];
+          usageList.innerHTML = rows.length ? rows.map((row: any) => `<tr><td class="whitespace-nowrap px-5 py-3 text-xs text-ink-600">${escapeHtml(new Date(row.created_at).toLocaleString())}</td><td class="px-5 py-3 font-mono text-xs text-ink-600">${escapeHtml(row.endpoint)}</td><td class="px-5 py-3 text-xs text-ink-600">${escapeHtml(row.provider)}</td><td class="px-5 py-3 text-right text-xs text-ink-600">${escapeHtml(row.result_count)}</td></tr>`).join('') : '<tr><td colspan="4" class="px-5 py-8 text-center text-sm text-ink-400">No API requests recorded this month.</td></tr>';
+        }
+      } catch (error) { showError(error instanceof Error ? error.message : 'Could not load account data.'); }
+    };
+
+    root.querySelector('[data-signout]')?.addEventListener('click', async () => { await supabase.auth.signOut(); location.assign('/login'); });
+    root.querySelector('[data-create-key]')?.addEventListener('click', async () => {
+      const nameInput = root.querySelector<HTMLInputElement>('[data-key-name]');
+      const name = nameInput?.value.trim() ?? '';
+      if (!name) { showError('Enter a name for the new API key.'); nameInput?.focus(); return; }
+      try {
+        const data = await request('/api/account/keys', { method: 'POST', body: JSON.stringify({ name }) });
+        if (nameInput) nameInput.value = '';
+        revealedSecret = data.key;
+        if (secretEl) secretEl.textContent = revealedSecret;
+        newKeyBox?.classList.remove('hidden');
+        await load();
+      } catch (error) { showError(error instanceof Error ? error.message : 'Could not create API key.'); }
+    });
+    root.querySelector('[data-copy-key]')?.addEventListener('click', async (event) => {
+      if (!revealedSecret) return;
+      try {
+        await navigator.clipboard.writeText(revealedSecret);
+        const button = event.currentTarget as HTMLButtonElement;
+        button.textContent = 'Copied';
+        setTimeout(() => { button.textContent = 'Copy key'; }, 1600);
+      } catch { showError('Clipboard access failed. Select and copy the key manually.'); }
+    });
+    keyList?.addEventListener('click', async (event) => {
+      const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-revoke-key]');
+      const id = button?.dataset.revokeKey;
+      if (!id || !confirm('Revoke this API key? Requests using it will stop working.')) return;
+      try { await request(`/api/account/keys/${encodeURIComponent(id)}`, { method: 'DELETE' }); await load(); }
+      catch (error) { showError(error instanceof Error ? error.message : 'Could not revoke API key.'); }
+    });
+
+    await load();
+    supabase.auth.onAuthStateChange((_event, nextSession) => { if (!nextSession) location.replace('/login'); });
+  }
+</script>

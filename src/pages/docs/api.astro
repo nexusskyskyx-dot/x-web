@@ -9,6 +9,7 @@ import ImagePlayground from '../../components/ImagePlayground.astro';
 
 const toc = [
   { id: 'authentication', text: 'Authentication' },
+  { id: 'accounts', text: 'Accounts & dashboard' },
   { id: 'search', text: 'POST /api/v1/search' },
   { id: 'intent', text: 'POST /api/v1/intent' },
   { id: 'extract', text: 'POST /api/v1/extract' },
@@ -69,9 +70,11 @@ const errorRows = [
 
   <h2 id="authentication">Authentication</h2>
   <p>
-    x-web does not issue its own account keys yet. For now, send your search provider's key using
-    <code>x-xweb-key</code> or <code>Authorization: Bearer …</code>. You can also configure a provider
-    key on the server with <code>XWEB_SEARCH_API_KEY</code> (or a provider-specific key).
+    Search accepts a provider key using <code>x-xweb-key</code> or
+    <code>Authorization: Bearer …</code>. Signed-in users can also create an x-web API key in the
+    dashboard; that key authenticates your account and usage, while the deployment uses its own
+    configured provider key to run the search. Server-side provider keys may be configured with
+    <code>XWEB_SEARCH_API_KEY</code> or the provider-specific environment variables.
   </p>
   <CodeBlock
     lang="bash"
@@ -84,6 +87,27 @@ Content-Type: application/json`}
     this site's server-side proxy; production API keys, accounts, plans and billing are not part of
     this first API milestone.
   </Callout>
+
+  <h2 id="accounts">Accounts & dashboard</h2>
+  <p>
+    Sign up with email/password or Google at <code>/login</code>, then manage your plan label,
+    monthly usage, recent requests and API keys at <code>/dashboard</code>. Enable Email and Google
+    providers in Supabase Auth, set <code>PUBLIC_SUPABASE_URL</code>,
+    <code>PUBLIC_SUPABASE_ANON_KEY</code>, <code>SUPABASE_URL</code>,
+    <code>SUPABASE_ANON_KEY</code>, and the server-only <code>SUPABASE_SERVICE_ROLE_KEY</code>.
+    Apply <code>supabase/migrations/202610160001_account_dashboard.sql</code> to the project database.
+    Configure the Supabase redirect allow-list for <code>/dashboard</code> and
+    <code>/login?mode=update</code>; enter Google OAuth client credentials in Supabase Auth.
+  </p>
+  <p>
+    Dashboard APIs use the Supabase access token as a Bearer token:
+    <code>GET /api/account/overview</code>, <code>POST /api/account/keys</code>, and
+    <code>DELETE /api/account/keys/:id</code>. New x-web keys are shown only once and stored as
+    SHA-256 hashes. Use one with <code>X-XWeb-Key</code> to call search. Account keys require a
+    provider key configured on the x-web server; otherwise use your own provider key as before.
+    Usage counts successful searches made with x-web account keys. Plan display is available, but
+    paid subscriptions and quota enforcement are not enabled yet.
+  </p>
 
   <h2 id="search">Search the web</h2>
   <Endpoint

@@ -9,6 +9,7 @@
 import type { APIContext } from 'astro';
 import { runPipeline, PipelineError } from '../../../lib/pipeline.ts';
 import { SearchError } from '../../../lib/search.ts';
+import { AccountAuthError, authenticateAccountApiKey, extractAccountApiKey, recordApiUsage, type AuthenticatedApiKey } from '../../../lib/account.ts';
 import {
   json,
   errorResponse,
@@ -49,15 +50,7 @@ export async function POST({ request, clientAddress }: APIContext) {
     return invalidRequest('Request body must be valid JSON.', undefined, 'invalid_json');
   }
 
-  const { key, provider, source } = resolveKey(request, body);
-  if (!key) return missingKeyResponse();
-
-  try {
-    const result = await runPipeline({ ...body, provider: body.provider ?? provider }, { apiKey: key });
-    return json(result, 200, { 'X-XWEB-Key-Source': source });
-  } catch (error) {
-    return handleError(error);
-  }
+  return runSearchRequest(request, body);
 }
 
 /** Read-only searches via query string — handy for curl and for agents that GET. */
@@ -75,12 +68,40 @@ export async function GET({ url, request, clientAddress }: APIContext) {
   const body = searchParamsToBody(url);
   if (!body.query) return invalidRequest('`query` is required.', 'query', 'missing_query');
 
-  const { key, provider, source } = resolveKey(request, body);
-  if (!key) return missingKeyResponse();
+  return runSearchRequest(request, body);
+}
+
+async function runSearchRequest(request: Request, body: Record<string, unknown>): Promise<Response> {
+  let accountKey: AuthenticatedApiKey | undefined;
+  const presentedAccountKey = extractAccountApiKey(request);
+  if (presentedAccountKey) {
+    try { accountKey = await authenticateAccountApiKey(presentedAccountKey); }
+    catch (error) {
+      if (error instanceof AccountAuthError) {
+        return errorResponse({ type: error.status === 401 ? 'authentication_error' : 'internal_error', code: error.code, message: error.message }, error.status);
+      }
+      return internalError('Could not validate API key.');
+    }
+  }
+
+  // An x-web account key identifies the caller. It is not a search-provider
+  // credential; use the deployment's provider key to execute the query.
+  const keyRequest = accountKey ? new Request(request.url) : request;
+  const keyBody = accountKey ? { provider: body.provider } : body;
+  const { key, provider, source } = resolveKey(keyRequest, keyBody);
+  if (!key) {
+    if (accountKey) {
+      return errorResponse({ type: 'upstream_error', code: 'search_provider_not_configured', message: 'This x-web deployment has no search provider key configured yet.' }, 503);
+    }
+    return missingKeyResponse();
+  }
 
   try {
     const result = await runPipeline({ ...body, provider: body.provider ?? provider }, { apiKey: key });
-    return json(result, 200, { 'X-XWEB-Key-Source': source });
+    if (accountKey) {
+      await recordApiUsage(accountKey, { endpoint: '/api/v1/search', provider: result.provider, resultCount: result.results.length, durationMs: result.took_ms });
+    }
+    return json(result, 200, { 'X-XWEB-Key-Source': accountKey ? 'account' : source });
   } catch (error) {
     return handleError(error);
   }

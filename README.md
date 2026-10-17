@@ -90,13 +90,18 @@ not a confidence probability; confidence scoring and personalized ranking are de
 Other configured provider-specific keys may be used for the same federated query, but a visitor key
 is never reused as another provider's credential. Request keys are not persisted or written to browser storage.
 
-### What is not live yet
+### Accounts and the developer dashboard
 
-x-web does not yet issue its own API keys or accounts. There is no account creation, plan selection,
-subscription or payment flow in this milestone. Users currently supply a key for one of the four
-supported search providers, or the site owner configures a provider key server-side. The future
-account/billing layer can replace that credential model without changing these search, intent and
-extraction contracts.
+`/login` supports email/password and Google through Supabase Auth. `/dashboard` shows the account's
+Free plan label, monthly usage and recent requests, and supports creating (shown once) and revoking
+x-web API keys. Account keys are stored as SHA-256 hashes. Calls authenticated with an x-web account
+key are usage-tracked and use the deployment's configured search-provider credentials; bring-your-own
+provider keys continue to work as before.
+
+This is an account foundation, not a billing launch: paid subscriptions, plan changes and quota
+enforcement are not enabled. To activate accounts, configure the Supabase variables in
+[`.env.example`](.env.example), enable Email and Google in Supabase Auth, and apply
+[`supabase/migrations/202610160001_account_dashboard.sql`](supabase/migrations/202610160001_account_dashboard.sql). Enable Email and Google providers in Supabase; add your production, local, and Vercel preview callback URLs (`/dashboard` and `/login?mode=update`) to its redirect allow-list. Google OAuth client credentials are configured in Supabase, not committed here.
 
 ---
 
@@ -115,6 +120,9 @@ project settings.
 | `EXA_API_KEY`            | Exa key                                                        |
 | `XWEB_IMAGE_SEARCH_PROVIDER` | Default image provider: `brave` or `serper`                 |
 | `XWEB_IMAGE_SEARCH_API_KEY` | Optional dedicated server-side image search key               |
+| `PUBLIC_SUPABASE_URL` / `SUPABASE_URL` | Supabase project URL (public browser value and server value) |
+| `PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_ANON_KEY` | Supabase anon/publishable key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only Supabase key for account, API-key and usage operations |
 | `XWEB_API_BASE`          | Forward to a real x-web deployment instead of a provider       |
 | `SITE_URL`               | Canonical site URL used for canonical links and the sitemap     |
 
