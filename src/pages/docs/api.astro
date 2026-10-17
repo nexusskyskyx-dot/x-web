@@ -70,11 +70,11 @@ const errorRows = [
 
   <h2 id="authentication">Authentication</h2>
   <p>
-    Search accepts a provider key using <code>x-xweb-key</code> or
-    <code>Authorization: Bearer …</code>. Signed-in users can also create an x-web API key in the
-    dashboard; that key authenticates your account and usage, while the deployment uses its own
-    configured provider key to run the search. Server-side provider keys may be configured with
-    <code>XWEB_SEARCH_API_KEY</code> or the provider-specific environment variables.
+    Search accepts either an x-web API key or a provider key in <code>x-xweb-key</code> or
+    <code>Authorization: Bearer …</code>. For the account workflow, add Tavily, Brave Search,
+    Serper and/or Exa credentials in your <a href="/dashboard">dashboard</a>, then send your x-web
+    API key. x-web uses the provider key saved to your account server-side. Direct provider keys and
+    server-configured provider keys are also supported.
   </p>
   <CodeBlock
     lang="bash"
@@ -83,16 +83,17 @@ const errorRows = [
 Content-Type: application/json`}
   />
   <Callout type="warning" title="Keep provider keys private">
-    Never put a provider key in browser code or a public repository. The playground sends a key to
-    this site's server-side proxy; production API keys, accounts, plans and billing are not part of
-    this first API milestone.
+    Never put a provider key in browser code or a public repository. For regular use, save provider
+    credentials in your account dashboard and send your x-web API key from your server. Direct
+    provider-key requests are intended for server-side use; the playground does not store keys.
   </Callout>
 
   <h2 id="accounts">Accounts & dashboard</h2>
   <p>
-    Sign up with email/password or Google at <code>/login</code>, then manage your plan label,
-    monthly usage, recent requests and API keys at <code>/dashboard</code>. Enable Email and Google
-    providers in Supabase Auth, set <code>PUBLIC_SUPABASE_URL</code>,
+    Sign up with email/password at <code>/login</code>, then manage your plan label, monthly usage,
+    recent requests, x-web API keys, and provider credentials at <code>/dashboard</code>. Add keys
+    for Tavily, Brave Search, Serper and/or Exa there; account-authenticated searches use those
+    saved credentials. Set <code>PUBLIC_SUPABASE_URL</code>,
     <code>PUBLIC_SUPABASE_ANON_KEY</code>, <code>SUPABASE_URL</code>,
     a public Supabase key (<code>SUPABASE_ANON_KEY</code> or
     <code>SUPABASE_PUBLISHABLE_KEY</code>), and the server-only

@@ -102,8 +102,8 @@ const features = [
 
 const steps = [
   {
-    title: 'Choose a provider',
-    body: 'Use a Tavily, Brave, Serper or Exa key. x-web account keys and paid plans are a later milestone.',
+    title: 'Connect a provider',
+    body: 'Add a Tavily, Brave Search, Serper or Exa key in your account dashboard, then call search with your x-web API key.'
   },
   {
     title: 'Call the search API',
@@ -118,7 +118,7 @@ const steps = [
 const faqs = [
   {
     q: 'Do I need a provider key?',
-    a: 'Yes, for search today. Use a key from Tavily, Brave Search, Serper or Exa, or configure one on your server. x-web account keys and pooled credits are not live yet.',
+    a: 'Yes. Connect Tavily, Brave Search, Serper or Exa in your account dashboard. Then use your x-web API key for searches; you can also provide a provider key directly for a one-off request.'
   },
   {
     q: 'Are the results current?',
@@ -429,8 +429,9 @@ const integrations = ['Tavily', 'Brave Search', 'Serper', 'Exa'];
       <p class="text-sm font-semibold text-brand-700">Developer console</p>
       <h2 class="mt-2 text-3xl sm:text-4xl">Your API keys and usage, in one place</h2>
       <p class="mt-4 max-w-2xl leading-relaxed text-ink-600">
-        Create an account with email or Google, issue and revoke x-web API keys, and review recent
-        requests on your dashboard. Plan billing and paid upgrades are not enabled yet.
+        Create an account, connect your Tavily, Brave Search, Serper and/or Exa keys, issue and revoke
+        x-web API keys, and review usage on your dashboard. Searches authenticated with your x-web key
+        use the provider credentials saved to your account. Paid upgrades are not enabled yet.
       </p>
       <a href="/login" class="btn-primary mt-6 inline-flex">Create your account</a>
     </div>

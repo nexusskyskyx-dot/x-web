@@ -7,7 +7,7 @@ import Icon from '../../components/Icons.astro';
 
 const toc = [
   { id: 'before-you-start', text: 'Before you start' },
-  { id: 'step-1', text: 'Choose a provider key' },
+  { id: 'step-1', text: 'Connect a provider' },
   { id: 'step-2', text: 'Search the live web' },
   { id: 'step-3', text: 'Read the cited answer' },
   { id: 'step-4', text: 'Add to an agent' },
@@ -18,7 +18,7 @@ const requests = [
     label: 'cURL',
     lang: 'bash',
     code: `curl -X POST "$XWEB_BASE/api/v1/search" \\
-  -H "X-XWeb-Key: $TAVILY_API_KEY" \\
+  -H "X-XWeb-Key: $XWEB_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "query": "What is the latest on the Model Context Protocol?",
@@ -33,7 +33,7 @@ const requests = [
   method: "POST",
   headers: {
     "Content-Type": "application/json",
-    "X-XWeb-Key": process.env.TAVILY_API_KEY,
+    "X-XWeb-Key": process.env.XWEB_API_KEY,
   },
   body: JSON.stringify({
     query: "What is the latest on the Model Context Protocol?",
@@ -51,7 +51,7 @@ const agentSnippet = `async function webSearch(query) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-XWeb-Key": process.env.TAVILY_API_KEY,
+      "X-XWeb-Key": process.env.XWEB_API_KEY,
     },
     body: JSON.stringify({
       query,
@@ -78,32 +78,35 @@ const agentSnippet = `async function webSearch(query) {
 >
   <h2 id="before-you-start">Before you start</h2>
   <p>
-    You need a key for a supported search provider: Tavily, Brave Search, Serper or Exa. x-web
-    currently proxies your provider key server-side; x-web account keys, subscriptions and billing
-    will come later.
+    Create an account, save a key for Tavily, Brave Search, Serper or Exa in your dashboard, and
+    create an x-web API key. Use that x-web key to authenticate search requests; x-web securely
+    retrieves your saved provider credential server-side. For a one-off request, you can instead
+    pass a provider key directly.
   </p>
   <ul>
     <li>A server-side runtime that can make HTTP requests.</li>
-    <li>A key from one of the supported search providers.</li>
+    <li>An x-web account/API key and a saved provider key (or a provider key for a one-off request).</li>
     <li>Your x-web deployment URL as <code>XWEB_BASE</code>.</li>
   </ul>
 
   <Callout type="warning" title="Never expose provider keys in browser code">
     Call x-web from your server or agent backend. Do not put the provider key in a public JavaScript
-    bundle, mobile app or checked-in source file. The API key is used for this request and is not
-    persisted as an x-web account credential.
+    bundle, mobile app or checked-in source file. A provider key entered directly is used for that request only; keys saved in your dashboard are
+    encrypted at rest for account-authenticated searches.
   </Callout>
 
-  <h2 id="step-1">Step 1 — Choose a provider key</h2>
+  <h2 id="step-1">Step 1 — Connect a provider and create your x-web key</h2>
   <p>
-    Get a key directly from your chosen provider and set it as a server environment variable. The
-    value is sent as <code>X-XWeb-Key</code>; <code>Authorization: Bearer …</code> also works.
+    Sign in at <a href="/login">/login</a>, open your <a href="/dashboard">dashboard</a>, and
+    save a key under Search providers for Tavily, Brave Search, Serper and/or Exa. Create an x-web
+    API key in the dashboard; that is the key your application sends to authenticate searches.
+    You may also send a provider key directly for one-off requests.
   </p>
   <CodeBlock
     lang="bash"
     title="server environment"
     code={`export XWEB_BASE="https://your-x-web-deployment.vercel.app"
-export TAVILY_API_KEY="tvly-…"`}
+export XWEB_API_KEY="xweb_…"`}
   />
 
   <h2 id="step-2">Step 2 — Search the live web</h2>

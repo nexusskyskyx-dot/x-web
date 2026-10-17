@@ -33,8 +33,9 @@ const capabilities = [
     optional cited answers, language detection and the interpretation used to search.
   </p>
   <p>
-    Search is currently powered by Tavily, Brave Search, Serper or Exa. Bring a key for one of those
-    providers, or configure one on your x-web deployment. x-web does not issue its own API keys yet.
+    Search is powered by Tavily, Brave Search, Serper or Exa. Sign in, save one or more provider keys
+    in your <a href="/dashboard">account dashboard</a>, and create an x-web API key to authenticate
+    searches. Alternatively, send a provider key directly for a one-off request.
   </p>
 
   <h2 id="capabilities">Text &amp; Search capabilities</h2>
@@ -85,9 +86,10 @@ const capabilities = [
 
   <h2 id="next">Accounts and dashboard</h2>
   <p>
-    Email/password and Google sign-in, API key creation/revocation, a Free plan label and monthly
-    usage dashboard are available when Supabase is configured. Paid plan selection, subscriptions
-    and quota enforcement are not live yet. See the <a href="/docs/api#accounts">account setup</a>
+    Sign in at <a href="/login">/login</a> to add provider keys for Tavily, Brave Search, Serper
+    and Exa, create or revoke x-web API keys, and view your plan and monthly usage. Use your x-web
+    API key for searches; the server uses the provider credentials saved to your account. Paid plan
+    selection, subscriptions and quota enforcement are not enabled. See the <a href="/docs/api#accounts">account setup</a>
     section in the API reference.
   </p>
 </Docs>
