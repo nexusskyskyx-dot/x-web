@@ -97,12 +97,9 @@ Free plan label, monthly usage and recent requests, and supports creating (shown
 x-web API keys. Account keys are stored as SHA-256 hashes. The dashboard also lets each account
 connect Tavily, Brave Search, Serper, and Exa credentials. Provider keys are AES-GCM encrypted before
 database storage and are never returned to the browser after saving; account-key searches use those
-credentials alongside any deployment-configured providers. The dashboard also supports AI Bring Your Own Key for OpenAI, Anthropic, and Groq; saved AI keys are
-encrypted at rest and used for that account's answer synthesis. Requests without a personal AI key use
-Cloudflare Workers AI by default when configured. Its free allocation is shared by x-web users and
-capped at 10,000 Neurons/day; when it is exhausted or unavailable, x-web falls back to
-provider/extractive answers rather than silently switching to a paid model. OpenAI, Anthropic, and Groq
-can be configured as optional server-managed alternatives.
+credentials alongside any deployment-configured providers. AI answer synthesis is BYOK-only: users can save an OpenAI, Anthropic, or Groq key, encrypted at rest,
+and x-web uses that key for their answer synthesis. Without a saved AI key, x-web returns the grounded
+provider answer when available or uses cited extractive synthesis; it does not call a server-managed AI model.
 
 This is an account foundation, not a billing launch: paid subscriptions, plan changes and quota
 enforcement are not enabled. Apply
@@ -139,9 +136,6 @@ project settings.
 | `PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_ANON_KEY` | Supabase anon/publishable key |
 | `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_SECRET_KEY` | Server-only Supabase key for account, API-key and usage operations |
 | `XWEB_PROVIDER_KEY_ENCRYPTION_KEY` | Random 32+ byte server-only secret for encrypting saved search and AI credentials |
-| `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN` | Server-only credentials for the built-in Cloudflare Workers AI free allocation |
-| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GROQ_API_KEY` | Optional server-managed alternatives (only used when Cloudflare isn't configured) |
-| `XWEB_ANSWER_MODEL` | Optional model override (default: `@cf/meta/llama-3.1-8b-instruct`) |
 | `XWEB_API_BASE`          | Forward to a real x-web deployment instead of a provider       |
 | `SITE_URL`               | Canonical site URL used for canonical links and the sitemap     |
 

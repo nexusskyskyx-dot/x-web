@@ -52,11 +52,11 @@ const capabilities = [
       </div>
     ))}
   </div>
-  <Callout type="note" title="Built-in AI and Bring Your Own Key">
-    Save an OpenAI, Anthropic (Claude), or Groq key in your account dashboard to choose the model
-    yourself; x-web encrypts it and sends it only to that provider. Without a personal key, x-web
-    uses its server-managed default AI model when enabled, then falls back to a provider answer or
-    cited source sentences. The response reports the actual answer mode and AI key source.
+  <Callout type="note" title="AI answers require your own key">
+    Save an OpenAI, Anthropic (Claude), or Groq key in your account dashboard; x-web encrypts it and
+    sends it only to that provider for answer synthesis. Without a saved key, x-web uses a provider
+    answer when available or cited source sentences—it does not use a built-in AI model. The response
+    reports the answer mode and BYOK provider.
   </Callout>
 
   <h2 id="base-url">Base URL &amp; authentication</h2>

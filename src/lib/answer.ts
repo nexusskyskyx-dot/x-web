@@ -21,7 +21,7 @@
 
 import { splitSentences, termCoverage, isNearDuplicate, truncateSentences } from './text.ts';
 import { env } from './env.ts';
-import { AI_DEFAULT_MODELS, type AiRuntimeConfig } from './ai-credentials.ts';
+import type { AiRuntimeConfig } from './ai-credentials.ts';
 
 export interface Citation {
   /** 1-based, matches the `[n]` markers in `text`. */
@@ -41,7 +41,7 @@ export interface Answer {
   /** Set when sources were too thin or off-topic to answer from. */
   declined?: boolean;
   ai_provider?: string;
-  ai_key_source?: 'byok' | 'xweb';
+  ai_key_source?: 'byok';
 }
 
 export interface AnswerSource {
@@ -53,7 +53,6 @@ export interface AnswerSource {
 
 const MIN_COVERAGE = 0.22;
 const MAX_ANSWER_CHARS = 900;
-const CLOUDFLARE_DEFAULT_MODEL = '@cf/meta/llama-3.1-8b-instruct';
 
 /** Copy that indicates boilerplate rather than content. */
 const BOILERPLATE =
@@ -200,11 +199,11 @@ interface LlmConfig {
   body: (query: string, prompt: string) => unknown;
   parse: (payload: any) => string | undefined;
   provider: string;
-  source: 'byok' | 'xweb';
+  source: 'byok';
 }
 
 function llmConfig(byok?: AiRuntimeConfig): LlmConfig | undefined {
-  // User-supplied credentials have precedence over x-web's server-managed model.
+  // AI synthesis is available only with the user's saved BYOK credential.
   if (byok) {
     const provider = byok.provider;
     if (provider === 'anthropic') {
@@ -229,31 +228,7 @@ function llmConfig(byok?: AiRuntimeConfig): LlmConfig | undefined {
     };
   }
 
-  // Prefer Cloudflare Workers AI first: it currently provides a capped daily
-  // free allocation. If its quota is exhausted, we fall back to provider or
-  // extractive answers rather than silently switching to a paid server model.
-  const cloudflareAccountId = env('CLOUDFLARE_ACCOUNT_ID');
-  const cloudflareToken = env('CLOUDFLARE_API_TOKEN');
-  if (cloudflareAccountId && cloudflareToken) {
-    const baseUrl = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(cloudflareAccountId)}/ai/v1`;
-    return llmConfig({
-      provider: 'cloudflare',
-      apiKey: cloudflareToken,
-      baseUrl,
-      source: 'xweb',
-      model: env('XWEB_ANSWER_MODEL') ?? CLOUDFLARE_DEFAULT_MODEL,
-    });
-  }
-
-  // Other server-owned credentials are supported as explicit alternatives.
-  // These may be paid, so they are used only when no Cloudflare free-tier
-  // credentials are configured.
-  const openaiKey = env('OPENAI_API_KEY');
-  const anthropicKey = env('ANTHROPIC_API_KEY');
-  const groqKey = env('GROQ_API_KEY');
-  if (openaiKey) return llmConfig({ provider: 'openai', apiKey: openaiKey, source: 'xweb', baseUrl: env('OPENAI_BASE_URL') ?? undefined, model: env('XWEB_ANSWER_MODEL') ?? AI_DEFAULT_MODELS.openai });
-  if (anthropicKey) return llmConfig({ provider: 'anthropic', apiKey: anthropicKey, source: 'xweb', model: env('XWEB_ANSWER_MODEL') ?? AI_DEFAULT_MODELS.anthropic });
-  if (groqKey) return llmConfig({ provider: 'groq', apiKey: groqKey, source: 'xweb', model: env('XWEB_ANSWER_MODEL') ?? AI_DEFAULT_MODELS.groq });
+  // No server-managed model keys: generated answers require the user's saved BYOK credential.
   return undefined;
 }
 

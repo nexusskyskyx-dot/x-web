@@ -26,7 +26,7 @@ const searchParams = [
   { name: 'multi_source', type: 'boolean', default: 'true', description: 'Search all providers with configured keys in parallel, then deduplicate and rerank. Set false to use only provider.' },
   { name: 'providers', type: 'string[]', description: 'Optional provider allow-list for fan-out. Providers without a configured key are listed in unavailable_providers.' },
   { name: 'max_results', type: 'integer', default: '5', description: 'Number of results. Clamped to 1–20.' },
-  { name: 'include_answer', type: 'boolean', default: 'true', description: 'Return a grounded answer with citations. Account API keys use the saved OpenAI, Anthropic, or Groq key when configured; otherwise x-web uses its server-managed model when enabled, then provider/extractive fallbacks.' },
+  { name: 'include_answer', type: 'boolean', default: 'true', description: 'Return a grounded answer with citations. Account API keys use the saved OpenAI, Anthropic, or Groq BYOK when configured; otherwise x-web uses provider/extractive answer synthesis without an AI model.' },
   { name: 'include_raw_content', type: 'boolean', default: 'false', description: 'Fetch clean page text for up to extract_depth results. Pages are fetched server-side; private/local IPs are blocked.' },
   { name: 'extract_depth', type: 'integer', default: '3', description: 'Maximum result pages to extract when include_raw_content is true. 1–10.' },
   { name: 'time_range', type: '"day" | "week" | "month" | "year"', description: 'Restrict results to a recent window. Also inferred from wording such as “latest” or “today”.' },
@@ -98,10 +98,6 @@ Content-Type: application/json`}
     a public Supabase key (<code>SUPABASE_ANON_KEY</code> or
     <code>SUPABASE_PUBLISHABLE_KEY</code>), and the server-only
     <code>SUPABASE_SERVICE_ROLE_KEY</code> or <code>SUPABASE_SECRET_KEY</code>.
-    For users without a personal AI key, x-web can use Cloudflare Workers AI with server-only
-    <code>CLOUDFLARE_ACCOUNT_ID</code> and <code>CLOUDFLARE_API_TOKEN</code>. Its free allocation is shared
-    across x-web users and capped at 10,000 Neurons per day; if the limit is reached, answers fall back to
-    provider/extractive synthesis. The default model is <code>@cf/meta/llama-3.1-8b-instruct</code>.
     Apply <code>supabase/migrations/202610160001_account_dashboard.sql</code> to the project database.
     For per-account provider credentials, apply <code>supabase/migrations/202610160002_provider_credentials.sql</code>
     and configure the server-only <code>XWEB_PROVIDER_KEY_ENCRYPTION_KEY</code>. To enable encrypted AI-key
@@ -269,14 +265,11 @@ Content-Type: application/json`}
 }`}
   />
   <p>
-    Answer modes are <code>llm</code> (Cloudflare Workers AI or an OpenAI, Anthropic, or Groq model),
+    Answer modes are <code>llm</code> (the account's saved OpenAI, Anthropic, or Groq BYOK),
     <code>provider</code> (answer returned by a search provider, with source citations attached), or
     <code>extractive</code> (relevant retrieved sentences selected and cited). LLM answers also report
-    <code>ai_provider</code> and <code>ai_key_source</code> (<code>byok</code> or <code>xweb</code>).
-    The built-in default uses Cloudflare Workers AI when <code>CLOUDFLARE_ACCOUNT_ID</code> and
-    <code>CLOUDFLARE_API_TOKEN</code> are configured; otherwise configured server-managed provider keys
-    may be used. If the selected model is unavailable or over quota, x-web uses the transparent
-    provider/extractive fallback instead of silently switching to another paid model.
+    <code>ai_provider</code> and <code>ai_key_source</code> (<code>byok</code>). Without a saved key,
+    x-web returns a provider answer when available or falls back to cited extractive synthesis.
   </p>
 
   <h2 id="errors">Errors</h2>
