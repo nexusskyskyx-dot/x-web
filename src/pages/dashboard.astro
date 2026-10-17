@@ -51,13 +51,13 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
     <section class="mt-6 rounded-2xl border border-ink-100 bg-white shadow-card" aria-labelledby="ai-settings-title">
       <div class="border-b border-ink-100 px-5 py-4">
         <h2 id="ai-settings-title" class="font-semibold text-ink-900">AI summaries</h2>
-        <p class="mt-1 max-w-3xl text-sm leading-relaxed text-ink-500">AI answer generation requires your own OpenAI, Anthropic, or Groq key. Your key is encrypted before storage and sent only to the provider you choose; you pay that provider directly. Without a saved key, x-web uses cited search-result answers without an AI model.</p>
+        <p class="mt-1 max-w-3xl text-sm leading-relaxed text-ink-500">AI answer generation requires your own OpenAI, Anthropic, Groq, OpenRouter, or xKiro key. Your key is encrypted before storage and sent only to the provider you choose; you pay that provider directly. Without a saved key, x-web uses cited search-result answers without an AI model.</p>
       </div>
       <div data-ai-feedback role="status" aria-live="polite" class="mx-5 mt-4 hidden rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-800"></div>
       <div class="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
         <label class="block text-xs font-medium text-ink-600">AI provider
           <select data-ai-provider class="mt-1.5 w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100">
-            <option value="openai">OpenAI</option><option value="anthropic">Anthropic (Claude)</option><option value="groq">Groq</option>
+            <option value="openai">OpenAI</option><option value="anthropic">Anthropic (Claude)</option><option value="groq">Groq</option><option value="openrouter">OpenRouter</option><option value="xkiro">xKiro</option>
           </select>
         </label>
         <label class="block text-xs font-medium text-ink-600">Model <span class="font-normal text-ink-400">(optional)</span>
@@ -208,7 +208,7 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
           if (aiModel) aiModel.value = data.model ?? '';
           if (aiStatus) aiStatus.textContent = `Personal AI key connected: ${data.provider} · ${data.model}. Its secret stays hidden.`;
         } else if (aiStatus) {
-          aiStatus.textContent = 'No personal AI key saved. x-web will use its built-in answer engine when available.';
+          aiStatus.textContent = 'No personal AI key saved. Add one to enable AI-generated answers; otherwise cited search-result answers are used.';
         }
         aiRemove?.classList.toggle('hidden', !data.configured);
         const save = root.querySelector<HTMLButtonElement>('[data-ai-save]');
@@ -230,7 +230,7 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
       finally { button.disabled = false; }
     });
     aiRemove?.addEventListener('click', async () => {
-      if (!confirm('Remove your personal AI key? x-web will use its built-in answer engine when available.')) return;
+      if (!confirm('Remove your personal AI key? AI-generated answers will be unavailable; cited search-result answers will still work.')) return;
       aiRemove.disabled = true;
       try {
         await request('/api/account/ai', { method: 'DELETE' });

@@ -130,6 +130,56 @@ describe('answer synthesis', () => {
     } finally { globalThis.fetch = originalFetch; }
   });
 
+  test('routes OpenRouter BYOK through its OpenAI-compatible endpoint', async () => {
+    const originalFetch = globalThis.fetch;
+    let requestUrl = '';
+    let requestHeaders: HeadersInit | undefined;
+    let requestBody: any;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      requestUrl = String(input);
+      requestHeaders = init?.headers;
+      requestBody = JSON.parse(String(init?.body ?? '{}'));
+      return new Response(JSON.stringify({ choices: [{ message: { content: 'MCP is an open protocol for connected context. [1]' } }] }), { status: 200 });
+    }) as typeof fetch;
+    try {
+      const answer = await synthesizeAnswer('what is the model context protocol', sources, {
+        allowLlm: true,
+        aiConfig: { provider: 'openrouter', model: 'openai/gpt-5.2', apiKey: 'openrouter-user-key', source: 'byok' },
+      });
+      assert.ok(answer);
+      assert.equal(answer.mode, 'llm');
+      assert.equal(answer.ai_provider, 'openrouter');
+      assert.equal(answer.ai_key_source, 'byok');
+      assert.equal(requestUrl, 'https://openrouter.ai/api/v1/chat/completions');
+      assert.equal(requestBody.model, 'openai/gpt-5.2');
+      assert.equal(new Headers(requestHeaders).get('authorization'), 'Bearer openrouter-user-key');
+      assert.equal(new Headers(requestHeaders).get('x-openrouter-title'), 'x-web');
+    } finally { globalThis.fetch = originalFetch; }
+  });
+
+  test('routes xKiro BYOK through its OpenAI-compatible endpoint', async () => {
+    const originalFetch = globalThis.fetch;
+    let requestUrl = '';
+    let requestBody: any;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      requestUrl = String(input);
+      requestBody = JSON.parse(String(init?.body ?? '{}'));
+      return new Response(JSON.stringify({ choices: [{ message: { content: 'MCP is an open protocol for connected context. [1]' } }] }), { status: 200 });
+    }) as typeof fetch;
+    try {
+      const answer = await synthesizeAnswer('what is the model context protocol', sources, {
+        allowLlm: true,
+        aiConfig: { provider: 'xkiro', model: 'openai/gpt-5.6-sol', apiKey: 'xkiro-user-key', source: 'byok' },
+      });
+      assert.ok(answer);
+      assert.equal(answer.mode, 'llm');
+      assert.equal(answer.ai_provider, 'xkiro');
+      assert.equal(answer.ai_key_source, 'byok');
+      assert.equal(requestUrl, 'https://api.xkiro.com/v1/chat/completions');
+      assert.equal(requestBody.model, 'openai/gpt-5.6-sol');
+    } finally { globalThis.fetch = originalFetch; }
+  });
+
   test('does not use server-managed model credentials; AI synthesis requires BYOK', async () => {
     const oldEnv = {
       openai: process.env.OPENAI_API_KEY,

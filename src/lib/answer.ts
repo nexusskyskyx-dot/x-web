@@ -215,11 +215,22 @@ function llmConfig(byok?: AiRuntimeConfig): LlmConfig | undefined {
         parse: (payload) => Array.isArray(payload?.content) ? payload.content.find((b: any) => b.type === 'text')?.text : undefined,
       };
     }
-    const base = provider === 'groq' ? 'https://api.groq.com/openai/v1' : (byok.baseUrl ?? 'https://api.openai.com/v1').replace(/\/$/, '');
+    const base = provider === 'groq'
+      ? 'https://api.groq.com/openai/v1'
+      : provider === 'openrouter'
+        ? 'https://openrouter.ai/api/v1'
+        : provider === 'xkiro'
+          ? 'https://api.xkiro.com/v1'
+          : (byok.baseUrl ?? 'https://api.openai.com/v1').replace(/\/$/, '');
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${byok.apiKey}`,
+    };
+    if (provider === 'openrouter') headers['X-OpenRouter-Title'] = 'x-web';
     return {
       url: `${base}/chat/completions`, key: byok.apiKey, model: byok.model,
       provider, source: byok.source,
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${byok.apiKey}` },
+      headers,
       body: (query, prompt) => ({ model: byok.model, temperature: 0.2, max_tokens: 400, messages: [
         { role: 'system', content: `${SYSTEM_PROMPT}\n\nQuestion language: ${query.slice(0, 200)}` },
         { role: 'user', content: prompt },

@@ -97,9 +97,10 @@ Free plan label, monthly usage and recent requests, and supports creating (shown
 x-web API keys. Account keys are stored as SHA-256 hashes. The dashboard also lets each account
 connect Tavily, Brave Search, Serper, and Exa credentials. Provider keys are AES-GCM encrypted before
 database storage and are never returned to the browser after saving; account-key searches use those
-credentials alongside any deployment-configured providers. AI answer synthesis is BYOK-only: users can save an OpenAI, Anthropic, or Groq key, encrypted at rest,
-and x-web uses that key for their answer synthesis. Without a saved AI key, x-web returns the grounded
-provider answer when available or uses cited extractive synthesis; it does not call a server-managed AI model.
+credentials alongside any deployment-configured providers. AI answer synthesis is BYOK-only: users can save an OpenAI, Anthropic, Groq, OpenRouter, or xKiro
+key, encrypted at rest, and x-web uses that key for their answer synthesis. Without a saved AI key,
+x-web returns the grounded provider answer when available or uses cited extractive synthesis; it does
+not call a server-managed AI model.
 
 This is an account foundation, not a billing launch: paid subscriptions, plan changes and quota
 enforcement are not enabled. Apply
@@ -112,8 +113,10 @@ These two values are public; never put `SUPABASE_SECRET_KEY` or `SUPABASE_SERVIC
 [`supabase/migrations/202610160002_provider_credentials.sql`](supabase/migrations/202610160002_provider_credentials.sql)
 and set `XWEB_PROVIDER_KEY_ENCRYPTION_KEY` to a random secret of at least 32 bytes in Vercel Preview
 and Production. Use the **same value** in both environments so saved credentials remain readable
-across deployments (generate one with `openssl rand -base64 32`). Google OAuth is optional and can
-be configured later.
+across deployments (generate one with `openssl rand -base64 32`). For AI BYOK, also apply
+[`supabase/migrations/202610170001_ai_credentials.sql`](supabase/migrations/202610170001_ai_credentials.sql)
+and [`supabase/migrations/202610170002_add_openrouter_xkiro_ai_providers.sql`](supabase/migrations/202610170002_add_openrouter_xkiro_ai_providers.sql).
+Google OAuth is optional and can be configured later.
 
 ---
 
