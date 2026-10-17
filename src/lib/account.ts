@@ -24,11 +24,11 @@ export class AccountAuthError extends Error {
 }
 
 export function supabaseUrl(): string | undefined {
-  return env('SUPABASE_URL') ?? env('PUBLIC_SUPABASE_URL');
+  return env('SUPABASE_URL') ?? env('PUBLIC_SUPABASE_URL') ?? env('NEXT_PUBLIC_SUPABASE_URL');
 }
 
 export function supabaseAnonKey(): string | undefined {
-  return env('SUPABASE_ANON_KEY') ?? env('SUPABASE_PUBLISHABLE_KEY') ?? env('PUBLIC_SUPABASE_ANON_KEY');
+  return env('SUPABASE_ANON_KEY') ?? env('SUPABASE_PUBLISHABLE_KEY') ?? env('PUBLIC_SUPABASE_ANON_KEY') ?? env('NEXT_PUBLIC_SUPABASE_ANON_KEY') ?? env('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY');
 }
 
 export function isAccountConfigured(): boolean {

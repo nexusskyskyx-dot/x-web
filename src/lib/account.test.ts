@@ -1,8 +1,26 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { constantTimeEqual, generateApiKey, hashApiKey } from './account.ts';
+import { constantTimeEqual, generateApiKey, hashApiKey, supabaseAnonKey, supabaseUrl } from './account.ts';
 
 describe('account API key primitives', () => {
+  test('reads standard Supabase integration env vars at runtime', () => {
+    const names = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_PUBLISHABLE_KEY', 'PUBLIC_SUPABASE_URL', 'PUBLIC_SUPABASE_ANON_KEY', 'NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY'] as const;
+    const previous = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+    try {
+      for (const name of names) delete process.env[name];
+      process.env.SUPABASE_URL = 'https://project.supabase.co';
+      process.env.SUPABASE_ANON_KEY = 'public-anon-key';
+      assert.equal(supabaseUrl(), 'https://project.supabase.co');
+      assert.equal(supabaseAnonKey(), 'public-anon-key');
+    } finally {
+      for (const name of names) {
+        const value = previous[name];
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+    }
+  });
+
   test('generates a high-entropy, clearly prefixed key', () => {
     const first = generateApiKey();
     const second = generateApiKey();

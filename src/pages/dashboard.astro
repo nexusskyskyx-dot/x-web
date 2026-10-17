@@ -1,12 +1,9 @@
 ---
 import Base from '../layouts/Base.astro';
-
-const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL ?? import.meta.env.SUPABASE_URL ?? '';
-const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.env.SUPABASE_ANON_KEY ?? import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? '';
 ---
 
 <Base title="Dashboard — x-web" description="Manage your x-web API keys, plan, and usage." >
-  <section data-dashboard data-supabase-url={supabaseUrl} data-supabase-anon-key={supabaseAnonKey} class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+  <section data-dashboard class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div><p class="text-xs font-semibold tracking-wider text-brand-700 uppercase">Developer console</p><h1 class="mt-1 text-3xl font-bold tracking-tight text-ink-950">Dashboard</h1><p class="mt-1 text-sm text-ink-500" data-welcome>Loading your account…</p></div>
       <div class="flex gap-2"><a href="/docs/quickstart" class="btn-ghost btn-sm">Quickstart</a><button type="button" data-signout class="btn-ghost btn-sm">Sign out</button></div>
@@ -57,8 +54,6 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
 
   const root = document.querySelector<HTMLElement>('[data-dashboard]');
   if (!root) throw new Error('Dashboard failed to initialize.');
-  const url = root.dataset.supabaseUrl;
-  const anonKey = root.dataset.supabaseAnonKey;
   const errorBox = root.querySelector<HTMLElement>('[data-dashboard-error]');
   const keyList = root.querySelector<HTMLElement>('[data-key-list]');
   const usageList = root.querySelector<HTMLElement>('[data-usage-list]');
@@ -70,8 +65,16 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
   const showError = (message: string) => { if (errorBox) { errorBox.textContent = message; errorBox.classList.remove('hidden'); } };
   const setText = (selector: string, value: string) => { const element = root?.querySelector<HTMLElement>(selector); if (element) element.textContent = value; };
 
+  let publicConfig: { supabaseUrl?: string; supabaseAnonKey?: string } = {};
+  try {
+    const response = await fetch('/api/config', { cache: 'no-store' });
+    if (response.ok) publicConfig = await response.json();
+  } catch { /* Render a helpful setup state below. */ }
+  const url = publicConfig.supabaseUrl;
+  const anonKey = publicConfig.supabaseAnonKey;
+
   if (!url || !anonKey) {
-    showError('Dashboard authentication is not configured. Set PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY.');
+    showError('Supabase public configuration was not available at runtime. Check SUPABASE_URL and SUPABASE_ANON_KEY in this Vercel environment.');
     root.querySelectorAll<HTMLButtonElement>('[data-signout], [data-create-key], [data-copy-key]').forEach((button) => { button.disabled = true; });
     if (keyList) keyList.innerHTML = '<p class="px-5 py-8 text-center text-sm text-ink-500">Account setup is required.</p>';
     if (usageList) usageList.innerHTML = '<tr><td colspan="4" class="px-5 py-8 text-center text-sm text-ink-500">Account setup is required.</td></tr>';
