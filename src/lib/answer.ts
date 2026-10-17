@@ -21,6 +21,7 @@
 
 import { splitSentences, termCoverage, isNearDuplicate, truncateSentences } from './text.ts';
 import { env } from './env.ts';
+import { AI_DEFAULT_MODELS, type AiRuntimeConfig } from './ai-credentials.ts';
 
 export interface Citation {
   /** 1-based, matches the `[n]` markers in `text`. */
@@ -39,6 +40,8 @@ export interface Answer {
   citations: Citation[];
   /** Set when sources were too thin or off-topic to answer from. */
   declined?: boolean;
+  ai_provider?: string;
+  ai_key_source?: 'byok' | 'xweb';
 }
 
 export interface AnswerSource {
@@ -195,65 +198,53 @@ interface LlmConfig {
   headers: Record<string, string>;
   body: (query: string, prompt: string) => unknown;
   parse: (payload: any) => string | undefined;
+  provider: string;
+  source: 'byok' | 'xweb';
 }
 
-function llmConfig(): LlmConfig | undefined {
-  const openaiKey = env('OPENAI_API_KEY');
-  const base = (env('OPENAI_BASE_URL') ?? 'https://api.openai.com/v1').replace(/\/$/, '');
-  const openaiModel = env('XWEB_ANSWER_MODEL') ?? 'gpt-4o-mini';
-
-  if (openaiKey) {
+function llmConfig(byok?: AiRuntimeConfig): LlmConfig | undefined {
+  // User-supplied credentials have precedence over x-web's server-managed model.
+  if (byok) {
+    const provider = byok.provider;
+    if (provider === 'anthropic') {
+      return {
+        url: 'https://api.anthropic.com/v1/messages', key: byok.apiKey, model: byok.model,
+        provider, source: byok.source,
+        headers: { 'Content-Type': 'application/json', 'x-api-key': byok.apiKey, 'anthropic-version': '2023-06-01' },
+        body: (_query, prompt) => ({ model: byok.model, max_tokens: 400, system: SYSTEM_PROMPT, messages: [{ role: 'user', content: prompt }] }),
+        parse: (payload) => Array.isArray(payload?.content) ? payload.content.find((b: any) => b.type === 'text')?.text : undefined,
+      };
+    }
+    const base = provider === 'groq' ? 'https://api.groq.com/openai/v1' : (byok.baseUrl ?? 'https://api.openai.com/v1').replace(/\/$/, '');
     return {
-      url: `${base}/chat/completions`,
-      key: openaiKey,
-      model: openaiModel,
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
-      body: (query, prompt) => ({
-        model: openaiModel,
-        temperature: 0.2,
-        max_tokens: 400,
-        messages: [
-          { role: 'system', content: `${SYSTEM_PROMPT}\n\nQuestion language: ${query.slice(0, 200)}` },
-          { role: 'user', content: prompt },
-        ],
-      }),
+      url: `${base}/chat/completions`, key: byok.apiKey, model: byok.model,
+      provider, source: byok.source,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${byok.apiKey}` },
+      body: (query, prompt) => ({ model: byok.model, temperature: 0.2, max_tokens: 400, messages: [
+        { role: 'system', content: `${SYSTEM_PROMPT}\n\nQuestion language: ${query.slice(0, 200)}` },
+        { role: 'user', content: prompt },
+      ] }),
       parse: (payload) => payload?.choices?.[0]?.message?.content,
     };
   }
 
+  // These server-owned credentials power x-web's built-in model. Users are not
+  // asked to supply them; the service owner controls the default model/cost.
+  const openaiKey = env('OPENAI_API_KEY');
   const anthropicKey = env('ANTHROPIC_API_KEY');
-  if (anthropicKey) {
-    const model = env('XWEB_ANSWER_MODEL') ?? 'claude-3-5-haiku-latest';
-    return {
-      url: 'https://api.anthropic.com/v1/messages',
-      key: anthropicKey,
-      model,
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': anthropicKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: (_query, prompt) => ({
-        model,
-        max_tokens: 400,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-      parse: (payload) =>
-        Array.isArray(payload?.content)
-          ? payload.content.find((b: any) => b.type === 'text')?.text
-          : undefined,
-    };
-  }
-
+  const groqKey = env('GROQ_API_KEY');
+  if (openaiKey) return llmConfig({ provider: 'openai', apiKey: openaiKey, source: 'xweb', baseUrl: env('OPENAI_BASE_URL') ?? undefined, model: env('XWEB_ANSWER_MODEL') ?? AI_DEFAULT_MODELS.openai });
+  if (anthropicKey) return llmConfig({ provider: 'anthropic', apiKey: anthropicKey, source: 'xweb', model: env('XWEB_ANSWER_MODEL') ?? AI_DEFAULT_MODELS.anthropic });
+  if (groqKey) return llmConfig({ provider: 'groq', apiKey: groqKey, source: 'xweb', model: env('XWEB_ANSWER_MODEL') ?? AI_DEFAULT_MODELS.groq });
   return undefined;
 }
 
 async function synthesizeWithLlm(
   query: string,
   sources: AnswerSource[],
+  aiConfig?: AiRuntimeConfig,
 ): Promise<Answer | undefined> {
-  const config = llmConfig();
+  const config = llmConfig(aiConfig);
   if (!config) return undefined;
 
   const prompt = buildUserPrompt(query, sources, Number(env('XWEB_ANSWER_CONTEXT_CHARS') ?? 6000));
@@ -281,6 +272,8 @@ async function synthesizeWithLlm(
       text: raw,
       mode: 'llm',
       confidence: 0.82,
+      ai_provider: config.provider,
+      ai_key_source: config.source,
       citations: indices.sort((a, b) => a - b).map((n) => ({
         index: n,
         title: sources[n - 1]?.title ?? 'Untitled',
@@ -309,6 +302,7 @@ export interface SynthesizeOptions {
   allowLlm?: boolean;
   /** Raw page text to ground the answer in when snippets are thin. */
   includeRaw?: boolean;
+  aiConfig?: AiRuntimeConfig;
 }
 
 export async function synthesizeAnswer(
@@ -321,7 +315,7 @@ export async function synthesizeAnswer(
 
   // 1. A configured model — real synthesis, strictly grounded, properly cited.
   if (options.allowLlm) {
-    const llm = await synthesizeWithLlm(query, usable);
+    const llm = await synthesizeWithLlm(query, usable, options.aiConfig);
     if (llm) return llm;
   }
 

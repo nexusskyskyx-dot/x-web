@@ -97,7 +97,10 @@ Free plan label, monthly usage and recent requests, and supports creating (shown
 x-web API keys. Account keys are stored as SHA-256 hashes. The dashboard also lets each account
 connect Tavily, Brave Search, Serper, and Exa credentials. Provider keys are AES-GCM encrypted before
 database storage and are never returned to the browser after saving; account-key searches use those
-credentials alongside any deployment-configured providers.
+credentials alongside any deployment-configured providers. The dashboard also supports AI Bring Your
+Own Key for OpenAI, Anthropic, and Groq; saved AI keys are encrypted at rest and used for that account's
+answer synthesis, while requests without a personal AI key use the server-managed default model when
+configured and then fall back to provider/extractive answers.
 
 This is an account foundation, not a billing launch: paid subscriptions, plan changes and quota
 enforcement are not enabled. Apply
@@ -133,7 +136,9 @@ project settings.
 | `PUBLIC_SUPABASE_URL` / `SUPABASE_URL` | Supabase project URL (public browser value and server value) |
 | `PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_ANON_KEY` | Supabase anon/publishable key |
 | `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_SECRET_KEY` | Server-only Supabase key for account, API-key and usage operations |
-| `XWEB_PROVIDER_KEY_ENCRYPTION_KEY` | Random 32+ byte server-only secret for encrypting saved provider credentials |
+| `XWEB_PROVIDER_KEY_ENCRYPTION_KEY` | Random 32+ byte server-only secret for encrypting saved search and AI credentials |
+| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GROQ_API_KEY` | Optional x-web-managed default AI model keys (used when the account has no BYOK key) |
+| `XWEB_ANSWER_MODEL` | Optional server-managed default model override |
 | `XWEB_API_BASE`          | Forward to a real x-web deployment instead of a provider       |
 | `SITE_URL`               | Canonical site URL used for canonical links and the sitemap     |
 

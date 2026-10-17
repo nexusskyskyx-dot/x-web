@@ -26,7 +26,7 @@ const searchParams = [
   { name: 'multi_source', type: 'boolean', default: 'true', description: 'Search all providers with configured keys in parallel, then deduplicate and rerank. Set false to use only provider.' },
   { name: 'providers', type: 'string[]', description: 'Optional provider allow-list for fan-out. Providers without a configured key are listed in unavailable_providers.' },
   { name: 'max_results', type: 'integer', default: '5', description: 'Number of results. Clamped to 1–20.' },
-  { name: 'include_answer', type: 'boolean', default: 'true', description: 'Return a grounded answer with citation metadata. Uses a configured OpenAI/Anthropic model when available, otherwise a provider answer or extractive synthesis.' },
+  { name: 'include_answer', type: 'boolean', default: 'true', description: 'Return a grounded answer with citations. Account API keys use the saved OpenAI, Anthropic, or Groq key when configured; otherwise x-web uses its server-managed model when enabled, then provider/extractive fallbacks.' },
   { name: 'include_raw_content', type: 'boolean', default: 'false', description: 'Fetch clean page text for up to extract_depth results. Pages are fetched server-side; private/local IPs are blocked.' },
   { name: 'extract_depth', type: 'integer', default: '3', description: 'Maximum result pages to extract when include_raw_content is true. 1–10.' },
   { name: 'time_range', type: '"day" | "week" | "month" | "year"', description: 'Restrict results to a recent window. Also inferred from wording such as “latest” or “today”.' },
@@ -99,8 +99,9 @@ Content-Type: application/json`}
     <code>SUPABASE_PUBLISHABLE_KEY</code>), and the server-only
     <code>SUPABASE_SERVICE_ROLE_KEY</code> or <code>SUPABASE_SECRET_KEY</code>.
     Apply <code>supabase/migrations/202610160001_account_dashboard.sql</code> to the project database.
-    For per-account provider credentials, also apply <code>supabase/migrations/202610160002_provider_credentials.sql</code>
-    and configure the server-only <code>XWEB_PROVIDER_KEY_ENCRYPTION_KEY</code>.
+    For per-account provider credentials, apply <code>supabase/migrations/202610160002_provider_credentials.sql</code>
+    and configure the server-only <code>XWEB_PROVIDER_KEY_ENCRYPTION_KEY</code>. To enable encrypted AI-key
+    storage for Bring Your Own Key settings, also apply <code>supabase/migrations/202610170001_ai_credentials.sql</code>.
     Configure the Supabase redirect allow-list for <code>/dashboard</code> and
     <code>/login?mode=update</code>; enter Google OAuth client credentials in Supabase Auth.
   </p>
@@ -264,10 +265,12 @@ Content-Type: application/json`}
 }`}
   />
   <p>
-    Answer modes are <code>llm</code> (configured OpenAI-compatible or Anthropic model),
-    <code>provider</code> (answer returned by the search provider, with source citations attached), or
-    <code>extractive</code> (relevant retrieved sentences selected and cited). Without a configured
-    model, “AI-synthesized” is not an LLM guarantee; the API reports the mode it actually used.
+    Answer modes are <code>llm</code> (an OpenAI, Anthropic, or Groq model),
+    <code>provider</code> (answer returned by a search provider, with source citations attached), or
+    <code>extractive</code> (relevant retrieved sentences selected and cited). LLM answers also report
+    <code>ai_provider</code> and <code>ai_key_source</code> (<code>byok</code> or <code>xweb</code>).
+    A server-managed default model must be configured for x-web's built-in LLM service; otherwise the
+    transparent provider/extractive fallback is used.
   </p>
 
   <h2 id="errors">Errors</h2>

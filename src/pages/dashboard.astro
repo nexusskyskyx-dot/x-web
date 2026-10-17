@@ -48,6 +48,29 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
       </div>
     </section>
 
+    <section class="mt-6 rounded-2xl border border-ink-100 bg-white shadow-card" aria-labelledby="ai-settings-title">
+      <div class="border-b border-ink-100 px-5 py-4">
+        <h2 id="ai-settings-title" class="font-semibold text-ink-900">AI summaries</h2>
+        <p class="mt-1 max-w-3xl text-sm leading-relaxed text-ink-500">Use x-web’s built-in AI, or bring your own OpenAI, Anthropic, or Groq key. Your key is encrypted before storage and sent only to the AI provider you choose. If you connect a key, you pay that provider directly.</p>
+      </div>
+      <div data-ai-feedback role="status" aria-live="polite" class="mx-5 mt-4 hidden rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-800"></div>
+      <div class="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
+        <label class="block text-xs font-medium text-ink-600">AI provider
+          <select data-ai-provider class="mt-1.5 w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100">
+            <option value="openai">OpenAI</option><option value="anthropic">Anthropic (Claude)</option><option value="groq">Groq</option>
+          </select>
+        </label>
+        <label class="block text-xs font-medium text-ink-600">Model <span class="font-normal text-ink-400">(optional)</span>
+          <input data-ai-model type="text" maxlength="128" placeholder="Uses provider default" class="mt-1.5 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm text-ink-900 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100" />
+        </label>
+        <label class="block text-xs font-medium text-ink-600">Your AI API key
+          <input data-ai-key type="password" autocomplete="off" spellcheck="false" placeholder="Paste key to connect or replace" class="mt-1.5 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm text-ink-900 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100" />
+        </label>
+        <div class="flex items-end gap-2"><button type="button" data-ai-save class="btn-primary btn-sm">Save AI key</button><button type="button" data-ai-remove class="btn-ghost btn-sm hidden">Remove</button></div>
+        <p data-ai-status class="text-xs text-ink-500 sm:col-span-2 lg:col-span-4">Checking AI settings…</p>
+      </div>
+    </section>
+
     <div class="mt-7 grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
       <section class="rounded-2xl border border-ink-100 bg-white shadow-card">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 px-5 py-4">
@@ -91,6 +114,12 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
   const secretEl = root.querySelector<HTMLElement>('[data-secret]');
   const providerList = root.querySelector<HTMLElement>('[data-provider-list]');
   const providerFeedback = root.querySelector<HTMLElement>('[data-provider-feedback]');
+  const aiFeedback = root.querySelector<HTMLElement>('[data-ai-feedback]');
+  const aiProvider = root.querySelector<HTMLSelectElement>('[data-ai-provider]');
+  const aiModel = root.querySelector<HTMLInputElement>('[data-ai-model]');
+  const aiKey = root.querySelector<HTMLInputElement>('[data-ai-key]');
+  const aiStatus = root.querySelector<HTMLElement>('[data-ai-status]');
+  const aiRemove = root.querySelector<HTMLButtonElement>('[data-ai-remove]');
   let revealedSecret = '';
 
   const showProviderFeedback = (message: string) => {
@@ -164,6 +193,53 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
         showProviderFeedback(error instanceof Error ? error.message : 'Could not load provider settings.');
       }
     };
+
+    const showAiFeedback = (message: string) => {
+      if (!aiFeedback) return;
+      aiFeedback.textContent = message;
+      aiFeedback.classList.remove('hidden');
+    };
+
+    const refreshAiSettings = async () => {
+      try {
+        const data = await request('/api/account/ai');
+        if (data.configured) {
+          if (aiProvider) aiProvider.value = data.provider;
+          if (aiModel) aiModel.value = data.model ?? '';
+          if (aiStatus) aiStatus.textContent = `Personal AI key connected: ${data.provider} · ${data.model}. Its secret stays hidden.`;
+        } else if (aiStatus) {
+          aiStatus.textContent = 'No personal AI key saved. x-web will use its built-in answer engine when available.';
+        }
+        aiRemove?.classList.toggle('hidden', !data.configured);
+        const save = root.querySelector<HTMLButtonElement>('[data-ai-save]');
+        if (save) save.textContent = data.configured ? 'Replace AI key' : 'Save AI key';
+      } catch (error) { showAiFeedback(error instanceof Error ? error.message : 'Could not load AI settings.'); }
+    };
+
+    root.querySelector('[data-ai-save]')?.addEventListener('click', async (event) => {
+      const button = event.currentTarget as HTMLButtonElement;
+      const apiKey = aiKey?.value.trim() ?? '';
+      if (!apiKey) { showAiFeedback('Enter your AI provider API key first.'); aiKey?.focus(); return; }
+      button.disabled = true;
+      try {
+        const data = await request('/api/account/ai', { method: 'PUT', body: JSON.stringify({ provider: aiProvider?.value, model: aiModel?.value.trim(), api_key: apiKey }) });
+        if (aiKey) aiKey.value = '';
+        showAiFeedback(`Your ${data.provider} key is saved securely and will be used for your AI summaries.`);
+        await refreshAiSettings();
+      } catch (error) { showAiFeedback(error instanceof Error ? error.message : 'Could not save your AI key.'); }
+      finally { button.disabled = false; }
+    });
+    aiRemove?.addEventListener('click', async () => {
+      if (!confirm('Remove your personal AI key? x-web will use its built-in answer engine when available.')) return;
+      aiRemove.disabled = true;
+      try {
+        await request('/api/account/ai', { method: 'DELETE' });
+        if (aiModel) aiModel.value = '';
+        showAiFeedback('Your personal AI key was removed.');
+        await refreshAiSettings();
+      } catch (error) { showAiFeedback(error instanceof Error ? error.message : 'Could not remove your AI key.'); }
+      finally { aiRemove.disabled = false; }
+    });
 
     const renderKeys = (keys: any[]) => {
       if (!keyList) return;
@@ -258,7 +334,7 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
       catch (error) { showError(error instanceof Error ? error.message : 'Could not revoke API key.'); }
     });
 
-    await Promise.all([load(), refreshProviderSettings()]);
+    await Promise.all([load(), refreshProviderSettings(), refreshAiSettings()]);
     supabase.auth.onAuthStateChange((_event, nextSession) => { if (!nextSession) location.replace('/login'); });
   }
 </script>

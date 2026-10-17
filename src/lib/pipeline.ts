@@ -27,6 +27,7 @@ import {
   type SearchRequest,
 } from './search.ts';
 import { synthesizeAnswer, type Answer } from './answer.ts';
+import type { AiRuntimeConfig } from './ai-credentials.ts';
 import { extractPages, type ExtractedPage } from './extract.ts';
 import { searchAcrossProviders, type ProviderFailure } from './federation.ts';
 
@@ -149,6 +150,7 @@ export async function runPipeline(
   options: {
     apiKey?: string;
     providerKeys?: Partial<Record<ProviderId, string>>;
+    aiConfig?: AiRuntimeConfig;
     queryRewriteDefault?: QueryRewrite;
   } = {},
 ): Promise<PipelineResponse> {
@@ -334,6 +336,7 @@ export async function runPipeline(
     const synthesized = await synthesizeAnswer(query, sources, {
       providerAnswer: search.answer,
       allowLlm: env('XWEB_DISABLE_LLM') !== '1',
+      aiConfig: options.aiConfig,
     });
     if (synthesized && !synthesized.declined && synthesized.text) answer = synthesized;
   }

@@ -11,6 +11,7 @@ import { runPipeline, PipelineError } from '../../../lib/pipeline.ts';
 import { SearchError } from '../../../lib/search.ts';
 import { AccountAuthError, authenticateAccountApiKey, createAdminClient, extractAccountApiKey, recordApiUsage, type AuthenticatedApiKey } from '../../../lib/account.ts';
 import { decryptProviderKeyMap, type StoredProviderCredential } from '../../../lib/provider-credentials.ts';
+import { decryptAiCredential, type AiCredential, type AiRuntimeConfig } from '../../../lib/ai-credentials.ts';
 import {
   json,
   errorResponse,
@@ -91,6 +92,7 @@ async function runSearchRequest(request: Request, body: Record<string, unknown>)
   const keyBody = accountKey ? { provider: body.provider } : body;
   const { key, provider, source } = resolveKey(keyRequest, keyBody);
   let providerKeys: Partial<Record<'tavily' | 'brave' | 'serper' | 'exa', string>> = {};
+  let aiConfig: AiRuntimeConfig | undefined;
   if (accountKey) {
     const { data, error } = await createAdminClient()
       .from('provider_credentials')
@@ -105,6 +107,11 @@ async function runSearchRequest(request: Request, body: Record<string, unknown>)
         return errorResponse({ type: 'internal_error', code: 'provider_key_decryption_failed', message: 'Could not unlock your saved provider keys. Check the server encryption configuration.' }, 503);
       }
     }
+    const aiResult = await createAdminClient().from('ai_credentials').select('provider, model, encrypted_key, iv').eq('user_id', accountKey.userId).maybeSingle();
+    if (!aiResult.error && aiResult.data) {
+      try { aiConfig = await decryptAiCredential(aiResult.data as AiCredential); }
+      catch { return errorResponse({ type: 'internal_error', code: 'ai_key_decryption_failed', message: 'Could not unlock your saved AI key. Check the server encryption configuration.' }, 503); }
+    }
   }
   if (!key && Object.keys(providerKeys).length === 0) {
     if (accountKey) {
@@ -114,7 +121,7 @@ async function runSearchRequest(request: Request, body: Record<string, unknown>)
   }
 
   try {
-    const result = await runPipeline({ ...body, provider: body.provider ?? provider }, { apiKey: accountKey ? undefined : key, providerKeys });
+    const result = await runPipeline({ ...body, provider: body.provider ?? provider }, { apiKey: accountKey ? undefined : key, providerKeys, aiConfig });
     if (accountKey) {
       await recordApiUsage(accountKey, { endpoint: '/api/v1/search', provider: result.provider, resultCount: result.results.length, durationMs: result.took_ms });
     }
