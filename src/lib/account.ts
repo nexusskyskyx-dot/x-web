@@ -23,17 +23,49 @@ export class AccountAuthError extends Error {
   }
 }
 
+const SUPABASE_URL_NAMES = ['SUPABASE_URL', 'PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL'];
+const SUPABASE_PUBLIC_KEY_NAMES = [
+  'SUPABASE_ANON_KEY', 'SUPABASE_PUBLISHABLE_KEY', 'PUBLIC_SUPABASE_ANON_KEY',
+  'PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+  'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
+];
+const SUPABASE_SERVER_KEY_NAMES = ['SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SECRET_KEY'];
+
+function findSupabaseEnv(names: string[]): { name: string; value: string } | undefined {
+  for (const expectedName of names) {
+    const exact = env(expectedName);
+    if (exact) return { name: expectedName, value: exact };
+    // Environment variable names are case-sensitive on Vercel/Linux. Accept
+    // mixed-case names too so a manually-added integration value still works.
+    if (typeof process !== 'undefined' && process.env) {
+      const actualName = Object.keys(process.env).find((name) => name.toLowerCase() === expectedName.toLowerCase());
+      if (actualName) {
+        const value = env(actualName);
+        if (value) return { name: actualName, value };
+      }
+    }
+  }
+  return undefined;
+}
+
 export function supabaseUrl(): string | undefined {
-  return env('SUPABASE_URL') ?? env('PUBLIC_SUPABASE_URL') ?? env('NEXT_PUBLIC_SUPABASE_URL');
+  return findSupabaseEnv(SUPABASE_URL_NAMES)?.value;
 }
 
 export function supabaseAnonKey(): string | undefined {
-  return env('SUPABASE_ANON_KEY') ?? env('SUPABASE_PUBLISHABLE_KEY') ?? env('PUBLIC_SUPABASE_ANON_KEY') ?? env('PUBLIC_SUPABASE_PUBLISHABLE_KEY') ?? env('NEXT_PUBLIC_SUPABASE_ANON_KEY') ?? env('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY');
+  return findSupabaseEnv(SUPABASE_PUBLIC_KEY_NAMES)?.value;
 }
 
 export function supabaseServerKey(): string | undefined {
-  // Vercel's current Supabase integration uses the newer SUPABASE_SECRET_KEY name.
-  return env('SUPABASE_SERVICE_ROLE_KEY') ?? env('SUPABASE_SECRET_KEY');
+  return findSupabaseEnv(SUPABASE_SERVER_KEY_NAMES)?.value;
+}
+
+export function supabaseDetectedEnvNames(): { url: string | null; public_key: string | null; server_key: string | null } {
+  return {
+    url: findSupabaseEnv(SUPABASE_URL_NAMES)?.name ?? null,
+    public_key: findSupabaseEnv(SUPABASE_PUBLIC_KEY_NAMES)?.name ?? null,
+    server_key: findSupabaseEnv(SUPABASE_SERVER_KEY_NAMES)?.name ?? null,
+  };
 }
 
 export function isAccountConfigured(): boolean {
