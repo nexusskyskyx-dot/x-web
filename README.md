@@ -67,8 +67,9 @@ language, inspectable query intent, an optional cited answer, and optionally ext
 With multiple provider keys configured, it searches those providers in parallel, deduplicates and
 reranks their live results as one set. The playground uses the same pipeline at `POST /api/search`.
 
-Additional endpoints:
+Additional endpoints and integrations:
 
+- `POST /api/mcp` — remote, stateless Streamable HTTP MCP server with an `xweb_search` tool. Authenticate with `Authorization: Bearer <x-web-account-key>`; the account must have a search-provider key saved in its dashboard. AI answer synthesis additionally requires that account’s AI BYOK credential. See [`/docs/mcp`](src/pages/docs/mcp.astro) for client setup.
 - `POST /api/v1/intent` — classify a query, detect language/entities, infer recency, and rewrite it
   for a search index. No provider key required.
 - `POST /api/v1/extract` — fetch and clean up to ten public URLs, optionally including their page images and alt text. Private/local IPs and redirects to them are blocked.

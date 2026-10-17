@@ -75,6 +75,12 @@ const capabilities = [
     body: 'Search Brave Images or Serper Images and get image and thumbnail URLs, source pages, titles and available dimensions.',
     accent: 'from-brand-500 to-brand-800',
   },
+  {
+    icon: 'code' as const,
+    title: 'Plug-and-play MCP',
+    body: 'Connect compatible AI clients to x-web’s hosted MCP server with your account key—no adapter code or local server required.',
+    accent: 'from-brand-400 to-brand-700',
+  },
 ];
 
 const features = [
@@ -126,11 +132,11 @@ const faqs = [
   },
   {
     q: 'Does every answer use an LLM?',
-    a: 'No. If you configure an OpenAI-compatible or Anthropic model, x-web can synthesize from sources. Otherwise it uses an upstream provider answer or extractive synthesis. The response says which mode ran.',
+    a: 'Only when you save your own AI provider key. Without it, x-web uses an upstream provider answer or cited source sentences; it never calls a server-managed AI model.'
   },
   {
     q: 'Can I create an account or select a payment plan?',
-    a: 'Not yet. We are building the API capabilities first. Accounts, plan selection and payments are the next product milestone.',
+    a: 'Yes. Email/password accounts, API keys and saved provider credentials are available. Paid plan selection and payments are not enabled.'
   },
 ];
 
@@ -176,6 +182,7 @@ const integrations = ['Tavily', 'Brave Search', 'Serper', 'Exa'];
               <Icon name="arrowRight" class="h-4 w-4" />
             </a>
             <a href="/docs" class="btn-secondary">Read the docs</a>
+            <a href="/docs/mcp" class="text-sm font-semibold text-brand-700 hover:text-brand-800">Connect an MCP client</a>
           </div>
 
           <ul class="mt-10 flex flex-wrap gap-x-6 gap-y-2.5">
@@ -184,7 +191,7 @@ const integrations = ['Tavily', 'Brave Search', 'Serper', 'Exa'];
                 'Live provider results',
                 '4 search integrations',
                 'Optional cited answers',
-                'No x-web account needed yet',
+                'Remote MCP, no adapter code',
               ].map((item) => (
                 <li class="flex items-center gap-2 text-sm text-ink-500">
                   <span class="grid h-5 w-5 place-items-center rounded-full bg-brand-50 text-brand-600">
