@@ -1,0 +1,93 @@
+---
+import Docs from '../../layouts/Docs.astro';
+import Icon from '../../components/Icons.astro';
+import CodeBlock from '../../components/CodeBlock.astro';
+import Callout from '../../components/Callout.astro';
+
+const toc = [
+  { id: 'what-is-x-web', text: 'What is x-web?' },
+  { id: 'capabilities', text: 'Text & Search capabilities' },
+  { id: 'base-url', text: 'Base URL & authentication' },
+  { id: 'endpoints', text: 'Current endpoints' },
+  { id: 'next', text: 'What comes next' },
+];
+
+const capabilities = [
+  { icon: 'search' as const, title: 'Live web search', body: 'One query API over Tavily, Brave Search, Serper or Exa. Results come from the provider at request time, not stale model training data.' },
+  { icon: 'extract' as const, title: 'Cited answers', body: 'Optional answers include citations and report whether they came from an LLM, the provider, or extractive synthesis.' },
+  { icon: 'extract' as const, title: 'Snippets & page text', body: 'Get provider snippets, or ask x-web to fetch public result pages and return cleaned readable content.' },
+  { icon: 'globe' as const, title: 'Multi-language', body: 'Detect query language locally and pass language preferences through where the selected provider supports them.' },
+  { icon: 'crawl' as const, title: 'Query understanding', body: 'Infer intent, keywords, entities, country and freshness from natural-language questions; inspect the rules and signals in the response.' },
+];
+---
+
+<Docs
+  title="Introduction"
+  description="A real web-search API for AI agents: current results, cited answers, extracted text, multilingual queries and inspectable query understanding."
+  toc={toc}
+>
+  <h2 id="what-is-x-web">What is x-web?</h2>
+  <p>
+    x-web is a server-side web access layer for AI agents. It accepts a natural-language query,
+    searches a live third-party index, and returns a consistent response with source URLs, snippets,
+    optional cited answers, language detection and the interpretation used to search.
+  </p>
+  <p>
+    Search is currently powered by Tavily, Brave Search, Serper or Exa. Bring a key for one of those
+    providers, or configure one on your x-web deployment. x-web does not issue its own API keys yet.
+  </p>
+
+  <h2 id="capabilities">Text &amp; Search capabilities</h2>
+  <div class="not-prose my-8 grid gap-4 sm:grid-cols-2">
+    {capabilities.map((item) => (
+      <div class="rounded-2xl border border-ink-100 bg-white p-5 shadow-card">
+        <div class="flex items-center gap-2.5">
+          <span class="grid h-9 w-9 place-items-center rounded-lg bg-brand-50 text-brand-600">
+            <Icon name={item.icon} class="h-4.5 w-4.5" />
+          </span>
+          <h3 class="text-base font-semibold text-brand-800">{item.title}</h3>
+        </div>
+        <p class="mt-3 text-sm leading-relaxed text-ink-600">{item.body}</p>
+      </div>
+    ))}
+  </div>
+  <Callout type="note" title="Answer synthesis is transparent">
+    If an answer-model key is configured, x-web uses it to synthesize from retrieved sources. If
+    not, it returns an upstream provider answer when available or selects relevant source sentences.
+    The <code>answer.mode</code> field tells you which path actually ran.
+  </Callout>
+
+  <h2 id="base-url">Base URL &amp; authentication</h2>
+  <p>
+    Use your deployment URL as the base (for example <code>https://your-project.vercel.app</code>).
+    For search, send a provider key in <code>X-XWeb-Key</code> or <code>Authorization: Bearer …</code>.
+    The intent endpoint does not require a provider key; extraction does not currently require an
+    x-web key but only fetches public URLs.
+  </p>
+  <CodeBlock
+    lang="bash"
+    title="request"
+    code={`curl -X POST "$XWEB_BASE/api/v1/search" \\
+  -H "X-XWeb-Key: $TAVILY_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"query":"What is the latest on MCP?","include_answer":true}'`}
+  />
+
+  <h2 id="endpoints">Current endpoints</h2>
+  <ul>
+    <li><code>POST /api/v1/search</code> — live search, optional answer, understanding and extraction.</li>
+    <li><code>GET /api/v1/search</code> — simple query-string search.</li>
+    <li><code>POST /api/v1/intent</code> — query classification, language detection, entities and rewrite.</li>
+    <li><code>POST /api/v1/extract</code> — extract readable text and optional embedded images from 1–10 public URLs.</li>
+    <li><code>POST /api/v1/images</code> — live image search through Brave Images or Serper Images.</li>
+  </ul>
+  <p>See the <a href="/docs/api">API reference</a> for fields, errors and examples.</p>
+
+  <h2 id="next">Accounts and dashboard</h2>
+  <p>
+    Email/password and Google sign-in, API key creation/revocation, a Free plan label and monthly
+    usage dashboard are available when Supabase is configured. Paid plan selection, subscriptions
+    and quota enforcement are not live yet. See the <a href="/docs/api#accounts">account setup</a>
+    section in the API reference.
+  </p>
+</Docs>

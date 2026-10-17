@@ -1,0 +1,59 @@
+---
+import { Code } from 'astro:components';
+import Icon from './Icons.astro';
+
+interface Props {
+  code: string;
+  lang?: string;
+  title?: string;
+  class?: string;
+}
+
+const { code, lang = 'bash', title, class: className = '' } = Astro.props;
+const trimmed = code.replace(/^\n+|\n+$/g, '');
+---
+
+<div class:list={['code-block', className]} data-lang={lang}>
+  <div class="flex items-center justify-between gap-3 border-b border-white/10 bg-white/[0.04] px-4 py-2">
+    <div class="flex items-center gap-3">
+      <span class="flex gap-1.5" aria-hidden="true">
+        <span class="h-2.5 w-2.5 rounded-full bg-brand-500/80"></span>
+        <span class="h-2.5 w-2.5 rounded-full bg-brand-400/60"></span>
+        <span class="h-2.5 w-2.5 rounded-full bg-white/25"></span>
+      </span>
+      <span class="font-mono text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+        {title ?? lang}
+      </span>
+    </div>
+    <button
+      type="button"
+      class="copy-code inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 text-[11px] font-semibold text-ink-300 transition hover:border-brand-400/70 hover:text-white"
+      data-code={trimmed}
+    >
+      <Icon name="copy" class="h-3.5 w-3.5" />
+      <span data-copy-label>Copy</span>
+    </button>
+  </div>
+  <Code code={trimmed} lang={lang as any} theme="vitesse-dark" />
+</div>
+
+<script>
+  document.addEventListener('click', async (event) => {
+    const target = event.target as HTMLElement | null;
+    const button = target?.closest<HTMLButtonElement>('[data-code]');
+    if (!button) return;
+    const code = button.dataset.code ?? '';
+    const label = button.querySelector('[data-copy-label]');
+    try {
+      await navigator.clipboard.writeText(code);
+      if (label) label.textContent = 'Copied';
+      button.classList.add('border-brand-400', 'text-brand-200');
+      setTimeout(() => {
+        if (label) label.textContent = 'Copy';
+        button.classList.remove('border-brand-400', 'text-brand-200');
+      }, 1600);
+    } catch {
+      if (label) label.textContent = 'Ctrl+C';
+    }
+  });
+</script>

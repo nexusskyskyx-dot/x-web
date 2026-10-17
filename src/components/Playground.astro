@@ -1,0 +1,422 @@
+---
+import Icon from './Icons.astro';
+
+interface Props {
+  id?: string;
+}
+
+const { id = 'playground' } = Astro.props;
+---
+
+<div
+  id={id}
+  data-playground
+  class="not-prose overflow-hidden rounded-2xl border border-brand-200 bg-white shadow-card"
+>
+  <div
+    class="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 bg-gradient-to-r from-brand-50 to-white px-5 py-3.5"
+  >
+    <div class="flex items-center gap-2.5">
+      <span class="ring-gradient grid h-8 w-8 place-items-center rounded-lg text-white">
+        <Icon name="rocket" class="h-4 w-4" />
+      </span>
+      <div>
+        <p class="text-sm font-semibold text-ink-900">Live playground</p>
+        <p class="text-xs text-ink-500">Real search — no mock data</p>
+      </div>
+    </div>
+    <span class="chip">
+      <span class="h-1.5 w-1.5 rounded-full bg-brand-500"></span>
+      runs on the server, key never stored
+    </span>
+  </div>
+
+  <form data-playground-form class="space-y-4 p-4 sm:p-5">
+    <div class="grid gap-4 sm:grid-cols-2">
+      <label class="block">
+        <span class="mb-1.5 block text-[11px] font-semibold tracking-wider text-ink-500 uppercase">
+          Provider
+        </span>
+        <select
+          name="provider"
+          class="w-full rounded-xl border border-ink-200 bg-white px-3 py-3 text-base text-ink-800 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100 sm:py-2.5 sm:text-sm"
+        >
+          <option value="tavily">Tavily</option>
+          <option value="brave">Brave Search</option>
+          <option value="serper">Serper</option>
+          <option value="exa">Exa</option>
+        </select>
+      </label>
+
+      <label class="block">
+        <span class="mb-1.5 block text-[11px] font-semibold tracking-wider text-ink-500 uppercase">
+          Provider API key
+        </span>
+        <input
+          type="password"
+          name="api_key"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="tvly-… / BSA… / exa_…"
+          class="w-full rounded-xl border border-ink-200 bg-white px-3 py-3 font-mono text-base text-ink-800 outline-none transition placeholder:text-ink-300 focus:border-brand-400 focus:ring-2 focus:ring-brand-100 sm:py-2.5 sm:text-sm"
+        />
+      </label>
+    </div>
+
+    <label class="block">
+      <span class="mb-1.5 block text-[11px] font-semibold tracking-wider text-ink-500 uppercase">
+        Query
+      </span>
+      <input
+        type="text"
+        name="query"
+        required
+        enterkeyhint="search"
+        value="What is the Model Context Protocol?"
+        class="w-full rounded-xl border border-ink-200 bg-white px-3 py-3 text-base text-ink-800 outline-none transition placeholder:text-ink-300 focus:border-brand-400 focus:ring-2 focus:ring-brand-100 sm:py-2.5 sm:text-sm"
+      />
+    </label>
+
+    <div class="grid gap-4 sm:grid-cols-2">
+      <label class="block">
+        <span class="mb-1.5 block text-[11px] font-semibold tracking-wider text-ink-500 uppercase">
+          Recency
+        </span>
+        <select
+          name="time_range"
+          class="w-full rounded-xl border border-ink-200 bg-white px-3 py-3 text-base text-ink-800 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100 sm:py-2.5 sm:text-sm"
+        >
+          <option value="">Any time</option>
+          <option value="day">Past day</option>
+          <option value="week">Past week</option>
+          <option value="month">Past month</option>
+          <option value="year">Past year</option>
+        </select>
+      </label>
+
+      <label class="block">
+        <span class="mb-1.5 block text-[11px] font-semibold tracking-wider text-ink-500 uppercase">
+          Language
+        </span>
+        <select
+          name="language"
+          class="w-full rounded-xl border border-ink-200 bg-white px-3 py-3 text-base text-ink-800 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100 sm:py-2.5 sm:text-sm"
+        >
+          <option value="auto">Auto-detect</option>
+          <option value="en">English</option>
+          <option value="es">Spanish</option>
+          <option value="fr">French</option>
+          <option value="de">German</option>
+          <option value="pt">Portuguese</option>
+          <option value="ja">Japanese</option>
+          <option value="zh">Chinese</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
+      <label class="block w-full sm:w-52">
+        <span
+          class="mb-1.5 flex items-center justify-between text-[11px] font-semibold tracking-wider text-ink-500 uppercase"
+        >
+          Max results
+          <span class="font-mono text-xs tracking-normal text-brand-700" data-range-value>5</span>
+        </span>
+        <input
+          type="range"
+          name="max_results"
+          min="1"
+          max="10"
+          value="5"
+          data-range-input
+          class="h-2 w-full cursor-pointer appearance-none rounded-full bg-brand-100 accent-brand-600"
+        />
+      </label>
+
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-2 sm:gap-3">
+        <label class="flex shrink-0 items-center gap-2 text-sm text-ink-600">
+          <input
+            type="checkbox"
+            name="include_answer"
+            checked
+            class="h-5 w-5 rounded border-ink-300 accent-brand-600 sm:h-4 sm:w-4"
+          />
+          Answer
+        </label>
+        <label class="flex shrink-0 items-center gap-2 text-sm text-ink-600">
+          <input
+            type="checkbox"
+            name="include_raw_content"
+            class="h-5 w-5 rounded border-ink-300 accent-brand-600 sm:h-4 sm:w-4"
+          />
+          Extract pages
+        </label>
+        <label class="flex shrink-0 items-center gap-2 text-sm text-ink-600">
+          <input
+            type="checkbox"
+            name="multi_source"
+            checked
+            class="h-5 w-5 rounded border-ink-300 accent-brand-600 sm:h-4 sm:w-4"
+          />
+          Blend server providers
+        </label>
+        <button type="submit" class="btn-primary ml-auto sm:ml-0" data-playground-submit>
+          Run search
+        </button>
+      </div>
+    </div>
+
+    <p class="text-xs leading-relaxed text-ink-400">
+      Your key is sent to the x-web serverless proxy for the duration of the request only. It is never
+      written to disk, never logged, and never leaves the server except to reach the provider.
+    </p>
+  </form>
+
+  <div data-playground-output class="hidden border-t border-ink-100"></div>
+</div>
+
+<script>
+  const escapeHtml = (value: unknown): string =>
+    String(value ?? '').replace(/[&<>"']/g, (char) => {
+      const map: Record<string, string> = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      };
+      return map[char] ?? char;
+    });
+
+  const safeUrl = (raw: unknown): string => {
+    if (typeof raw !== 'string') return '#';
+    try {
+      const url = new URL(raw);
+      return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : '#';
+    } catch {
+      return '#';
+    }
+  };
+
+  const hostOf = (url: string): string => {
+    try {
+      return new URL(url).hostname.replace(/^www\./, '');
+    } catch {
+      return url;
+    }
+  };
+
+  document.querySelectorAll('[data-playground]').forEach((root) => {
+    const form = root.querySelector('[data-playground-form]');
+    const output = root.querySelector('[data-playground-output]');
+    const submit = root.querySelector('[data-playground-submit]');
+    if (!(form instanceof HTMLFormElement) || !(output instanceof HTMLElement)) return;
+
+    const range = root.querySelector<HTMLInputElement>('[data-range-input]');
+    const rangeValue = root.querySelector<HTMLElement>('[data-range-value]');
+    if (range && rangeValue) {
+      const sync = () => (rangeValue.textContent = range.value);
+      range.addEventListener('input', sync);
+      sync();
+    }
+
+    const setBusy = (busy: boolean) => {
+      if (submit instanceof HTMLButtonElement) {
+        submit.disabled = busy;
+        submit.textContent = busy ? 'Searching…' : 'Run search';
+        submit.classList.toggle('opacity-70', busy);
+      }
+    };
+
+    const renderError = (message: string, detail?: string) => {
+      output.classList.remove('hidden');
+      output.innerHTML = `
+        <div class="m-4 rounded-xl border border-rose-200 bg-rose-50 p-4">
+          <p class="text-sm font-semibold text-rose-800">Search failed</p>
+          <p class="mt-1 text-sm text-rose-700">${escapeHtml(message)}</p>
+          ${detail ? `<pre class="mt-2 overflow-x-auto text-xs text-rose-600">${escapeHtml(detail)}</pre>` : ''}
+        </div>`;
+    };
+
+    const renderResults = (data: any) => {
+      const results = Array.isArray(data?.results) ? data.results : [];
+      const answer = data?.answer;
+      const sourceNames = Array.isArray(data?.providers_used) ? data.providers_used.join(', ') : '';
+      const meta = [
+        `provider: ${escapeHtml(data?.provider ?? 'unknown')}`,
+        sourceNames ? `sources: ${escapeHtml(sourceNames)}` : '',
+        `${results.length} result${results.length === 1 ? '' : 's'}`,
+        data?.took_ms ? `${escapeHtml(data.took_ms)}ms` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ');
+
+      // v1 returns an answer object: { text, mode, confidence, citations[] }
+      const answerText = typeof answer === 'string' ? answer : (answer?.text ?? '');
+      const citations: any[] = Array.isArray(answer?.citations) ? answer.citations : [];
+
+      const answerBlock = answerText
+        ? `<div class="m-4 rounded-xl border border-brand-200 bg-brand-50/70 p-4">
+             <div class="flex flex-wrap items-center gap-2">
+               <p class="text-[11px] font-semibold tracking-wider text-brand-700 uppercase">Answer</p>
+               ${
+                 answer?.mode
+                   ? `<span class="rounded-full bg-white px-2 py-0.5 font-mono text-[10px] font-semibold text-brand-700 ring-1 ring-brand-200">${escapeHtml(answer.mode)}</span>`
+                   : ''
+               }
+               ${
+                 answer?.confidence
+                   ? `<span class="font-mono text-[10px] text-ink-400">confidence ${escapeHtml(answer.confidence)}</span>`
+                   : ''
+               }
+             </div>
+             <p class="mt-1.5 text-sm leading-relaxed text-ink-700">${escapeHtml(answerText)}</p>
+             ${
+               citations.length > 0
+                 ? `<ol class="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-brand-200/70 pt-2.5">
+                      ${citations
+                        .map(
+                          (citation: any) =>
+                            `<li class="text-[11px] text-ink-500"><a href="${escapeHtml(safeUrl(citation.url))}" target="_blank" rel="noreferrer noopener" class="font-semibold text-brand-700 hover:underline">[${escapeHtml(citation.index)}]</a> ${escapeHtml(hostOf(citation.url ?? ''))}</li>`,
+                        )
+                        .join('')}
+                    </ol>`
+                 : ''
+             }
+           </div>`
+        : '';
+
+      // Query understanding: what we inferred before searching.
+      const intent = data?.intent;
+      const intentChips = intent
+        ? [
+            intent.type,
+            intent.time_sensitive ? `recency: ${intent.filters?.time_range ?? 'on'}` : '',
+            intent.language?.code && intent.language.code !== 'und' ? intent.language.code : '',
+          ].filter(Boolean)
+        : [];
+
+      const intentBlock =
+        intentChips.length > 0
+          ? `<div class="flex flex-wrap items-center gap-2 border-t border-ink-100 bg-white px-4 py-2.5">
+               <span class="text-[11px] font-semibold tracking-wider text-ink-400 uppercase">Understood</span>
+               ${intentChips
+                 .map(
+                   (chip: string) =>
+                     `<span class="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700">${escapeHtml(chip)}</span>`,
+                 )
+                 .join('')}
+               ${
+                 intent.rewritten_query && intent.rewritten_query !== data?.query
+                   ? `<span class="min-w-0 font-mono text-[11px] text-ink-400">searched: ${escapeHtml(intent.rewritten_query)}</span>`
+                   : ''
+               }
+             </div>`
+          : '';
+
+      const dropped = Array.isArray(data?.unsupported_params) ? data.unsupported_params : [];
+      const warnBlock =
+        dropped.length > 0
+          ? `<p class="border-t border-amber-100 bg-amber-50 px-4 py-2 text-[11px] text-amber-800">
+               Some selected providers could not apply: ${escapeHtml(dropped.join(', '))}.
+             </p>`
+          : '';
+      const partialBlock = Array.isArray(data?.provider_errors) && data.provider_errors.length
+        ? `<p class="border-t border-amber-100 bg-amber-50 px-4 py-2 text-[11px] text-amber-800">Partial results: ${data.provider_errors.map((failure: any) => `${escapeHtml(failure.provider)} unavailable`).join(', ')}.</p>`
+        : '';
+
+      const items = results
+        .map(
+          (item: any, index: number) => `
+            <li class="border-t border-ink-100 px-4 py-3.5 first:border-t-0">
+              <div class="flex items-start gap-3">
+                <span class="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-md bg-brand-50 font-mono text-[11px] font-semibold text-brand-700">${index + 1}</span>
+                <div class="min-w-0 flex-1">
+                  <a href="${escapeHtml(safeUrl(item.url))}" target="_blank" rel="noreferrer noopener" class="group block text-sm font-semibold text-ink-900 hover:text-brand-700">
+                    <span class="line-clamp-2">${escapeHtml(item.title)}</span>
+                    <span class="mt-0.5 block truncate font-mono text-[11px] font-normal text-brand-700">${escapeHtml(hostOf(item.url))}</span>
+                  </a>
+                  <p class="mt-1 line-clamp-3 text-sm leading-relaxed text-ink-600">${escapeHtml(item.snippet)}</p>
+                  <div class="mt-2 flex flex-wrap gap-1.5">
+                    ${item.source_count > 1 ? `<span class="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-medium text-brand-700">${escapeHtml(item.source_count)} sources agree</span>` : ''}
+                    ${Number.isFinite(item.ranking_score) ? `<span title="Ordering heuristic, not confidence" class="rounded-full bg-ink-50 px-2 py-0.5 font-mono text-[10px] text-ink-500">rank ${escapeHtml(Number(item.ranking_score).toFixed(2))} · heuristic</span>` : ''}
+                  </div>
+                </div>
+              </div>
+            </li>`,
+        )
+        .join('');
+
+      output.classList.remove('hidden');
+      output.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-2 bg-ink-50 px-4 py-2.5">
+          <span class="font-mono text-[11px] text-ink-500">${meta}</span>
+          <button type="button" class="text-[11px] font-semibold text-brand-700 hover:text-brand-800" data-toggle-json>View raw JSON</button>
+        </div>
+        ${intentBlock}
+        ${warnBlock}
+        ${partialBlock}
+        ${answerBlock}
+        <ul class="border-t border-ink-100">${items || '<li class="px-4 py-6 text-sm text-ink-500">No results returned.</li>'}</ul>
+        <pre data-json class="hidden overflow-x-auto border-t border-ink-100 bg-ink-950 p-4 font-mono text-[12px] leading-relaxed text-ink-100">${escapeHtml(JSON.stringify(data, null, 2))}</pre>`;
+
+      const toggle = output.querySelector('[data-toggle-json]');
+      const json = output.querySelector('[data-json]');
+      if (toggle && json instanceof HTMLElement) {
+        toggle.addEventListener('click', () => {
+          const hidden = json.classList.toggle('hidden');
+          toggle.textContent = hidden ? 'View raw JSON' : 'Hide raw JSON';
+        });
+      }
+    };
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const data = new FormData(form);
+      const key = String(data.get('api_key') ?? '').trim();
+      const timeRange = String(data.get('time_range') ?? '').trim();
+      const language = String(data.get('language') ?? 'auto').trim();
+      const body: Record<string, unknown> = {
+        query: String(data.get('query') ?? '').trim(),
+        provider: String(data.get('provider') ?? 'tavily'),
+        max_results: Number(data.get('max_results') ?? 5),
+        include_answer: data.get('include_answer') === 'on',
+        include_raw_content: data.get('include_raw_content') === 'on',
+        multi_source: data.get('multi_source') === 'on',
+      };
+      if (timeRange) body.time_range = timeRange;
+      if (language && language !== 'auto') body.language = language;
+
+      if (!body.query) return;
+
+      setBusy(true);
+      output.classList.remove('hidden');
+      output.innerHTML = `
+        <div class="flex items-center gap-3 p-5 text-sm text-ink-500">
+          <span class="h-4 w-4 animate-spin rounded-full border-2 border-brand-200 border-t-brand-600"></span>
+          Searching the live web…
+        </div>`;
+
+      try {
+        const response = await fetch('/api/search', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(key ? { 'x-xweb-key': key } : {}),
+          },
+          body: JSON.stringify(body),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          renderError(payload?.error?.message ?? `Request failed with ${response.status}`);
+        } else {
+          renderResults(payload);
+        }
+      } catch (error) {
+        renderError(error instanceof Error ? error.message : 'Network error');
+      } finally {
+        setBusy(false);
+      }
+    });
+  });
+</script>

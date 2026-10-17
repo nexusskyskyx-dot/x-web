@@ -1,0 +1,163 @@
+---
+import Icon from './Icons.astro';
+
+const links = [
+  { label: 'Docs', href: '/docs' },
+  { label: 'API', href: '/docs/api' },
+  { label: 'MCP', href: '/docs/mcp' },
+  { label: 'Providers', href: '/docs/providers' },
+];
+
+const path = Astro.url.pathname;
+
+const isActive = (href: string) =>
+  href === '/docs' ? path === '/docs' || path === '/docs/' : path.startsWith(href);
+---
+
+<header class="sticky top-0 z-50 border-b border-ink-100 bg-white/85 backdrop-blur-xl">
+  <div class="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:gap-6 sm:px-6 lg:px-8">
+    <a href="/" class="flex shrink-0 items-center gap-2.5" aria-label="x-web home">
+      <span
+        class="ring-gradient grid h-9 w-9 place-items-center rounded-xl text-white shadow-[0_8px_20px_-8px_rgb(109_40_217/0.95)]"
+      >
+        <span class="font-mono text-lg leading-none font-bold">x</span>
+      </span>
+      <span class="text-[17px] font-bold tracking-tight text-ink-900">x-web</span>
+    </a>
+
+    <nav class="hidden items-center gap-1 md:flex" aria-label="Main">
+      {
+        links.map((link) => (
+          <a
+            href={link.href}
+            aria-current={isActive(link.href) ? 'page' : undefined}
+            class:list={[
+              'rounded-lg px-3 py-2 text-sm font-medium transition',
+              isActive(link.href)
+                ? 'bg-brand-50 text-brand-700'
+                : 'text-ink-600 hover:bg-brand-50/60 hover:text-brand-700',
+            ]}
+          >
+            {link.label}
+          </a>
+        ))
+      }
+    </nav>
+
+    <div class="ml-auto flex items-center gap-1.5 sm:gap-2">
+      <a href="/login" class="btn-ghost btn-sm hidden min-h-10 sm:inline-flex md:min-h-0">Sign in</a>
+      <a
+        href="https://github.com/nexusskyskyx-dot/x-web"
+        target="_blank"
+        rel="noreferrer"
+        class="btn-ghost btn-sm hidden min-h-10 md:min-h-0 sm:inline-flex"
+      >
+        <Icon name="github" class="h-4 w-4" />
+        GitHub
+      </a>
+      <a href="/docs/quickstart" class="btn-primary btn-sm min-h-10 md:min-h-0">Quickstart</a>
+      <button
+        type="button"
+        class="btn-ghost btn-sm min-h-10 w-10 p-0 md:hidden"
+        aria-label="Toggle navigation"
+        aria-expanded="false"
+        aria-controls="mobile-nav"
+        data-nav-toggle
+      >
+        <Icon name="menu" class="h-5 w-5" data-nav-icon="open" />
+        <Icon name="close" class="hidden h-5 w-5" data-nav-icon="close" />
+      </button>
+    </div>
+  </div>
+
+  <div
+    id="mobile-nav"
+    class="max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain border-t border-ink-100 bg-white md:hidden"
+    data-nav-menu
+    hidden
+  >
+    <nav class="mx-auto max-w-7xl px-4 py-3 sm:px-6" aria-label="Mobile">
+      <ul class="space-y-0.5">
+        {
+          links.map((link) => (
+            <li>
+              <a
+                href={link.href}
+                aria-current={isActive(link.href) ? 'page' : undefined}
+                class:list={[
+                  'block rounded-lg px-3 py-3 text-[15px] font-medium transition',
+                  isActive(link.href)
+                    ? 'bg-brand-50 font-semibold text-brand-700'
+                    : 'text-ink-700 hover:bg-brand-50 hover:text-brand-700',
+                ]}
+              >
+                {link.label}
+              </a>
+            </li>
+          ))
+        }
+        <li>
+          <a href="/login" class="block rounded-lg px-3 py-3 text-[15px] font-medium text-brand-700 hover:bg-brand-50">Sign in / create account</a>
+        </li>
+        <li>
+          <a
+            href="https://github.com/nexusskyskyx-dot/x-web"
+            target="_blank"
+            rel="noreferrer"
+            class="flex items-center gap-2 rounded-lg px-3 py-3 text-[15px] font-medium text-ink-700 hover:bg-brand-50 hover:text-brand-700"
+          >
+            <Icon name="github" class="h-4 w-4" />
+            GitHub
+          </a>
+        </li>
+      </ul>
+      <a href="/docs/quickstart" class="btn-primary mt-3 w-full">Quickstart</a>
+    </nav>
+  </div>
+</header>
+
+<script>
+  const toggle = document.querySelector<HTMLButtonElement>('[data-nav-toggle]');
+  const menu = document.querySelector<HTMLElement>('[data-nav-menu]');
+  const iconOpen = document.querySelector<HTMLElement>('[data-nav-icon="open"]');
+  const iconClose = document.querySelector<HTMLElement>('[data-nav-icon="close"]');
+
+  if (toggle && menu) {
+    const setOpen = (open: boolean) => {
+      menu.toggleAttribute('hidden', !open);
+      toggle.setAttribute('aria-expanded', String(open));
+      iconOpen?.classList.toggle('hidden', open);
+      iconClose?.classList.toggle('hidden', !open);
+      // keep the page behind the menu from scrolling under it
+      document.body.style.overflow = open ? 'hidden' : '';
+    };
+
+    const isOpen = () => toggle.getAttribute('aria-expanded') === 'true';
+
+    toggle.addEventListener('click', (event) => {
+      event.stopPropagation();
+      setOpen(!isOpen());
+    });
+
+    // tapping any link navigates (full page load), just make sure state is clean
+    menu.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => setOpen(false)));
+
+    document.addEventListener('click', (event) => {
+      if (!isOpen()) return;
+      const target = event.target as Node | null;
+      if (target && !menu.contains(target) && !toggle.contains(target)) setOpen(false);
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && isOpen()) {
+        setOpen(false);
+        toggle.focus();
+      }
+    });
+
+    // leaving the mobile breakpoint must not leave the page scroll-locked
+    window.matchMedia('(min-width: 768px)').addEventListener('change', (event) => {
+      if (event.matches) setOpen(false);
+    });
+  }
+</script>

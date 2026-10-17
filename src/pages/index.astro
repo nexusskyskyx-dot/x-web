@@ -1,0 +1,492 @@
+---
+import Base from '../layouts/Base.astro';
+import Icon from '../components/Icons.astro';
+import CodeTabs from '../components/CodeTabs.astro';
+import CodeBlock from '../components/CodeBlock.astro';
+import Playground from '../components/Playground.astro';
+
+const heroTabs = [
+  {
+    label: 'cURL',
+    lang: 'bash',
+    code: `curl -X POST "$XWEB_BASE/api/v1/search" \\
+  -H "X-XWeb-Key: $TAVILY_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "query": "What is the latest on the Model Context Protocol?",
+    "max_results": 5,
+    "include_answer": true
+  }'`,
+  },
+  {
+    label: 'JavaScript',
+    lang: 'javascript',
+    code: `const response = await fetch(process.env.XWEB_BASE + "/api/v1/search", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "X-XWeb-Key": process.env.TAVILY_API_KEY,
+  },
+  body: JSON.stringify({
+    query: "What is the latest on the Model Context Protocol?",
+    max_results: 5,
+    include_answer: true,
+  }),
+});
+const search = await response.json();
+console.log(search.answer?.text, search.answer?.citations);`,
+  },
+];
+
+const capabilities = [
+  {
+    icon: 'search' as const,
+    title: 'Live web search',
+    body: 'One query endpoint over Tavily, Brave Search, Serper or Exa. Results are fetched live, not recalled from model training data.',
+    accent: 'from-brand-500 to-brand-700',
+  },
+  {
+    icon: 'extract' as const,
+    title: 'Cited answers',
+    body: 'Get answers with source citations. x-web reports whether synthesis came from an LLM, the provider or extractive selection.',
+    accent: 'from-brand-400 to-brand-600',
+  },
+  {
+    icon: 'globe' as const,
+    title: 'Multi-language',
+    body: 'Detect query language and pass it through where the chosen provider supports language filtering.',
+    accent: 'from-brand-600 to-brand-800',
+  },
+  {
+    icon: 'code' as const,
+    title: 'Query understanding',
+    body: 'Infer question intent, key entities and recency. Inspect the signals and rewritten query before your agent acts on them.',
+    accent: 'from-brand-300 to-brand-500',
+  },
+  {
+    icon: 'scrape' as const,
+    title: 'Page extraction',
+    body: 'Turn public result URLs into clean readable text and return embedded image URLs, page alt text and dimensions.',
+    accent: 'from-brand-400 to-brand-700',
+  },
+  {
+    icon: 'globe' as const,
+    title: 'Image search',
+    body: 'Search Brave Images or Serper Images and get image and thumbnail URLs, source pages, titles and available dimensions.',
+    accent: 'from-brand-500 to-brand-800',
+  },
+];
+
+const features = [
+  {
+    icon: 'layers' as const,
+    title: 'One response shape',
+    body: 'Tavily, Brave, Serper and Exa return a normalized result contract, so your integration can stay consistent.',
+  },
+  {
+    icon: 'shield' as const,
+    title: 'Server-side key handling',
+    body: 'Call the API from your server or agent backend; provider credentials are not stored in browser local storage.',
+  },
+  {
+    icon: 'clock' as const,
+    title: 'Freshness controls',
+    body: 'Use day, week, month or year windows, or phrase a question naturally with “latest” or “today”.',
+  },
+  {
+    icon: 'globe' as const,
+    title: 'Inspectable understanding',
+    body: 'See detected language, intent signals and the effective query instead of trusting an opaque rewrite.',
+  },
+];
+
+const steps = [
+  {
+    title: 'Choose a provider',
+    body: 'Use a Tavily, Brave, Serper or Exa key. x-web account keys and paid plans are a later milestone.',
+  },
+  {
+    title: 'Call the search API',
+    body: 'Send a natural-language query to /api/v1/search from your server-side application.',
+  },
+  {
+    title: 'Use current, cited results',
+    body: 'Read the normalized snippets, optional answer and citations, plus the intent and language metadata.',
+  },
+];
+
+const faqs = [
+  {
+    q: 'Do I need a provider key?',
+    a: 'Yes, for search today. Use a key from Tavily, Brave Search, Serper or Exa, or configure one on your server. x-web account keys and pooled credits are not live yet.',
+  },
+  {
+    q: 'Are the results current?',
+    a: 'Search calls a provider at request time, so results come from its live index rather than model training data. Use a recency window for time-sensitive queries; freshness still depends on provider coverage.',
+  },
+  {
+    q: 'Does every answer use an LLM?',
+    a: 'No. If you configure an OpenAI-compatible or Anthropic model, x-web can synthesize from sources. Otherwise it uses an upstream provider answer or extractive synthesis. The response says which mode ran.',
+  },
+  {
+    q: 'Can I create an account or select a payment plan?',
+    a: 'Not yet. We are building the API capabilities first. Accounts, plan selection and payments are the next product milestone.',
+  },
+];
+
+const integrations = ['Tavily', 'Brave Search', 'Serper', 'Exa'];
+---
+
+<Base
+  title="x-web — Give your AI access to the web"
+  description="x-web is a web-search API for AI agents: live results, cited answers, extracted page text, multilingual queries and transparent query understanding."
+>
+  <!-- ============================= HERO ============================= -->
+  <section class="relative overflow-hidden">
+    <div class="grid-fade pointer-events-none absolute inset-0" aria-hidden="true"></div>
+    <div
+      class="pointer-events-none absolute -top-40 left-1/2 h-[420px] w-[820px] -translate-x-1/2 rounded-full bg-brand-200/40 blur-3xl"
+      aria-hidden="true"
+    >
+    </div>
+
+    <div class="relative mx-auto max-w-7xl px-4 pt-16 pb-20 sm:px-6 sm:pt-24 lg:px-8 lg:pt-28">
+      <div class="grid items-center gap-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+        <div class="min-w-0">
+          <span class="chip">
+            <span class="h-1.5 w-1.5 rounded-full bg-brand-500"></span>
+            Text &amp; Search API
+          </span>
+
+          <h1
+            class="mt-6 text-4xl leading-[1.05] font-bold tracking-tight text-ink-900 sm:text-5xl lg:text-6xl"
+          >
+            Give your AI
+            <span class="ring-gradient bg-clip-text text-transparent">access to the web.</span>
+          </h1>
+
+          <p class="mt-6 max-w-xl text-lg leading-relaxed text-ink-600">
+            x-web gives your agent one API for live web search, cited answers, page text and query
+            understanding — so it can look up what happened today, not guess from training data.
+          </p>
+
+          <div class="mt-8 flex flex-wrap items-center gap-3">
+            <a href="/docs/quickstart" class="btn-primary">
+              Read the quickstart
+              <Icon name="arrowRight" class="h-4 w-4" />
+            </a>
+            <a href="/docs" class="btn-secondary">Read the docs</a>
+          </div>
+
+          <ul class="mt-10 flex flex-wrap gap-x-6 gap-y-2.5">
+            {
+              [
+                'Live provider results',
+                '4 search integrations',
+                'Optional cited answers',
+                'No x-web account needed yet',
+              ].map((item) => (
+                <li class="flex items-center gap-2 text-sm text-ink-500">
+                  <span class="grid h-5 w-5 place-items-center rounded-full bg-brand-50 text-brand-600">
+                    <Icon name="check" class="h-3 w-3" />
+                  </span>
+                  {item}
+                </li>
+              ))
+            }
+          </ul>
+        </div>
+
+        <div class="relative min-w-0">
+          <div
+            class="absolute -inset-3 rounded-[28px] bg-gradient-to-br from-brand-200/60 via-brand-100/20 to-transparent blur-2xl"
+            aria-hidden="true"
+          >
+          </div>
+          <div class="relative">
+            <CodeTabs tabs={heroTabs} />
+            <div class="mt-4 rounded-2xl border border-ink-100 bg-white p-4 shadow-card">
+              <div class="flex items-center justify-between">
+                <p class="text-[11px] font-semibold tracking-wider text-ink-400 uppercase">
+                  Response
+                </p>
+                <span class="font-mono text-[11px] text-ink-400">412ms · tavily</span>
+              </div>
+              <div class="mt-3">
+                <CodeBlock
+                  lang="json"
+                  title="response.json"
+                  code={`{
+  "object": "search",
+  "provider": "tavily",
+  "answer": {
+    "text": "The Model Context Protocol is an open protocol… [1]",
+    "mode": "provider",
+    "citations": [{ "index": 1, "title": "Model Context Protocol", "url": "https://modelcontextprotocol.io", "result": 0 }]
+  },
+  "results": [{
+    "title": "Model Context Protocol",
+    "url": "https://modelcontextprotocol.io",
+    "snippet": "An open protocol for connecting AI assistants…"
+  }]
+}`}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================= INTEGRATIONS ============================= -->
+  <section class="border-y border-ink-100 bg-ink-50/50">
+    <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <p class="text-center text-xs font-semibold tracking-wider text-ink-400 uppercase">
+        Live search providers supported today
+      </p>
+      <ul class="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-3">
+        {
+          integrations.map((name) => (
+            <li class="rounded-full border border-ink-200 bg-white px-4 py-1.5 text-sm font-medium text-ink-600">
+              {name}
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============================= CAPABILITIES ============================= -->
+  <section class="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+    <div class="max-w-2xl">
+      <p class="text-sm font-semibold text-brand-600">Capabilities</p>
+      <h2 class="mt-2 text-3xl sm:text-4xl">Text &amp; Search, ready for your agent</h2>
+      <p class="mt-4 text-lg leading-relaxed text-ink-600">
+        Search the live web, understand what the query is asking, synthesize answers with source
+        citations, and optionally extract clean text from public result pages.
+      </p>
+    </div>
+
+    <div class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      {
+        capabilities.map((item) => (
+          <article class="card card-hover group p-6">
+            <span
+              class:list={[
+                'grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br text-white shadow-[0_10px_24px_-12px_rgb(109_40_217/0.9)]',
+                item.accent,
+              ]}
+            >
+              <Icon name={item.icon} class="h-5 w-5" />
+            </span>
+            <h3 class="mt-5 text-lg">{item.title}</h3>
+            <p class="mt-2 text-sm leading-relaxed text-ink-600">{item.body}</p>
+          </article>
+        ))
+      }
+    </div>
+  </section>
+
+  <!-- ============================= FEATURES ============================= -->
+  <section class="border-y border-ink-100 bg-gradient-to-b from-brand-50/60 to-white">
+    <div class="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+      <div class="grid gap-12 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
+        <div>
+          <p class="text-sm font-semibold text-brand-600">Why x-web</p>
+          <h2 class="mt-2 text-3xl sm:text-4xl">Built for agents, not dashboards</h2>
+          <p class="mt-4 text-lg leading-relaxed text-ink-600">
+            Most search APIs were designed for humans clicking through ten blue links. x-web was
+            designed for a model deciding what to read next.
+          </p>
+          <a href="/docs" class="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:text-brand-800">
+            See the API reference
+            <Icon name="arrowRight" class="h-4 w-4" />
+          </a>
+        </div>
+
+        <div class="grid gap-5 sm:grid-cols-2">
+          {
+            features.map((feature) => (
+              <div class="rounded-2xl border border-white bg-white/80 p-6 shadow-[0_1px_2px_rgb(26_23_46/0.04)] backdrop-blur">
+                <span class="grid h-10 w-10 place-items-center rounded-lg bg-brand-50 text-brand-600">
+                  <Icon name={feature.icon} class="h-5 w-5" />
+                </span>
+                <h3 class="mt-4 text-base">{feature.title}</h3>
+                <p class="mt-2 text-sm leading-relaxed text-ink-600">{feature.body}</p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================= HOW IT WORKS ============================= -->
+  <section class="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+    <div class="max-w-2xl">
+      <p class="text-sm font-semibold text-brand-600">How it works</p>
+      <h2 class="mt-2 text-3xl sm:text-4xl">Live in three steps</h2>
+    </div>
+
+    <ol class="mt-12 grid gap-6 md:grid-cols-3">
+      {
+        steps.map((step, index) => (
+          <li class="relative rounded-2xl border border-ink-100 bg-white p-6 shadow-card">
+            <span class="ring-gradient grid h-9 w-9 place-items-center rounded-lg text-sm font-bold text-white">
+              {index + 1}
+            </span>
+            <h3 class="mt-4 text-lg">{step.title}</h3>
+            <p class="mt-2 text-sm leading-relaxed text-ink-600">{step.body}</p>
+          </li>
+        ))
+      }
+    </ol>
+
+    <div class="mt-12 grid gap-6 lg:grid-cols-2">
+      <div class="min-w-0">
+        <h3 class="text-xl">Answer with citations</h3>
+        <p class="mt-2 text-ink-600">
+          The answer object includes citation metadata and says whether synthesis came from a model,
+          the provider or extractive selection.
+        </p>
+        <div class="mt-5">
+          <CodeBlock
+            lang="json"
+            title="response.json"
+            code={`{
+  "object": "search",
+  "query": "Model Context Protocol",
+  "provider": "tavily",
+  "answer": {
+    "text": "An open protocol for… [1]",
+    "mode": "provider",
+    "confidence": 0.7,
+    "citations": [{
+      "index": 1,
+      "title": "Model Context Protocol",
+      "url": "https://modelcontextprotocol.io",
+      "result": 0
+    }]
+  },
+  "results": [{
+    "title": "Model Context Protocol",
+    "url": "https://modelcontextprotocol.io",
+    "snippet": "An open protocol for connecting AI assistants…"
+  }]
+}`}
+          />
+        </div>
+      </div>
+
+      <div class="min-w-0">
+        <h3 class="text-xl">Give your agent a web-search tool</h3>
+        <p class="mt-2 text-ink-600">
+          Wrap the REST endpoint in your agent framework and return the answer with its citations.
+        </p>
+        <div class="mt-5">
+          <CodeBlock
+            lang="javascript"
+            title="web-search.js"
+            code={`async function webSearch(query) {
+  const response = await fetch(process.env.XWEB_BASE + "/api/v1/search", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-XWeb-Key": process.env.TAVILY_API_KEY
+    },
+    body: JSON.stringify({ query, include_answer: true })
+  });
+  return response.json();
+}`}
+          />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================= PLAYGROUND ============================= -->
+  <section class="border-y border-ink-100 bg-ink-50/60">
+    <div class="mx-auto max-w-5xl px-4 py-20 sm:px-6 lg:px-8">
+      <div class="max-w-2xl">
+        <p class="text-sm font-semibold text-brand-600">Try it</p>
+        <h2 class="mt-2 text-3xl sm:text-4xl">Run a real search, right here</h2>
+        <p class="mt-4 text-lg leading-relaxed text-ink-600">
+          Bring a Tavily, Brave, Serper or Exa key and this hits the live web — the same code path
+          your agent will use.
+        </p>
+      </div>
+
+      <div class="mt-10">
+        <Playground id="home-playground" />
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================= ACCOUNT DASHBOARD ============================= -->
+  <section class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+    <div class="rounded-3xl border border-brand-200 bg-brand-50/70 p-8 sm:p-12">
+      <p class="text-sm font-semibold text-brand-700">Developer console</p>
+      <h2 class="mt-2 text-3xl sm:text-4xl">Your API keys and usage, in one place</h2>
+      <p class="mt-4 max-w-2xl leading-relaxed text-ink-600">
+        Create an account with email or Google, issue and revoke x-web API keys, and review recent
+        requests on your dashboard. Plan billing and paid upgrades are not enabled yet.
+      </p>
+      <a href="/login" class="btn-primary mt-6 inline-flex">Create your account</a>
+    </div>
+  </section>
+
+  <!-- ============================= FAQ ============================= -->
+  <section class="border-t border-ink-100 bg-ink-50/50">
+    <div class="mx-auto max-w-3xl px-4 py-20 sm:px-6 lg:px-8">
+      <h2 class="text-center text-3xl sm:text-4xl">Questions, answered</h2>
+      <div class="mt-10 divide-y divide-ink-100 overflow-hidden rounded-2xl border border-ink-100 bg-white">
+        {
+          faqs.map((faq) => (
+            <details class="group p-6">
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-4 text-left font-semibold text-ink-900">
+                {faq.q}
+                <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-50 text-brand-600 transition-transform group-open:rotate-180">
+                  <Icon name="chevronDown" class="h-4 w-4" />
+                </span>
+              </summary>
+              <p class="mt-3 text-sm leading-relaxed text-ink-600">{faq.a}</p>
+            </details>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================= CTA ============================= -->
+  <section class="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+    <div class="relative overflow-hidden rounded-3xl bg-ink-950 px-6 py-12 text-center sm:px-8 sm:py-16">
+      <div
+        class="pointer-events-none absolute -top-24 left-1/2 h-72 w-[560px] -translate-x-1/2 rounded-full bg-brand-600/30 blur-3xl"
+        aria-hidden="true"
+      >
+      </div>
+      <div class="relative">
+        <h2 class="text-3xl text-white sm:text-4xl">Give your agent live web search</h2>
+        <p class="mx-auto mt-4 max-w-xl text-lg text-ink-300">
+          One search API for current results, citations and query understanding. Bring a provider key to get started.
+        </p>
+        <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <a href="/docs/quickstart" class="btn-primary">
+            Open the quickstart
+            <Icon name="arrowRight" class="h-4 w-4" />
+          </a>
+          <a
+            href="https://github.com/nexusskyskyx-dot/x-web"
+            target="_blank"
+            rel="noreferrer"
+            class="btn-secondary border-white/15 bg-white/5 text-white hover:border-white/30 hover:bg-white/10"
+          >
+            <Icon name="github" class="h-4 w-4" />
+            View on GitHub
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+</Base>

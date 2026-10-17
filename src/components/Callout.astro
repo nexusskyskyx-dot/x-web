@@ -1,0 +1,36 @@
+---
+import Icon from './Icons.astro';
+
+type CalloutType = 'note' | 'tip' | 'warning' | 'danger';
+
+interface Props {
+  type?: CalloutType;
+  title?: string;
+  class?: string;
+}
+
+const { type = 'note', title, class: className = '' } = Astro.props;
+
+const styles = {
+  note: { box: 'border-brand-200 bg-brand-50/80', title: 'text-brand-800', icon: 'info' as const },
+  tip: { box: 'border-emerald-200 bg-emerald-50/80', title: 'text-emerald-800', icon: 'check' as const },
+  warning: { box: 'border-amber-200 bg-amber-50/80', title: 'text-amber-800', icon: 'alert' as const },
+  danger: { box: 'border-rose-200 bg-rose-50/80', title: 'text-rose-800', icon: 'alert' as const },
+}[type];
+---
+
+<div
+  class:list={[
+    'not-prose my-6 flex gap-3 rounded-xl border p-4 text-sm leading-relaxed',
+    styles.box,
+    className,
+  ]}
+>
+  <span class="mt-0.5 shrink-0 text-ink-600">
+    <Icon name={styles.icon} class="h-4.5 w-4.5" />
+  </span>
+  <div class="min-w-0 flex-1">
+    {title && <p class:list={['mb-1 font-semibold', styles.title]}>{title}</p>}
+    <div class="text-ink-600"><slot /></div>
+  </div>
+</div>

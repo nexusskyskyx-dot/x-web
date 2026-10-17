@@ -1,0 +1,18 @@
+# build output
+dist/
+.astro/
+.vercel/
+.output/
+
+# dependencies
+node_modules/
+
+# env
+.env
+.env.production
+.env.local
+
+# logs
+npm-debug.log*
+yarn-error.log*
+.DS_Store

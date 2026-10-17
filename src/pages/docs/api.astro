@@ -1,0 +1,317 @@
+---
+import Docs from '../../layouts/Docs.astro';
+import Endpoint from '../../components/Endpoint.astro';
+import ParamTable from '../../components/ParamTable.astro';
+import CodeBlock from '../../components/CodeBlock.astro';
+import Callout from '../../components/Callout.astro';
+import Playground from '../../components/Playground.astro';
+import ImagePlayground from '../../components/ImagePlayground.astro';
+
+const toc = [
+  { id: 'authentication', text: 'Authentication' },
+  { id: 'accounts', text: 'Accounts & dashboard' },
+  { id: 'search', text: 'POST /api/v1/search' },
+  { id: 'intent', text: 'POST /api/v1/intent' },
+  { id: 'extract', text: 'POST /api/v1/extract' },
+  { id: 'images', text: 'POST /api/v1/images' },
+  { id: 'response', text: 'Response shape' },
+  { id: 'errors', text: 'Errors' },
+  { id: 'providers', text: 'Providers & capabilities' },
+  { id: 'playground', text: 'Live playground' },
+];
+
+const searchParams = [
+  { name: 'query', type: 'string', required: true, description: 'Natural-language question or keyword query. Maximum 2,000 characters.' },
+  { name: 'provider', type: '"tavily" | "brave" | "serper" | "exa"', description: 'Primary provider. Defaults to the configured server provider, or Tavily.' },
+  { name: 'multi_source', type: 'boolean', default: 'true', description: 'Search all providers with configured keys in parallel, then deduplicate and rerank. Set false to use only provider.' },
+  { name: 'providers', type: 'string[]', description: 'Optional provider allow-list for fan-out. Providers without a configured key are listed in unavailable_providers.' },
+  { name: 'max_results', type: 'integer', default: '5', description: 'Number of results. Clamped to 1–20.' },
+  { name: 'include_answer', type: 'boolean', default: 'true', description: 'Return a grounded answer with citation metadata. Uses a configured OpenAI/Anthropic model when available, otherwise a provider answer or extractive synthesis.' },
+  { name: 'include_raw_content', type: 'boolean', default: 'false', description: 'Fetch clean page text for up to extract_depth results. Pages are fetched server-side; private/local IPs are blocked.' },
+  { name: 'extract_depth', type: 'integer', default: '3', description: 'Maximum result pages to extract when include_raw_content is true. 1–10.' },
+  { name: 'time_range', type: '"day" | "week" | "month" | "year"', description: 'Restrict results to a recent window. Also inferred from wording such as “latest” or “today”.' },
+  { name: 'language', type: 'string', default: '"auto"', description: 'BCP-47/ISO language code. Auto-detected from the query by default; explicit value wins.' },
+  { name: 'country', type: 'string', description: 'Country code to bias results, e.g. "US", "GT". Some providers do not support it.' },
+  { name: 'topic', type: '"general" | "news"', description: 'Search topic. News phrasing can be inferred automatically.' },
+  { name: 'search_depth', type: '"basic" | "advanced"', default: '"basic"', description: 'Provider search depth where supported.' },
+  { name: 'include_domains', type: 'string[]', description: 'Restrict results to these domains. Accepts site: operators in the query too.' },
+  { name: 'exclude_domains', type: 'string[]', description: 'Exclude these domains.' },
+  { name: 'understand', type: 'boolean', default: 'true', description: 'Infer intent, entities, query keywords and useful filters before searching.' },
+  { name: 'query_rewrite', type: '"auto" | "off" | "force"', default: '"auto"', description: 'Whether to send the index a shorter keyword query. Auto rewrites verbose questions only.' },
+];
+
+const intentParams = [
+  { name: 'query', type: 'string', required: true, description: 'Natural-language query to classify and rewrite.' },
+  { name: 'topic', type: '"general" | "news"', description: 'Explicit topic override; wins over inferred topic.' },
+  { name: 'time_range', type: '"day" | "week" | "month" | "year"', description: 'Explicit recency override; wins over inferred range.' },
+  { name: 'country', type: 'string', description: 'Optional country override.' },
+];
+
+const errorRows = [
+  { code: '400', type: 'invalid_request_error', message: 'Malformed JSON, missing query, or invalid parameter.' },
+  { code: '401', type: 'authentication_error', message: 'No provider key was supplied or configured.' },
+  { code: '402', type: 'upstream_error', message: 'The provider account is out of credit.' },
+  { code: '429', type: 'rate_limit_error', message: 'The provider or x-web rate limiter rejected the request.' },
+  { code: '502', type: 'upstream_error', message: 'The search provider failed or returned an error.' },
+  { code: '500', type: 'internal_error', message: 'Unexpected server-side failure.' },
+];
+---
+
+<Docs
+  title="API reference"
+  description="Live web search, query understanding and page extraction — the current x-web API surface."
+  toc={toc}
+  updated="October 2026"
+>
+  <Callout type="note" title="API base path">
+    These endpoints currently live under <code>/api/v1</code> on this Astro app. An account-based
+    <code>api.x-web.dev/v1</code> service is a later step; it is not live yet.
+  </Callout>
+
+  <h2 id="authentication">Authentication</h2>
+  <p>
+    Search accepts a provider key using <code>x-xweb-key</code> or
+    <code>Authorization: Bearer …</code>. Signed-in users can also create an x-web API key in the
+    dashboard; that key authenticates your account and usage, while the deployment uses its own
+    configured provider key to run the search. Server-side provider keys may be configured with
+    <code>XWEB_SEARCH_API_KEY</code> or the provider-specific environment variables.
+  </p>
+  <CodeBlock
+    lang="bash"
+    title="headers"
+    code={`X-XWeb-Key: $TAVILY_API_KEY
+Content-Type: application/json`}
+  />
+  <Callout type="warning" title="Keep provider keys private">
+    Never put a provider key in browser code or a public repository. The playground sends a key to
+    this site's server-side proxy; production API keys, accounts, plans and billing are not part of
+    this first API milestone.
+  </Callout>
+
+  <h2 id="accounts">Accounts & dashboard</h2>
+  <p>
+    Sign up with email/password or Google at <code>/login</code>, then manage your plan label,
+    monthly usage, recent requests and API keys at <code>/dashboard</code>. Enable Email and Google
+    providers in Supabase Auth, set <code>PUBLIC_SUPABASE_URL</code>,
+    <code>PUBLIC_SUPABASE_ANON_KEY</code>, <code>SUPABASE_URL</code>,
+    a public Supabase key (<code>SUPABASE_ANON_KEY</code> or
+    <code>SUPABASE_PUBLISHABLE_KEY</code>), and the server-only
+    <code>SUPABASE_SERVICE_ROLE_KEY</code> or <code>SUPABASE_SECRET_KEY</code>.
+    Apply <code>supabase/migrations/202610160001_account_dashboard.sql</code> to the project database.
+    For per-account provider credentials, also apply <code>supabase/migrations/202610160002_provider_credentials.sql</code>
+    and configure the server-only <code>XWEB_PROVIDER_KEY_ENCRYPTION_KEY</code>.
+    Configure the Supabase redirect allow-list for <code>/dashboard</code> and
+    <code>/login?mode=update</code>; enter Google OAuth client credentials in Supabase Auth.
+  </p>
+  <p>
+    Dashboard APIs use the Supabase access token as a Bearer token:
+    <code>GET /api/account/overview</code>, <code>POST /api/account/keys</code>,
+    <code>DELETE /api/account/keys/:id</code>, and provider-key management at
+    <code>/api/account/providers</code>. New x-web keys are shown only once and stored as
+    SHA-256 hashes. Use one with <code>X-XWeb-Key</code> to call search. Searches can use your saved
+    provider credentials from the dashboard, or fall back to provider keys configured on the x-web server.
+    Usage counts successful searches made with x-web account keys. Plan display is available, but
+    paid subscriptions and quota enforcement are not enabled yet.
+  </p>
+
+  <h2 id="search">Search the web</h2>
+  <Endpoint
+    method="POST"
+    path="/api/v1/search"
+    description="Run a live provider search, optionally understand and rewrite the query, synthesize a cited answer, and extract page text."
+  />
+  <ParamTable params={searchParams} />
+  <CodeBlock
+    lang="bash"
+    title="request"
+    code={`curl -X POST "$XWEB_BASE/api/v1/search" \\
+  -H "X-XWeb-Key: $TAVILY_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "query": "What is the latest on the Model Context Protocol?",
+    "multi_source": true,
+    "max_results": 5,
+    "include_answer": true,
+    "include_raw_content": false,
+    "language": "auto"
+  }'`}
+  />
+  <p>
+    <code>GET /api/v1/search?query=…</code> is also available for simple searches. POST is recommended
+    so longer queries and options remain out of URLs and logs.
+  </p>
+
+  <h2 id="intent">Understand a query</h2>
+  <Endpoint
+    method="POST"
+    path="/api/v1/intent"
+    description="Classify search intent, detect language and entities, infer freshness and return a search-oriented rewrite. No provider key required."
+  />
+  <ParamTable params={intentParams} />
+  <CodeBlock
+    lang="bash"
+    title="request"
+    code={`curl -X POST "$XWEB_BASE/api/v1/intent" \\
+  -H "Content-Type: application/json" \\
+  -d '{"query":"What is the latest news on MCP?"}'`}
+  />
+  <p>
+    Intent is deterministic and rule-based today, not an LLM call. The response includes a
+    <code>signals</code> array to make the interpretation inspectable. Explicit search parameters
+    override inferred values.
+  </p>
+
+  <h2 id="extract">Extract page content</h2>
+  <Endpoint
+    method="POST"
+    path="/api/v1/extract"
+    description="Fetch one or more public web pages and return cleaned, readable text plus metadata."
+  />
+  <ParamTable
+    params={[
+      { name: 'urls', type: 'string[]', required: true, description: '1–10 absolute HTTP(S) URLs.' },
+      { name: 'url', type: 'string', description: 'Convenience alias for one URL.' },
+      { name: 'max_chars', type: 'integer', default: '12000', description: 'Maximum extracted characters per page, clamped to 500–100000.' },
+      { name: 'include_images', type: 'boolean', default: 'false', description: 'Return image URLs, page alt text, title and available dimensions from the main content.' },
+    ]}
+  />
+  <CodeBlock
+    lang="bash"
+    title="request"
+    code={`curl -X POST "$XWEB_BASE/api/v1/extract" \\
+  -H "Content-Type: application/json" \\
+  -d '{"urls":["https://modelcontextprotocol.io/"],"include_images":true}'`}
+  />
+  <Callout type="warning" title="Public URLs only">
+    Extraction blocks localhost, private/reserved IP ranges, and redirects to them to mitigate SSRF.
+    Pages are fetched by the server, so do not use this endpoint for secrets or private network resources.
+  </Callout>
+
+  <h2 id="images">Search images</h2>
+  <Endpoint
+    method="POST"
+    path="/api/v1/images"
+    description="Search indexed image results and return safe image URLs, thumbnails, source pages and available dimensions."
+  />
+  <ParamTable
+    params={[
+      { name: 'query', type: 'string', required: true, description: 'Image query, up to 400 characters.' },
+      { name: 'provider', type: '"brave" | "serper"', default: '"brave"', description: 'Image search provider. Requires its own provider API key.' },
+      { name: 'max_results', type: 'integer', default: '20', description: 'Results to return, clamped to 1–50.' },
+      { name: 'safe_search', type: '"strict" | "off"', default: '"strict"', description: 'SafeSearch mode. Brave supports this; Serper reports it as unsupported.' },
+      { name: 'country', type: 'string', description: 'Optional country/region preference.' },
+      { name: 'language', type: 'string', description: 'Optional result language preference.' },
+    ]}
+  />
+  <CodeBlock
+    lang="bash"
+    title="request"
+    code={`curl -X POST "$XWEB_BASE/api/v1/images" \\
+  -H "X-XWeb-Key: $BRAVE_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"query":"purple wildflowers","provider":"brave","max_results":12}'`}
+  />
+  <p>
+    Each normalized result may include <code>image_url</code>, <code>thumbnail_url</code>,
+    <code>page_url</code>, title/alt-text equivalent, source, and image and thumbnail dimensions.
+    Dimensions depend on the upstream provider and may be absent. Use the thumbnail URL for previews;
+    direct image hosts can block hotlinking or move files.
+  </p>
+  <CodeBlock
+    lang="json"
+    title="image result"
+    code={`{
+  "object": "image_search",
+  "provider": "brave",
+  "results": [{
+    "image_url": "https://images.example/photo.jpg",
+    "thumbnail_url": "https://imgs.search.brave.com/…",
+    "page_url": "https://example.com/gallery",
+    "title": "Purple wildflower",
+    "alt_text": "Purple wildflower",
+    "source": "example.com",
+    "width": 1920,
+    "height": 1280,
+    "position": 1
+  }]
+}`}
+  />
+  <p>
+    To extract images already embedded in a page, pass <code>include_images: true</code> to
+    <code>/api/v1/extract</code>. That returns original image URLs, actual page <code>alt</code>
+    text where provided, title and dimensions. Image-in / similar-image-out visual search and AI
+    image captioning are later features, not implemented in this phase.
+  </p>
+  <ImagePlayground />
+
+  <h2 id="response">Response shape</h2>
+  <p>Search returns result snippets plus optional answer and intent metadata. Dates are normalized to UTC ISO-8601 where the provider supplies a parseable date.</p>
+  <CodeBlock
+    lang="json"
+    title="200 OK (trimmed)"
+    code={`{
+  "id": "xweb_…",
+  "object": "search",
+  "query": "What is the latest on MCP?",
+  "provider": "multi",
+  "providers_used": ["tavily", "brave"],
+  "language": { "requested": "auto", "resolved": "en", "detected": { "code": "en", "language": "en", "confidence": 0.95, "name": "English" } },
+  "intent": { "type": "news", "time_sensitive": true, "filters": { "topic": "news", "time_range": "week" } },
+  "answer": { "text": "… [1]", "mode": "provider", "confidence": 0.7, "citations": [{ "index": 1, "title": "…", "url": "https://…", "result": 0 }] },
+  "results": [{ "title": "…", "url": "https://…", "snippet": "…", "published_date": "2026-10-16T…Z", "providers": ["tavily", "brave"], "source_count": 2, "ranking_score": 0.82, "rank_signals": { "relevance": 0.9, "freshness": 0.8, "authority": 0.7, "corroboration": 0.75 } }],
+  "meta": { "effective_query": "latest mcp", "rewritten": true, "time_sensitive": true, "extracted_count": 0, "stages_ms": { "understand": 0, "search": 420, "extract": 0, "answer": 2 } }
+}`}
+  />
+  <p>
+    Answer modes are <code>llm</code> (configured OpenAI-compatible or Anthropic model),
+    <code>provider</code> (answer returned by the search provider, with source citations attached), or
+    <code>extractive</code> (relevant retrieved sentences selected and cited). Without a configured
+    model, “AI-synthesized” is not an LLM guarantee; the API reports the mode it actually used.
+  </p>
+
+  <h2 id="errors">Errors</h2>
+  <ParamTable
+    params={errorRows.map((row) => ({ name: row.code, type: row.type, description: row.message }))}
+  />
+  <CodeBlock
+    lang="json"
+    title="error envelope"
+    code={`{
+  "error": {
+    "type": "invalid_request_error",
+    "code": "missing_query",
+    "message": "\`query\` is required.",
+    "param": "query"
+  }
+}`}
+  />
+
+  <h2 id="providers">Providers & capabilities</h2>
+  <p>
+    The API currently supports Tavily, Brave Search, Serper and Exa. With <code>multi_source</code>
+    enabled (the default), x-web uses each configured provider-specific key plus the request's key
+    for its selected provider, queries those sources concurrently, tolerates partial failures, then
+    canonicalizes URLs, removes duplicates and returns one blended top set. Configure additional keys
+    with <code>TAVILY_API_KEY</code>, <code>BRAVE_API_KEY</code>, <code>SERPER_API_KEY</code>, and
+    <code>EXA_API_KEY</code>; a visitor-supplied key is never reused for a different provider.
+  </p>
+  <p>
+    Results include <code>providers</code> and <code>source_count</code> provenance. The
+    <code>ranking_score</code> and <code>rank_signals</code> are inspectable ordering heuristics based
+    on query relevance, freshness, domain authority signals and cross-source corroboration—not
+    confidence probabilities. Confidence scoring and personalized ranking are not included yet.
+    Failed providers appear in <code>provider_errors</code>; unavailable allow-listed providers appear
+    in <code>unavailable_providers</code>. Provider-specific filter limitations are reported in
+    <code>unsupported_params</code>.
+  </p>
+  <p>
+    Multi-language support consists of local query language detection plus provider pass-through
+    where supported; it does not translate queries or guarantee that every provider indexes every
+    language. Live/current results come from the selected provider at request time, not from model
+    training data. Freshness depends on provider coverage and date metadata.
+  </p>
+
+  <h2 id="playground">Live playground</h2>
+  <p>Try the same live search pipeline from the browser. Use a provider key you control.</p>
+  <Playground />
+</Docs>
