@@ -28,7 +28,7 @@ export function supabaseUrl(): string | undefined {
 }
 
 export function supabaseAnonKey(): string | undefined {
-  return env('SUPABASE_ANON_KEY') ?? env('PUBLIC_SUPABASE_ANON_KEY');
+  return env('SUPABASE_ANON_KEY') ?? env('SUPABASE_PUBLISHABLE_KEY') ?? env('PUBLIC_SUPABASE_ANON_KEY');
 }
 
 export function isAccountConfigured(): boolean {

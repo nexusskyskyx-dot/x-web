@@ -1,8 +1,8 @@
 ---
 import Base from '../layouts/Base.astro';
 
-const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL ?? '';
-const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? '';
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL ?? import.meta.env.SUPABASE_URL ?? '';
+const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.env.SUPABASE_ANON_KEY ?? import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? '';
 ---
 
 <Base title="Dashboard — x-web" description="Manage your x-web API keys, plan, and usage." >
