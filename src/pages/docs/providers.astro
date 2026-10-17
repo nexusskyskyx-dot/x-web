@@ -75,8 +75,10 @@ const providers = [
     between them, or pin a single one for reproducible tests.
   </p>
   <p>
-    x-web does not issue its own API keys or provide pooled search credits yet. For now, supply a
-    provider key with each search request, or configure one on the deployment server.
+    Save provider credentials for Tavily, Brave Search, Serper and/or Exa in your account
+    <a href="/dashboard">dashboard</a>. Then authenticate search requests with an x-web API key;
+    x-web selects the saved account credentials server-side. You can also pass a provider key
+    directly for a one-off request or configure keys on the deployment server.
   </p>
 
   {
