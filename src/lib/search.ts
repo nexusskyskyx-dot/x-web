@@ -104,6 +104,18 @@ export interface SearchHit {
   raw_content?: string;
   /** Detected or provider-reported language of the result. */
   language?: string;
+  /** Best-results engine: providers that independently returned this URL. */
+  providers?: ProviderId[];
+  /** Number of distinct sources that corroborated this result. */
+  source_count?: number;
+  /** Weighted order score; not a probability or confidence. */
+  ranking_score?: number;
+  rank_signals?: {
+    relevance: number;
+    freshness: number;
+    authority: number;
+    corroboration: number;
+  };
 }
 
 export interface SearchResponse {

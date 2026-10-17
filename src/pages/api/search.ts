@@ -57,6 +57,9 @@ export async function POST({ request, clientAddress }: APIContext) {
       );
     }
     if (error instanceof SearchError) {
+      if (error.provider === 'multi' && error.status === 400) {
+        return errorResponse({ type: 'invalid_request_error', code: 'no_available_provider_keys', message: error.message }, 400);
+      }
       const status = error.status === 401 || error.status === 402 || error.status === 429 ? error.status : 502;
       return errorResponse(
         {

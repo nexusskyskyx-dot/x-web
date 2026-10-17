@@ -21,7 +21,9 @@ const toc = [
 
 const searchParams = [
   { name: 'query', type: 'string', required: true, description: 'Natural-language question or keyword query. Maximum 2,000 characters.' },
-  { name: 'provider', type: '"tavily" | "brave" | "serper" | "exa"', description: 'Provider to use. Defaults to the configured server provider, or Tavily.' },
+  { name: 'provider', type: '"tavily" | "brave" | "serper" | "exa"', description: 'Primary provider. Defaults to the configured server provider, or Tavily.' },
+  { name: 'multi_source', type: 'boolean', default: 'true', description: 'Search all providers with configured keys in parallel, then deduplicate and rerank. Set false to use only provider.' },
+  { name: 'providers', type: 'string[]', description: 'Optional provider allow-list for fan-out. Providers without a configured key are listed in unavailable_providers.' },
   { name: 'max_results', type: 'integer', default: '5', description: 'Number of results. Clamped to 1–20.' },
   { name: 'include_answer', type: 'boolean', default: 'true', description: 'Return a grounded answer with citation metadata. Uses a configured OpenAI/Anthropic model when available, otherwise a provider answer or extractive synthesis.' },
   { name: 'include_raw_content', type: 'boolean', default: 'false', description: 'Fetch clean page text for up to extract_depth results. Pages are fetched server-side; private/local IPs are blocked.' },
@@ -98,6 +100,7 @@ Content-Type: application/json`}
   -H "Content-Type: application/json" \\
   -d '{
     "query": "What is the latest on the Model Context Protocol?",
+    "multi_source": true,
     "max_results": 5,
     "include_answer": true,
     "include_raw_content": false,
@@ -221,11 +224,12 @@ Content-Type: application/json`}
   "id": "xweb_…",
   "object": "search",
   "query": "What is the latest on MCP?",
-  "provider": "tavily",
+  "provider": "multi",
+  "providers_used": ["tavily", "brave"],
   "language": { "requested": "auto", "resolved": "en", "detected": { "code": "en", "language": "en", "confidence": 0.95, "name": "English" } },
   "intent": { "type": "news", "time_sensitive": true, "filters": { "topic": "news", "time_range": "week" } },
   "answer": { "text": "… [1]", "mode": "provider", "confidence": 0.7, "citations": [{ "index": 1, "title": "…", "url": "https://…", "result": 0 }] },
-  "results": [{ "title": "…", "url": "https://…", "snippet": "…", "published_date": "2026-10-16T…Z" }],
+  "results": [{ "title": "…", "url": "https://…", "snippet": "…", "published_date": "2026-10-16T…Z", "providers": ["tavily", "brave"], "source_count": 2, "ranking_score": 0.82, "rank_signals": { "relevance": 0.9, "freshness": 0.8, "authority": 0.7, "corroboration": 0.75 } }],
   "meta": { "effective_query": "latest mcp", "rewritten": true, "time_sensitive": true, "extracted_count": 0, "stages_ms": { "understand": 0, "search": 420, "extract": 0, "answer": 2 } }
 }`}
   />
@@ -255,10 +259,21 @@ Content-Type: application/json`}
 
   <h2 id="providers">Providers & capabilities</h2>
   <p>
-    The API currently supports Tavily, Brave Search, Serper and Exa. Each upstream provider requires
-    its own key and has different language, freshness, answer and raw-content support. When an
-    inferred or explicit filter cannot be sent to the selected provider, the response lists it in
-    <code>unsupported_params</code> instead of pretending it was applied.
+    The API currently supports Tavily, Brave Search, Serper and Exa. With <code>multi_source</code>
+    enabled (the default), x-web uses each configured provider-specific key plus the request's key
+    for its selected provider, queries those sources concurrently, tolerates partial failures, then
+    canonicalizes URLs, removes duplicates and returns one blended top set. Configure additional keys
+    with <code>TAVILY_API_KEY</code>, <code>BRAVE_API_KEY</code>, <code>SERPER_API_KEY</code>, and
+    <code>EXA_API_KEY</code>; a visitor-supplied key is never reused for a different provider.
+  </p>
+  <p>
+    Results include <code>providers</code> and <code>source_count</code> provenance. The
+    <code>ranking_score</code> and <code>rank_signals</code> are inspectable ordering heuristics based
+    on query relevance, freshness, domain authority signals and cross-source corroboration—not
+    confidence probabilities. Confidence scoring and personalized ranking are not included yet.
+    Failed providers appear in <code>provider_errors</code>; unavailable allow-listed providers appear
+    in <code>unavailable_providers</code>. Provider-specific filter limitations are reported in
+    <code>unsupported_params</code>.
   </p>
   <p>
     Multi-language support consists of local query language detection plus provider pass-through

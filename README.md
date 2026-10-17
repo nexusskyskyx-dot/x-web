@@ -22,7 +22,7 @@ npm run dev      # http://localhost:4321
 | `npm run build`   | Production build (static pages + Vercel serverless routes) |
 | `npm run preview` | Serve the production build locally                        |
 | `npm run check`   | Astro + TypeScript diagnostics                            |
-| `npm test`        | Unit tests for providers, intent, languages, extraction, answers and pipeline |
+| `npm test`        | Unit tests for providers, federation/ranking, intent, languages, extraction, answers and pipeline |
 | `npm run test:layout` | Builds, then fails if anything can force horizontal page scroll |
 
 ---
@@ -44,6 +44,8 @@ src/
 │   └── Docs.astro          # Docs shell with sidebar + on-this-page TOC
 ├── lib/
 │   ├── search.ts           # Provider adapters (Tavily, Brave, Serper, Exa)
+│   ├── federation.ts       # Parallel multi-provider search + partial-failure handling
+│   ├── ranking.ts          # URL dedupe and relevance/freshness/authority ranking
 │   └── search.test.ts      # node:test suite for those adapters
 ├── pages/
 │   ├── index.astro         # Landing page
@@ -60,10 +62,10 @@ Vercel serverless functions.
 
 ## The search proxy
 
-`POST /api/v1/search` is the first public API surface. It accepts a natural-language query and a
-provider key, then returns live provider results, detected language, inspectable query intent,
-optional cited answer synthesis, and optionally extracted page text. The playground uses the same
-pipeline at `POST /api/search`.
+`POST /api/v1/search` accepts a natural-language query and a provider key, then returns detected
+language, inspectable query intent, an optional cited answer, and optionally extracted page text.
+With multiple provider keys configured, it searches those providers in parallel, deduplicates and
+reranks their live results as one set. The playground uses the same pipeline at `POST /api/search`.
 
 Additional endpoints:
 
@@ -73,17 +75,20 @@ Additional endpoints:
 - `POST /api/v1/images` — live image search through Brave Images or Serper Images, normalized to image, thumbnail, source-page and dimension fields.
 
 Supported search providers — `tavily`, `brave`, `serper`, `exa` — are implemented in
-[`src/lib/search.ts`](src/lib/search.ts). The pipeline, language detector, extractive answerer,
-page extractor and provider adapters are all covered by tests.
+[`src/lib/search.ts`](src/lib/search.ts). Multi-source fan-out uses each configured provider-specific
+environment key and the visitor's key only for the visitor-selected provider. Set
+`multi_source: false` to use just the selected provider. Each returned result includes provider
+provenance, corroboration count, and an explainable ranking score. That score is an ordering heuristic,
+not a confidence probability; confidence scoring and personalized ranking are deferred.
 
 ### Where the key comes from
 
-1. `x-xweb-key` request header (what the playground sends), or `api_key` in the body
-2. `XWEB_SEARCH_API_KEY` server environment variable
-3. Otherwise the request fails with `401 missing_api_key`
+1. `x-xweb-key` request header (what the playground sends), or `api_key` in the body; it is bound to the selected provider only.
+2. The matching provider-specific server key (for example, `BRAVE_API_KEY`) or the generic `XWEB_SEARCH_API_KEY` associated with `XWEB_SEARCH_PROVIDER`.
+3. Otherwise the request fails with `401 missing_api_key`.
 
-The key is used for that single request only. It is never stored, never logged, and never written
-to the browser's storage.
+Other configured provider-specific keys may be used for the same federated query, but a visitor key
+is never reused as another provider's credential. Request keys are not persisted or written to browser storage.
 
 ### What is not live yet
 

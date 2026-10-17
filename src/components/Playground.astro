@@ -151,6 +151,15 @@ const { id = 'playground' } = Astro.props;
           />
           Extract pages
         </label>
+        <label class="flex shrink-0 items-center gap-2 text-sm text-ink-600">
+          <input
+            type="checkbox"
+            name="multi_source"
+            checked
+            class="h-5 w-5 rounded border-ink-300 accent-brand-600 sm:h-4 sm:w-4"
+          />
+          Blend server providers
+        </label>
         <button type="submit" class="btn-primary ml-auto sm:ml-0" data-playground-submit>
           Run search
         </button>
@@ -232,8 +241,10 @@ const { id = 'playground' } = Astro.props;
     const renderResults = (data: any) => {
       const results = Array.isArray(data?.results) ? data.results : [];
       const answer = data?.answer;
+      const sourceNames = Array.isArray(data?.providers_used) ? data.providers_used.join(', ') : '';
       const meta = [
         `provider: ${escapeHtml(data?.provider ?? 'unknown')}`,
+        sourceNames ? `sources: ${escapeHtml(sourceNames)}` : '',
         `${results.length} result${results.length === 1 ? '' : 's'}`,
         data?.took_ms ? `${escapeHtml(data.took_ms)}ms` : '',
       ]
@@ -307,9 +318,12 @@ const { id = 'playground' } = Astro.props;
       const warnBlock =
         dropped.length > 0
           ? `<p class="border-t border-amber-100 bg-amber-50 px-4 py-2 text-[11px] text-amber-800">
-               ${escapeHtml(dropped.join(', '))} not supported by this provider — ignored.
+               Some selected providers could not apply: ${escapeHtml(dropped.join(', '))}.
              </p>`
           : '';
+      const partialBlock = Array.isArray(data?.provider_errors) && data.provider_errors.length
+        ? `<p class="border-t border-amber-100 bg-amber-50 px-4 py-2 text-[11px] text-amber-800">Partial results: ${data.provider_errors.map((failure: any) => `${escapeHtml(failure.provider)} unavailable`).join(', ')}.</p>`
+        : '';
 
       const items = results
         .map(
@@ -323,6 +337,10 @@ const { id = 'playground' } = Astro.props;
                     <span class="mt-0.5 block truncate font-mono text-[11px] font-normal text-brand-700">${escapeHtml(hostOf(item.url))}</span>
                   </a>
                   <p class="mt-1 line-clamp-3 text-sm leading-relaxed text-ink-600">${escapeHtml(item.snippet)}</p>
+                  <div class="mt-2 flex flex-wrap gap-1.5">
+                    ${item.source_count > 1 ? `<span class="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-medium text-brand-700">${escapeHtml(item.source_count)} sources agree</span>` : ''}
+                    ${Number.isFinite(item.ranking_score) ? `<span title="Ordering heuristic, not confidence" class="rounded-full bg-ink-50 px-2 py-0.5 font-mono text-[10px] text-ink-500">rank ${escapeHtml(Number(item.ranking_score).toFixed(2))} · heuristic</span>` : ''}
+                  </div>
                 </div>
               </div>
             </li>`,
@@ -337,6 +355,7 @@ const { id = 'playground' } = Astro.props;
         </div>
         ${intentBlock}
         ${warnBlock}
+        ${partialBlock}
         ${answerBlock}
         <ul class="border-t border-ink-100">${items || '<li class="px-4 py-6 text-sm text-ink-500">No results returned.</li>'}</ul>
         <pre data-json class="hidden overflow-x-auto border-t border-ink-100 bg-ink-950 p-4 font-mono text-[12px] leading-relaxed text-ink-100">${escapeHtml(JSON.stringify(data, null, 2))}</pre>`;
@@ -363,6 +382,7 @@ const { id = 'playground' } = Astro.props;
         max_results: Number(data.get('max_results') ?? 5),
         include_answer: data.get('include_answer') === 'on',
         include_raw_content: data.get('include_raw_content') === 'on',
+        multi_source: data.get('multi_source') === 'on',
       };
       if (timeRange) body.time_range = timeRange;
       if (language && language !== 'auto') body.language = language;

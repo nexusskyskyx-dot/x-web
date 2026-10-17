@@ -4,7 +4,7 @@
  */
 
 import { env } from './env.ts';
-import { isProvider, PROVIDER_META, type ProviderId } from './search.ts';
+import { isProvider, PROVIDERS, PROVIDER_META, type ProviderId } from './search.ts';
 
 export function json(body: unknown, status = 200, extra: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
@@ -145,11 +145,11 @@ export function searchParamsToBody(url: URL): Record<string, unknown> {
     const value = url.searchParams.get(key);
     if (value !== null && value !== '') body[key] = Number(value);
   }
-  for (const key of ['include_answer', 'include_raw_content', 'understand']) {
+  for (const key of ['include_answer', 'include_raw_content', 'understand', 'multi_source']) {
     const value = url.searchParams.get(key);
     if (value !== null && value !== '') body[key] = value !== 'false' && value !== '0';
   }
-  for (const key of ['include_domains', 'exclude_domains', 'urls']) {
+  for (const key of ['include_domains', 'exclude_domains', 'urls', 'providers']) {
     const value = url.searchParams.get(key);
     if (value !== null && value !== '') {
       body[key] = value.split(',').map((item) => item.trim()).filter(Boolean);
@@ -184,39 +184,31 @@ export function resolveKey(
     request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
   const bodyKey = typeof body.api_key === 'string' ? body.api_key : undefined;
 
-  const serverProvider = env('XWEB_SEARCH_PROVIDER');
-  const serverKey =
-    env('XWEB_SEARCH_API_KEY') ??
-    (isProvider(serverProvider) ? env(PROVIDER_META[serverProvider].envVar) : undefined);
-
+  const configuredProvider = env('XWEB_SEARCH_PROVIDER');
+  const genericServerKey = env('XWEB_SEARCH_API_KEY');
+  const configuredProviderHasKey = isProvider(configuredProvider) && Boolean(
+    genericServerKey || env(PROVIDER_META[configuredProvider].envVar),
+  );
+  const fallbackProvider = configuredProviderHasKey
+    ? configuredProvider
+    : PROVIDERS.find((id) => Boolean(env(PROVIDER_META[id].envVar))) ??
+      (isProvider(configuredProvider) ? configuredProvider : 'tavily');
   const providerFromRequest = isProvider(body.provider) ? body.provider : undefined;
+  const provider = providerFromRequest ?? fallbackProvider;
+  const serverKey =
+    (provider === fallbackProvider ? genericServerKey : undefined) ??
+    env(PROVIDER_META[provider].envVar);
 
   if (headerKey?.trim()) {
-    return {
-      key: headerKey.trim(),
-      provider: providerFromRequest ?? (isProvider(serverProvider) ? serverProvider : 'tavily'),
-      source: 'header',
-    };
+    return { key: headerKey.trim(), provider, source: 'header' };
   }
   if (bodyKey?.trim()) {
-    return {
-      key: bodyKey.trim(),
-      provider: providerFromRequest ?? (isProvider(serverProvider) ? serverProvider : 'tavily'),
-      source: 'body',
-    };
+    return { key: bodyKey.trim(), provider, source: 'body' };
   }
   if (serverKey?.trim()) {
-    return {
-      key: serverKey.trim(),
-      provider: providerFromRequest ?? (isProvider(serverProvider) ? serverProvider : 'tavily'),
-      source: 'server',
-    };
+    return { key: serverKey.trim(), provider, source: 'server' };
   }
-  return {
-    key: '',
-    provider: providerFromRequest ?? (isProvider(serverProvider) ? serverProvider : 'tavily'),
-    source: 'none',
-  };
+  return { key: '', provider, source: 'none' };
 }
 
 export function missingKeyResponse(): Response {

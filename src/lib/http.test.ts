@@ -26,15 +26,37 @@ describe('HTTP request helpers', () => {
 
   test('parses simple GET search options and comma-separated arrays', () => {
     const body = searchParamsToBody(
-      new URL('https://x.test/api?q=latest+MCP&max_results=3&time_range=week&include_answer=false&include_domains=a.com,b.com'),
+      new URL('https://x.test/api?q=latest+MCP&max_results=3&time_range=week&include_answer=false&multi_source=0&providers=brave,exa&include_domains=a.com,b.com'),
     );
     assert.deepEqual(body, {
       query: 'latest MCP',
       max_results: 3,
       time_range: 'week',
       include_answer: false,
+      multi_source: false,
+      providers: ['brave', 'exa'],
       include_domains: ['a.com', 'b.com'],
     });
+  });
+
+  test('resolves a provider-specific server key for an explicitly selected provider', () => {
+    const names = ['XWEB_SEARCH_PROVIDER', 'XWEB_SEARCH_API_KEY', 'BRAVE_API_KEY'] as const;
+    const previous = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+    try {
+      delete process.env.XWEB_SEARCH_PROVIDER;
+      delete process.env.XWEB_SEARCH_API_KEY;
+      process.env.BRAVE_API_KEY = 'brave-server-key';
+      const resolution = resolveKey(new Request('https://x.test'), { provider: 'brave' });
+      assert.equal(resolution.key, 'brave-server-key');
+      assert.equal(resolution.provider, 'brave');
+      assert.equal(resolution.source, 'server');
+    } finally {
+      for (const name of names) {
+        const value = previous[name];
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+    }
   });
 
   test('resolves credentials in header → body → server order', () => {

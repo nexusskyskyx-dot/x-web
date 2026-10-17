@@ -21,22 +21,24 @@ import {
   type TimeRange,
 } from './intent.ts';
 import {
-  runSearch,
   isProvider,
-  rankByFreshness,
-  PROVIDER_CAPABILITIES,
   type ProviderId,
   type SearchHit,
   type SearchRequest,
 } from './search.ts';
 import { synthesizeAnswer, type Answer } from './answer.ts';
 import { extractPages, type ExtractedPage } from './extract.ts';
+import { searchAcrossProviders, type ProviderFailure } from './federation.ts';
 
 export type QueryRewrite = 'auto' | 'off' | 'force';
 
 export interface PipelineRequest {
   query: string;
   provider?: ProviderId;
+  /** Fan out to all configured provider keys (default true). */
+  multi_source?: boolean;
+  /** Optional provider allow-list for a federated search. */
+  providers?: ProviderId[];
   max_results?: number;
   search_depth?: 'basic' | 'advanced';
   topic?: 'general' | 'news';
@@ -73,6 +75,9 @@ export interface PipelineResponse {
   /** Echo of the caller's query. */
   query: string;
   provider: string;
+  providers_used: ProviderId[];
+  provider_errors?: ProviderFailure[];
+  unavailable_providers?: ProviderId[];
   took_ms: number;
   language: {
     requested: string;
@@ -164,6 +169,12 @@ export async function runPipeline(
       'provider',
     );
   }
+  if (raw.multi_source !== undefined && typeof raw.multi_source !== 'boolean') {
+    throw new PipelineError('`multi_source` must be a boolean.', 400, 'invalid_request_error', 'invalid_multi_source', 'multi_source');
+  }
+  if (raw.providers !== undefined && (!Array.isArray(raw.providers) || raw.providers.some((p) => !isProvider(p)))) {
+    throw new PipelineError('`providers` must contain only supported provider names.', 400, 'invalid_request_error', 'invalid_providers', 'providers');
+  }
   if (raw.time_range !== undefined && !isTimeRange(raw.time_range)) {
     throw new PipelineError(
       '`time_range` must be one of: day, week, month, year.',
@@ -243,49 +254,30 @@ export async function runPipeline(
     max_results: maxResults,
     include_domains: filters.include_domains,
     exclude_domains: filters.exclude_domains,
-    // Only ask the provider for raw text when it can supply it; we fetch the
-    // rest ourselves in the extract stage.
     include_answer: includeAnswer,
-    include_raw_content: includeRaw && PROVIDER_CAPABILITIES[resolvedProvider].rawContent,
+    include_raw_content: includeRaw,
     search_depth: raw.search_depth as 'basic' | 'advanced' | undefined,
     topic: filters.topic,
-    language: PROVIDER_CAPABILITIES[resolvedProvider].language ? language : undefined,
-    country: PROVIDER_CAPABILITIES[resolvedProvider].country ? filters.country : undefined,
+    language,
+    country: filters.country,
     time_range: filters.time_range,
   };
 
   stageStart = Date.now();
-  const search = await runSearch(options.apiKey ?? '', providerRequest, {
+  const search = await searchAcrossProviders(providerRequest, {
     apiBase: env('XWEB_API_BASE'),
+    primaryProvider: resolvedProvider,
+    primaryKey: options.apiKey ?? '',
+    multiSource: raw.multi_source !== false,
+    explicitLanguage: typeof raw.language === 'string' && Boolean(raw.language.trim()) && raw.language.toLowerCase() !== 'auto',
+    requestedProviders: Array.isArray(raw.providers) ? raw.providers as ProviderId[] : undefined,
   });
   stages.search = Date.now() - stageStart;
 
-  /**
-   * What the caller asked for that the provider genuinely cannot do.
-   *
-   * Computed from the caller's intent rather than from the request we sent
-   * downstream, because we deliberately withhold params the provider does not
-   * accept — which would otherwise make this list always empty, hiding the
-   * problem it exists to surface.
-   *
-   * Only *filtering* params belong here. `include_answer` and
-   * `include_raw_content` are enrichment we perform ourselves regardless of
-   * the provider, so they are honoured even on a provider that cannot do them.
-   */
-  const caps = PROVIDER_CAPABILITIES[resolvedProvider];
-  const droppedParams: string[] = [];
-  if (filters.time_range && !caps.timeRange) droppedParams.push('time_range');
-  // Auto-detection is metadata and does not imply that the caller requested
-  // provider-side language filtering. Only flag an explicit language choice.
-  if (requestedLanguage.toLowerCase() !== 'auto' && language && !caps.language) {
-    droppedParams.push('language');
-  }
-  if (filters.country && !caps.country) droppedParams.push('country');
-
+  // Only filtering preferences count as unsupported: answer synthesis and page
+  // extraction are x-web enrichment and can still be provided independently.
+  const droppedParams = search.unsupported_params ?? [];
   let results = search.results;
-  if (filters.time_range && !search.unsupported_params?.includes('time_range')) {
-    results = rankByFreshness(results, filters.time_range);
-  }
 
   /* ---------------- stage 4: extract full content ---------------- */
   let extracted: ExtractedPage[] | undefined;
@@ -347,6 +339,9 @@ export async function runPipeline(
     object: 'search',
     query,
     provider: search.provider,
+    providers_used: search.providers_used,
+    ...(search.provider_errors ? { provider_errors: search.provider_errors } : {}),
+    ...(search.unavailable_providers ? { unavailable_providers: search.unavailable_providers } : {}),
     took_ms: Date.now() - started,
     language: {
       requested: requestedLanguage,

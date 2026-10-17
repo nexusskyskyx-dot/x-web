@@ -60,7 +60,7 @@ describe('search pipeline', () => {
     assert.ok(Array.isArray(result.results) && result.results.length === 2);
 
     // results carry normalised ISO dates
-    assert.equal(result.results[0].published_date, '2024-11-25T00:00:00.000Z');
+    assert.ok(result.results.some((hit) => hit.published_date === '2024-11-25T00:00:00.000Z'));
 
     // language resolution
     assert.equal(result.language.resolved, 'en');
@@ -157,6 +157,36 @@ describe('search pipeline', () => {
       `unsupported_params was ${JSON.stringify(result.unsupported_params)}`,
     );
     assert.equal(calls[0].url, 'https://api.exa.ai/search');
+  });
+
+  test('integrates configured secondary keys into one federated pipeline result', async () => {
+    const keys = ['TAVILY_API_KEY', 'BRAVE_API_KEY', 'SERPER_API_KEY', 'EXA_API_KEY', 'XWEB_SEARCH_API_KEY', 'XWEB_SEARCH_PROVIDER'] as const;
+    const previousEnv = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+    const previousFetch = globalThis.fetch;
+    for (const key of keys) delete process.env[key];
+    process.env.BRAVE_API_KEY = 'brave-secondary';
+    const calls: string[] = [];
+    globalThis.fetch = (async (input: any) => {
+      const url = String(input);
+      calls.push(url);
+      const payload = url.includes('brave')
+        ? { web: { results: [{ title: 'Model Context Protocol', url: 'https://modelcontextprotocol.io/?utm_source=brave', description: 'An open protocol for connecting AI systems with tools.' }] } }
+        : TAVILY_PAYLOAD;
+      return new Response(JSON.stringify(payload), { headers: { 'Content-Type': 'application/json' } });
+    }) as typeof fetch;
+    try {
+      const result = await runPipeline({ query: 'MCP protocol', understand: false }, { apiKey: 'tvly-primary' });
+      assert.equal(calls.length, 2);
+      assert.deepEqual(result.providers_used, ['tavily', 'brave']);
+      assert.equal(result.results.find((hit) => hit.url.startsWith('https://modelcontextprotocol.io'))?.source_count, 2);
+    } finally {
+      globalThis.fetch = previousFetch;
+      for (const key of keys) {
+        const value = previousEnv[key];
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
   });
 
   test('clamps max_results into range', async () => {
