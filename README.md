@@ -122,7 +122,7 @@ project settings.
 | `XWEB_IMAGE_SEARCH_API_KEY` | Optional dedicated server-side image search key               |
 | `PUBLIC_SUPABASE_URL` / `SUPABASE_URL` | Supabase project URL (public browser value and server value) |
 | `PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_ANON_KEY` | Supabase anon/publishable key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-only Supabase key for account, API-key and usage operations |
+| `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_SECRET_KEY` | Server-only Supabase key for account, API-key and usage operations |
 | `XWEB_API_BASE`          | Forward to a real x-web deployment instead of a provider       |
 | `SITE_URL`               | Canonical site URL used for canonical links and the sitemap     |
 

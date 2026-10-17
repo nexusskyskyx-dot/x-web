@@ -94,7 +94,9 @@ Content-Type: application/json`}
     monthly usage, recent requests and API keys at <code>/dashboard</code>. Enable Email and Google
     providers in Supabase Auth, set <code>PUBLIC_SUPABASE_URL</code>,
     <code>PUBLIC_SUPABASE_ANON_KEY</code>, <code>SUPABASE_URL</code>,
-    <code>SUPABASE_ANON_KEY</code>, and the server-only <code>SUPABASE_SERVICE_ROLE_KEY</code>.
+    a public Supabase key (<code>SUPABASE_ANON_KEY</code> or
+    <code>SUPABASE_PUBLISHABLE_KEY</code>), and the server-only
+    <code>SUPABASE_SERVICE_ROLE_KEY</code> or <code>SUPABASE_SECRET_KEY</code>.
     Apply <code>supabase/migrations/202610160001_account_dashboard.sql</code> to the project database.
     Configure the Supabase redirect allow-list for <code>/dashboard</code> and
     <code>/login?mode=update</code>; enter Google OAuth client credentials in Supabase Auth.

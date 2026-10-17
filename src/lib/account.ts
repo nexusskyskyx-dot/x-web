@@ -28,16 +28,21 @@ export function supabaseUrl(): string | undefined {
 }
 
 export function supabaseAnonKey(): string | undefined {
-  return env('SUPABASE_ANON_KEY') ?? env('SUPABASE_PUBLISHABLE_KEY') ?? env('PUBLIC_SUPABASE_ANON_KEY') ?? env('NEXT_PUBLIC_SUPABASE_ANON_KEY') ?? env('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY');
+  return env('SUPABASE_ANON_KEY') ?? env('SUPABASE_PUBLISHABLE_KEY') ?? env('PUBLIC_SUPABASE_ANON_KEY') ?? env('PUBLIC_SUPABASE_PUBLISHABLE_KEY') ?? env('NEXT_PUBLIC_SUPABASE_ANON_KEY') ?? env('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY');
+}
+
+export function supabaseServerKey(): string | undefined {
+  // Vercel's current Supabase integration uses the newer SUPABASE_SECRET_KEY name.
+  return env('SUPABASE_SERVICE_ROLE_KEY') ?? env('SUPABASE_SECRET_KEY');
 }
 
 export function isAccountConfigured(): boolean {
-  return Boolean(supabaseUrl() && supabaseAnonKey() && env('SUPABASE_SERVICE_ROLE_KEY'));
+  return Boolean(supabaseUrl() && supabaseAnonKey() && supabaseServerKey());
 }
 
 function createAdminClient(): SupabaseClient {
   const url = supabaseUrl();
-  const key = env('SUPABASE_SERVICE_ROLE_KEY');
+  const key = supabaseServerKey();
   if (!url || !key) {
     throw new AccountAuthError('Account services are not configured yet.', 503, 'account_service_unavailable');
   }
@@ -58,7 +63,7 @@ export async function authenticateAccountUser(request: Request): Promise<Authent
 
   const url = supabaseUrl();
   const anonKey = supabaseAnonKey();
-  if (!url || !anonKey || !env('SUPABASE_SERVICE_ROLE_KEY')) {
+  if (!url || !anonKey || !supabaseServerKey()) {
     throw new AccountAuthError('Account services are not configured yet.', 503, 'account_service_unavailable');
   }
 

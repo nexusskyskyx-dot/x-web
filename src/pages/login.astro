@@ -98,7 +98,7 @@ import Base from '../layouts/Base.astro';
   };
 
   if (!root || !form || !status) throw new Error('Authentication UI failed to initialize.');
-  let publicConfig: { supabaseUrl?: string; supabaseAnonKey?: string } = {};
+  let publicConfig: { supabaseUrl?: string; supabaseAnonKey?: string; detected?: { url?: string | null; public_key?: string | null; server_key?: string | null } } = {};
   try {
     const response = await fetch('/api/config', { cache: 'no-store' });
     if (response.ok) publicConfig = await response.json();
@@ -106,7 +106,9 @@ import Base from '../layouts/Base.astro';
   const url = publicConfig.supabaseUrl;
   const anonKey = publicConfig.supabaseAnonKey;
   if (!url || !anonKey) {
-    announce('Supabase configuration was not available at runtime. Check SUPABASE_URL and SUPABASE_ANON_KEY in this Vercel environment.', 'error');
+    const detectedUrl = publicConfig.detected?.url ?? 'not found';
+    const detectedKey = publicConfig.detected?.public_key ?? 'not found';
+    announce(`Supabase client config is missing at runtime. Detected URL variable: ${detectedUrl}; public key variable: ${detectedKey}. Ensure both are assigned to this Vercel Preview environment, then redeploy.`, 'error');
     if (submit) submit.disabled = true;
     if (google) google.disabled = true;
     setMode(mode);

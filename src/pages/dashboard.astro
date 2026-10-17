@@ -65,7 +65,7 @@ import Base from '../layouts/Base.astro';
   const showError = (message: string) => { if (errorBox) { errorBox.textContent = message; errorBox.classList.remove('hidden'); } };
   const setText = (selector: string, value: string) => { const element = root?.querySelector<HTMLElement>(selector); if (element) element.textContent = value; };
 
-  let publicConfig: { supabaseUrl?: string; supabaseAnonKey?: string } = {};
+  let publicConfig: { supabaseUrl?: string; supabaseAnonKey?: string; detected?: { url?: string | null; public_key?: string | null; server_key?: string | null } } = {};
   try {
     const response = await fetch('/api/config', { cache: 'no-store' });
     if (response.ok) publicConfig = await response.json();
@@ -74,7 +74,7 @@ import Base from '../layouts/Base.astro';
   const anonKey = publicConfig.supabaseAnonKey;
 
   if (!url || !anonKey) {
-    showError('Supabase public configuration was not available at runtime. Check SUPABASE_URL and SUPABASE_ANON_KEY in this Vercel environment.');
+    showError(`Supabase client config is missing at runtime. Detected URL variable: ${publicConfig.detected?.url ?? 'not found'}; public key variable: ${publicConfig.detected?.public_key ?? 'not found'}. Check this Vercel environment.`);
     root.querySelectorAll<HTMLButtonElement>('[data-signout], [data-create-key], [data-copy-key]').forEach((button) => { button.disabled = true; });
     if (keyList) keyList.innerHTML = '<p class="px-5 py-8 text-center text-sm text-ink-500">Account setup is required.</p>';
     if (usageList) usageList.innerHTML = '<tr><td colspan="4" class="px-5 py-8 text-center text-sm text-ink-500">Account setup is required.</td></tr>';
