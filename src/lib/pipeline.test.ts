@@ -159,6 +159,20 @@ describe('search pipeline', () => {
     assert.equal(calls[0].url, 'https://api.exa.ai/search');
   });
 
+  test('uses a saved per-account provider key when no deployment key is available', async () => {
+    const calls = mockProvider({ web: { results: [{ title: 'Purple flowers', url: 'https://example.com/flowers', description: 'A guide to flowers.' }] } });
+    const result = await runPipeline(
+      { query: 'purple flowers', provider: 'brave', understand: false },
+      { providerKeys: { brave: 'account-brave-secret' } },
+    );
+    assert.equal(result.providers_used[0], 'brave');
+    const url = new URL(calls[0].url);
+    assert.equal(url.origin + url.pathname, 'https://api.search.brave.com/res/v1/web/search');
+    assert.equal(url.searchParams.get('q'), 'purple flowers');
+    assert.equal(url.searchParams.get('count'), '5');
+    assert.equal(new Headers(calls[0].init.headers).get('X-Subscription-Token'), 'account-brave-secret');
+  });
+
   test('integrates configured secondary keys into one federated pipeline result', async () => {
     const keys = ['TAVILY_API_KEY', 'BRAVE_API_KEY', 'SERPER_API_KEY', 'EXA_API_KEY', 'XWEB_SEARCH_API_KEY', 'XWEB_SEARCH_PROVIDER'] as const;
     const previousEnv = Object.fromEntries(keys.map((key) => [key, process.env[key]]));

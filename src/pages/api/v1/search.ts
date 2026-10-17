@@ -9,7 +9,8 @@
 import type { APIContext } from 'astro';
 import { runPipeline, PipelineError } from '../../../lib/pipeline.ts';
 import { SearchError } from '../../../lib/search.ts';
-import { AccountAuthError, authenticateAccountApiKey, extractAccountApiKey, recordApiUsage, type AuthenticatedApiKey } from '../../../lib/account.ts';
+import { AccountAuthError, authenticateAccountApiKey, createAdminClient, extractAccountApiKey, recordApiUsage, type AuthenticatedApiKey } from '../../../lib/account.ts';
+import { decryptProviderKeyMap, type StoredProviderCredential } from '../../../lib/provider-credentials.ts';
 import {
   json,
   errorResponse,
@@ -84,20 +85,36 @@ async function runSearchRequest(request: Request, body: Record<string, unknown>)
     }
   }
 
-  // An x-web account key identifies the caller. It is not a search-provider
-  // credential; use the deployment's provider key to execute the query.
+  // x-web account keys identify the caller; saved provider credentials are
+  // separately encrypted at rest and loaded only for that account.
   const keyRequest = accountKey ? new Request(request.url) : request;
   const keyBody = accountKey ? { provider: body.provider } : body;
   const { key, provider, source } = resolveKey(keyRequest, keyBody);
-  if (!key) {
+  let providerKeys: Partial<Record<'tavily' | 'brave' | 'serper' | 'exa', string>> = {};
+  if (accountKey) {
+    const { data, error } = await createAdminClient()
+      .from('provider_credentials')
+      .select('provider, encrypted_key, iv')
+      .eq('user_id', accountKey.userId);
+    // Keep existing account-key search working with deployment credentials if
+    // the optional provider-key migration has not yet been applied.
+    if (!error && data?.length) {
+      try {
+        providerKeys = await decryptProviderKeyMap(data as StoredProviderCredential[]);
+      } catch {
+        return errorResponse({ type: 'internal_error', code: 'provider_key_decryption_failed', message: 'Could not unlock your saved provider keys. Check the server encryption configuration.' }, 503);
+      }
+    }
+  }
+  if (!key && Object.keys(providerKeys).length === 0) {
     if (accountKey) {
-      return errorResponse({ type: 'upstream_error', code: 'search_provider_not_configured', message: 'This x-web deployment has no search provider key configured yet.' }, 503);
+      return errorResponse({ type: 'upstream_error', code: 'search_provider_not_configured', message: 'Add a search provider key in your dashboard or configure one on the x-web server.' }, 503);
     }
     return missingKeyResponse();
   }
 
   try {
-    const result = await runPipeline({ ...body, provider: body.provider ?? provider }, { apiKey: key });
+    const result = await runPipeline({ ...body, provider: body.provider ?? provider }, { apiKey: accountKey ? undefined : key, providerKeys });
     if (accountKey) {
       await recordApiUsage(accountKey, { endpoint: '/api/v1/search', provider: result.provider, resultCount: result.results.length, durationMs: result.took_ms });
     }

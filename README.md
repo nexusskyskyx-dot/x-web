@@ -94,9 +94,10 @@ is never reused as another provider's credential. Request keys are not persisted
 
 `/login` supports email/password and Google through Supabase Auth. `/dashboard` shows the account's
 Free plan label, monthly usage and recent requests, and supports creating (shown once) and revoking
-x-web API keys. Account keys are stored as SHA-256 hashes. Calls authenticated with an x-web account
-key are usage-tracked and use the deployment's configured search-provider credentials; bring-your-own
-provider keys continue to work as before.
+x-web API keys. Account keys are stored as SHA-256 hashes. The dashboard also lets each account
+connect Tavily, Brave Search, Serper, and Exa credentials. Provider keys are AES-GCM encrypted before
+database storage and are never returned to the browser after saving; account-key searches use those
+credentials alongside any deployment-configured providers.
 
 This is an account foundation, not a billing launch: paid subscriptions, plan changes and quota
 enforcement are not enabled. Apply
@@ -105,7 +106,12 @@ and enable Email in Supabase Auth. Because Astro statically builds `/login` and 
 `PUBLIC_SUPABASE_URL` and `PUBLIC_SUPABASE_ANON_KEY` to Vercel Preview (and Production when ready),
 using the same project URL and public anon/publishable key as the Supabase integration variables.
 These two values are public; never put `SUPABASE_SECRET_KEY` or `SUPABASE_SERVICE_ROLE_KEY` in a
-`PUBLIC_` variable. Google OAuth is optional and can be configured later.
+`PUBLIC_` variable. To enable dashboard provider-key storage, also apply
+[`supabase/migrations/202610160002_provider_credentials.sql`](supabase/migrations/202610160002_provider_credentials.sql)
+and set `XWEB_PROVIDER_KEY_ENCRYPTION_KEY` to a random secret of at least 32 bytes in Vercel Preview
+and Production. Use the **same value** in both environments so saved credentials remain readable
+across deployments (generate one with `openssl rand -base64 32`). Google OAuth is optional and can
+be configured later.
 
 ---
 
@@ -127,6 +133,7 @@ project settings.
 | `PUBLIC_SUPABASE_URL` / `SUPABASE_URL` | Supabase project URL (public browser value and server value) |
 | `PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_ANON_KEY` | Supabase anon/publishable key |
 | `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_SECRET_KEY` | Server-only Supabase key for account, API-key and usage operations |
+| `XWEB_PROVIDER_KEY_ENCRYPTION_KEY` | Random 32+ byte server-only secret for encrypting saved provider credentials |
 | `XWEB_API_BASE`          | Forward to a real x-web deployment instead of a provider       |
 | `SITE_URL`               | Canonical site URL used for canonical links and the sitemap     |
 

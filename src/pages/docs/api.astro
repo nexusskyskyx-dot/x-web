@@ -98,15 +98,18 @@ Content-Type: application/json`}
     <code>SUPABASE_PUBLISHABLE_KEY</code>), and the server-only
     <code>SUPABASE_SERVICE_ROLE_KEY</code> or <code>SUPABASE_SECRET_KEY</code>.
     Apply <code>supabase/migrations/202610160001_account_dashboard.sql</code> to the project database.
+    For per-account provider credentials, also apply <code>supabase/migrations/202610160002_provider_credentials.sql</code>
+    and configure the server-only <code>XWEB_PROVIDER_KEY_ENCRYPTION_KEY</code>.
     Configure the Supabase redirect allow-list for <code>/dashboard</code> and
     <code>/login?mode=update</code>; enter Google OAuth client credentials in Supabase Auth.
   </p>
   <p>
     Dashboard APIs use the Supabase access token as a Bearer token:
-    <code>GET /api/account/overview</code>, <code>POST /api/account/keys</code>, and
-    <code>DELETE /api/account/keys/:id</code>. New x-web keys are shown only once and stored as
-    SHA-256 hashes. Use one with <code>X-XWeb-Key</code> to call search. Account keys require a
-    provider key configured on the x-web server; otherwise use your own provider key as before.
+    <code>GET /api/account/overview</code>, <code>POST /api/account/keys</code>,
+    <code>DELETE /api/account/keys/:id</code>, and provider-key management at
+    <code>/api/account/providers</code>. New x-web keys are shown only once and stored as
+    SHA-256 hashes. Use one with <code>X-XWeb-Key</code> to call search. Searches can use your saved
+    provider credentials from the dashboard, or fall back to provider keys configured on the x-web server.
     Usage counts successful searches made with x-web account keys. Plan display is available, but
     paid subscriptions and quota enforcement are not enabled yet.
   </p>

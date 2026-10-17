@@ -72,7 +72,7 @@ export function isAccountConfigured(): boolean {
   return Boolean(supabaseUrl() && supabaseAnonKey() && supabaseServerKey());
 }
 
-function createAdminClient(): SupabaseClient {
+export function createAdminClient(): SupabaseClient {
   const url = supabaseUrl();
   const key = supabaseServerKey();
   if (!url || !key) {

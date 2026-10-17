@@ -146,7 +146,11 @@ function chooseQuery(original: string, intent: Intent, mode: QueryRewrite): { qu
 
 export async function runPipeline(
   raw: Record<string, unknown>,
-  options: { apiKey?: string; queryRewriteDefault?: QueryRewrite } = {},
+  options: {
+    apiKey?: string;
+    providerKeys?: Partial<Record<ProviderId, string>>;
+    queryRewriteDefault?: QueryRewrite;
+  } = {},
 ): Promise<PipelineResponse> {
   const started = Date.now();
   const stages: Record<string, number> = {};
@@ -271,6 +275,7 @@ export async function runPipeline(
     multiSource: raw.multi_source !== false,
     explicitLanguage: typeof raw.language === 'string' && Boolean(raw.language.trim()) && raw.language.toLowerCase() !== 'auto',
     requestedProviders: Array.isArray(raw.providers) ? raw.providers as ProviderId[] : undefined,
+    providerKeys: options.providerKeys,
   });
   stages.search = Date.now() - stageStart;
 
