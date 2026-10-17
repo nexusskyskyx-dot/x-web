@@ -5,6 +5,10 @@ import { synthesizeAnswer, type AnswerSource } from './answer.ts';
 // No LLM key in tests — exercises the extractive path.
 delete process.env.OPENAI_API_KEY;
 delete process.env.ANTHROPIC_API_KEY;
+delete process.env.GROQ_API_KEY;
+delete process.env.CLOUDFLARE_ACCOUNT_ID;
+delete process.env.CLOUDFLARE_API_TOKEN;
+delete process.env.XWEB_ANSWER_MODEL;
 
 const sources: AnswerSource[] = [
   {
@@ -124,6 +128,49 @@ describe('answer synthesis', () => {
       assert.equal(requestBody.model, 'llama-test');
       assert.equal(requestBody.messages[0].content.startsWith('You are the answer engine'), true);
     } finally { globalThis.fetch = originalFetch; }
+  });
+
+  test('uses Cloudflare Workers AI as the server-managed default', async () => {
+    const originalFetch = globalThis.fetch;
+    const oldEnv = {
+      account: process.env.CLOUDFLARE_ACCOUNT_ID,
+      token: process.env.CLOUDFLARE_API_TOKEN,
+      model: process.env.XWEB_ANSWER_MODEL,
+      openai: process.env.OPENAI_API_KEY,
+    };
+    let requestUrl = '';
+    let requestHeaders: HeadersInit | undefined;
+    let requestBody: any;
+    process.env.CLOUDFLARE_ACCOUNT_ID = 'account/id';
+    process.env.CLOUDFLARE_API_TOKEN = 'server-secret';
+    process.env.XWEB_ANSWER_MODEL = '@cf/test/model';
+    process.env.OPENAI_API_KEY = 'paid-openai-secret';
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      requestUrl = String(input);
+      requestHeaders = init?.headers;
+      requestBody = JSON.parse(String(init?.body ?? '{}'));
+      return new Response(JSON.stringify({ choices: [{ message: { content: 'MCP is an open protocol for connected context. [1]' } }] }), { status: 200 });
+    }) as typeof fetch;
+    try {
+      const answer = await synthesizeAnswer('what is the model context protocol', sources, { allowLlm: true });
+      assert.ok(answer);
+      assert.equal(answer.mode, 'llm');
+      assert.equal(answer.ai_provider, 'cloudflare');
+      assert.equal(answer.ai_key_source, 'xweb');
+      assert.equal(requestUrl, 'https://api.cloudflare.com/client/v4/accounts/account%2Fid/ai/v1/chat/completions');
+      assert.equal(requestBody.model, '@cf/test/model');
+      assert.equal(new Headers(requestHeaders).get('authorization'), 'Bearer server-secret');
+    } finally {
+      globalThis.fetch = originalFetch;
+      for (const [key, value] of Object.entries({
+        CLOUDFLARE_ACCOUNT_ID: oldEnv.account,
+        CLOUDFLARE_API_TOKEN: oldEnv.token,
+        XWEB_ANSWER_MODEL: oldEnv.model,
+        OPENAI_API_KEY: oldEnv.openai,
+      })) {
+        if (value === undefined) delete process.env[key]; else process.env[key] = value;
+      }
+    }
   });
 
   test('does not carry the LLM path when no model is configured', async () => {

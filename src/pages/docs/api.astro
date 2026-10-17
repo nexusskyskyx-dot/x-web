@@ -98,6 +98,10 @@ Content-Type: application/json`}
     a public Supabase key (<code>SUPABASE_ANON_KEY</code> or
     <code>SUPABASE_PUBLISHABLE_KEY</code>), and the server-only
     <code>SUPABASE_SERVICE_ROLE_KEY</code> or <code>SUPABASE_SECRET_KEY</code>.
+    For users without a personal AI key, x-web can use Cloudflare Workers AI with server-only
+    <code>CLOUDFLARE_ACCOUNT_ID</code> and <code>CLOUDFLARE_API_TOKEN</code>. Its free allocation is shared
+    across x-web users and capped at 10,000 Neurons per day; if the limit is reached, answers fall back to
+    provider/extractive synthesis. The default model is <code>@cf/meta/llama-3.1-8b-instruct</code>.
     Apply <code>supabase/migrations/202610160001_account_dashboard.sql</code> to the project database.
     For per-account provider credentials, apply <code>supabase/migrations/202610160002_provider_credentials.sql</code>
     and configure the server-only <code>XWEB_PROVIDER_KEY_ENCRYPTION_KEY</code>. To enable encrypted AI-key
@@ -265,12 +269,14 @@ Content-Type: application/json`}
 }`}
   />
   <p>
-    Answer modes are <code>llm</code> (an OpenAI, Anthropic, or Groq model),
+    Answer modes are <code>llm</code> (Cloudflare Workers AI or an OpenAI, Anthropic, or Groq model),
     <code>provider</code> (answer returned by a search provider, with source citations attached), or
     <code>extractive</code> (relevant retrieved sentences selected and cited). LLM answers also report
     <code>ai_provider</code> and <code>ai_key_source</code> (<code>byok</code> or <code>xweb</code>).
-    A server-managed default model must be configured for x-web's built-in LLM service; otherwise the
-    transparent provider/extractive fallback is used.
+    The built-in default uses Cloudflare Workers AI when <code>CLOUDFLARE_ACCOUNT_ID</code> and
+    <code>CLOUDFLARE_API_TOKEN</code> are configured; otherwise configured server-managed provider keys
+    may be used. If the selected model is unavailable or over quota, x-web uses the transparent
+    provider/extractive fallback instead of silently switching to another paid model.
   </p>
 
   <h2 id="errors">Errors</h2>

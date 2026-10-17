@@ -9,7 +9,8 @@ export interface AiCredential extends EncryptedProviderCredential {
 }
 
 export interface AiRuntimeConfig {
-  provider: AiProvider;
+  /** `cloudflare` is x-web's server-managed free-tier fallback, never a BYOK account provider. */
+  provider: AiProvider | 'cloudflare';
   model: string;
   apiKey: string;
   source: 'byok' | 'xweb';

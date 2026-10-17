@@ -53,6 +53,7 @@ export interface AnswerSource {
 
 const MIN_COVERAGE = 0.22;
 const MAX_ANSWER_CHARS = 900;
+const CLOUDFLARE_DEFAULT_MODEL = '@cf/meta/llama-3.1-8b-instruct';
 
 /** Copy that indicates boilerplate rather than content. */
 const BOILERPLATE =
@@ -228,8 +229,25 @@ function llmConfig(byok?: AiRuntimeConfig): LlmConfig | undefined {
     };
   }
 
-  // These server-owned credentials power x-web's built-in model. Users are not
-  // asked to supply them; the service owner controls the default model/cost.
+  // Prefer Cloudflare Workers AI first: it currently provides a capped daily
+  // free allocation. If its quota is exhausted, we fall back to provider or
+  // extractive answers rather than silently switching to a paid server model.
+  const cloudflareAccountId = env('CLOUDFLARE_ACCOUNT_ID');
+  const cloudflareToken = env('CLOUDFLARE_API_TOKEN');
+  if (cloudflareAccountId && cloudflareToken) {
+    const baseUrl = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(cloudflareAccountId)}/ai/v1`;
+    return llmConfig({
+      provider: 'cloudflare',
+      apiKey: cloudflareToken,
+      baseUrl,
+      source: 'xweb',
+      model: env('XWEB_ANSWER_MODEL') ?? CLOUDFLARE_DEFAULT_MODEL,
+    });
+  }
+
+  // Other server-owned credentials are supported as explicit alternatives.
+  // These may be paid, so they are used only when no Cloudflare free-tier
+  // credentials are configured.
   const openaiKey = env('OPENAI_API_KEY');
   const anthropicKey = env('ANTHROPIC_API_KEY');
   const groqKey = env('GROQ_API_KEY');
