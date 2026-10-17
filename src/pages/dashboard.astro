@@ -51,7 +51,7 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
     <section class="mt-6 rounded-2xl border border-ink-100 bg-white shadow-card" aria-labelledby="ai-settings-title">
       <div class="border-b border-ink-100 px-5 py-4">
         <h2 id="ai-settings-title" class="font-semibold text-ink-900">AI summaries</h2>
-        <p class="mt-1 max-w-3xl text-sm leading-relaxed text-ink-500">Use x-web’s built-in AI, or bring your own OpenAI, Anthropic, or Groq key. Your key is encrypted before storage and sent only to the AI provider you choose. If you connect a key, you pay that provider directly.</p>
+        <p class="mt-1 max-w-3xl text-sm leading-relaxed text-ink-500">Use x-web’s built-in AI, or bring your own OpenAI, Anthropic, or Groq key. The built-in model uses x-web’s shared, limited free allocation and may fall back to cited search results when unavailable. Your personal key is encrypted before storage and sent only to the AI provider you choose; if you connect one, you pay that provider directly.</p>
       </div>
       <div data-ai-feedback role="status" aria-live="polite" class="mx-5 mt-4 hidden rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-800"></div>
       <div class="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
