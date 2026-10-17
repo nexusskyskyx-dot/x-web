@@ -66,8 +66,14 @@ const capabilities = [
   {
     icon: 'scrape' as const,
     title: 'Page extraction',
-    body: 'Turn public result URLs into clean readable text, with page metadata and the navigation clutter removed.',
+    body: 'Turn public result URLs into clean readable text and return embedded image URLs, page alt text and dimensions.',
     accent: 'from-brand-400 to-brand-700',
+  },
+  {
+    icon: 'globe' as const,
+    title: 'Image search',
+    body: 'Search Brave Images or Serper Images and get image and thumbnail URLs, source pages, titles and available dimensions.',
+    accent: 'from-brand-500 to-brand-800',
   },
 ];
 

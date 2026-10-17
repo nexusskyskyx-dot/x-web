@@ -5,12 +5,14 @@ import ParamTable from '../../components/ParamTable.astro';
 import CodeBlock from '../../components/CodeBlock.astro';
 import Callout from '../../components/Callout.astro';
 import Playground from '../../components/Playground.astro';
+import ImagePlayground from '../../components/ImagePlayground.astro';
 
 const toc = [
   { id: 'authentication', text: 'Authentication' },
   { id: 'search', text: 'POST /api/v1/search' },
   { id: 'intent', text: 'POST /api/v1/intent' },
   { id: 'extract', text: 'POST /api/v1/extract' },
+  { id: 'images', text: 'POST /api/v1/images' },
   { id: 'response', text: 'Response shape' },
   { id: 'errors', text: 'Errors' },
   { id: 'providers', text: 'Providers & capabilities' },
@@ -138,6 +140,7 @@ Content-Type: application/json`}
       { name: 'urls', type: 'string[]', required: true, description: '1–10 absolute HTTP(S) URLs.' },
       { name: 'url', type: 'string', description: 'Convenience alias for one URL.' },
       { name: 'max_chars', type: 'integer', default: '12000', description: 'Maximum extracted characters per page, clamped to 500–100000.' },
+      { name: 'include_images', type: 'boolean', default: 'false', description: 'Return image URLs, page alt text, title and available dimensions from the main content.' },
     ]}
   />
   <CodeBlock
@@ -145,12 +148,69 @@ Content-Type: application/json`}
     title="request"
     code={`curl -X POST "$XWEB_BASE/api/v1/extract" \\
   -H "Content-Type: application/json" \\
-  -d '{"urls":["https://modelcontextprotocol.io/"]}'`}
+  -d '{"urls":["https://modelcontextprotocol.io/"],"include_images":true}'`}
   />
   <Callout type="warning" title="Public URLs only">
     Extraction blocks localhost, private/reserved IP ranges, and redirects to them to mitigate SSRF.
     Pages are fetched by the server, so do not use this endpoint for secrets or private network resources.
   </Callout>
+
+  <h2 id="images">Search images</h2>
+  <Endpoint
+    method="POST"
+    path="/api/v1/images"
+    description="Search indexed image results and return safe image URLs, thumbnails, source pages and available dimensions."
+  />
+  <ParamTable
+    params={[
+      { name: 'query', type: 'string', required: true, description: 'Image query, up to 400 characters.' },
+      { name: 'provider', type: '"brave" | "serper"', default: '"brave"', description: 'Image search provider. Requires its own provider API key.' },
+      { name: 'max_results', type: 'integer', default: '20', description: 'Results to return, clamped to 1–50.' },
+      { name: 'safe_search', type: '"strict" | "off"', default: '"strict"', description: 'SafeSearch mode. Brave supports this; Serper reports it as unsupported.' },
+      { name: 'country', type: 'string', description: 'Optional country/region preference.' },
+      { name: 'language', type: 'string', description: 'Optional result language preference.' },
+    ]}
+  />
+  <CodeBlock
+    lang="bash"
+    title="request"
+    code={`curl -X POST "$XWEB_BASE/api/v1/images" \\
+  -H "X-XWeb-Key: $BRAVE_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"query":"purple wildflowers","provider":"brave","max_results":12}'`}
+  />
+  <p>
+    Each normalized result may include <code>image_url</code>, <code>thumbnail_url</code>,
+    <code>page_url</code>, title/alt-text equivalent, source, and image and thumbnail dimensions.
+    Dimensions depend on the upstream provider and may be absent. Use the thumbnail URL for previews;
+    direct image hosts can block hotlinking or move files.
+  </p>
+  <CodeBlock
+    lang="json"
+    title="image result"
+    code={`{
+  "object": "image_search",
+  "provider": "brave",
+  "results": [{
+    "image_url": "https://images.example/photo.jpg",
+    "thumbnail_url": "https://imgs.search.brave.com/…",
+    "page_url": "https://example.com/gallery",
+    "title": "Purple wildflower",
+    "alt_text": "Purple wildflower",
+    "source": "example.com",
+    "width": 1920,
+    "height": 1280,
+    "position": 1
+  }]
+}`}
+  />
+  <p>
+    To extract images already embedded in a page, pass <code>include_images: true</code> to
+    <code>/api/v1/extract</code>. That returns original image URLs, actual page <code>alt</code>
+    text where provided, title and dimensions. Image-in / similar-image-out visual search and AI
+    image captioning are later features, not implemented in this phase.
+  </p>
+  <ImagePlayground />
 
   <h2 id="response">Response shape</h2>
   <p>Search returns result snippets plus optional answer and intent metadata. Dates are normalized to UTC ISO-8601 where the provider supplies a parseable date.</p>

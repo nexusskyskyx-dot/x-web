@@ -1,0 +1,125 @@
+---
+import Icon from './Icons.astro';
+
+interface Props { id?: string }
+const { id = 'image-playground' } = Astro.props;
+---
+
+<div id={id} data-image-playground class="not-prose overflow-hidden rounded-2xl border border-brand-200 bg-white shadow-card">
+  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 bg-gradient-to-r from-brand-50 to-white px-5 py-3.5">
+    <div class="flex items-center gap-2.5">
+      <span class="ring-gradient grid h-8 w-8 place-items-center rounded-lg text-white">
+        <Icon name="search" class="h-4 w-4" />
+      </span>
+      <div>
+        <p class="text-sm font-semibold text-ink-900">Image search</p>
+        <p class="text-xs text-ink-500">Real results via Brave or Serper</p>
+      </div>
+    </div>
+    <span class="chip">Provider key required</span>
+  </div>
+
+  <form data-image-form class="grid gap-3 p-4 sm:grid-cols-[1fr_auto] sm:p-5">
+    <label class="block min-w-0 sm:col-span-2">
+      <span class="mb-1.5 block text-[11px] font-semibold tracking-wider text-ink-500 uppercase">Image query</span>
+      <input type="search" name="query" required maxlength="400" placeholder="e.g. purple wildflowers in Guatemala" enterkeyhint="search"
+        class="w-full rounded-xl border border-ink-200 bg-white px-3 py-3 text-base text-ink-800 outline-none transition placeholder:text-ink-300 focus:border-brand-400 focus:ring-2 focus:ring-brand-100 sm:text-sm" />
+    </label>
+
+    <label class="block">
+      <span class="mb-1.5 block text-[11px] font-semibold tracking-wider text-ink-500 uppercase">Provider</span>
+      <select name="provider" class="w-full rounded-xl border border-ink-200 bg-white px-3 py-3 text-base text-ink-800 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 sm:text-sm">
+        <option value="brave">Brave Images</option>
+        <option value="serper">Serper Images</option>
+      </select>
+    </label>
+
+    <label class="block">
+      <span class="mb-1.5 block text-[11px] font-semibold tracking-wider text-ink-500 uppercase">Provider API key</span>
+      <input type="password" name="api_key" autocomplete="off" spellcheck="false" placeholder="Brave BSA… / Serper key"
+        class="w-full rounded-xl border border-ink-200 bg-white px-3 py-3 font-mono text-base text-ink-800 outline-none transition placeholder:text-ink-300 focus:border-brand-400 focus:ring-2 focus:ring-brand-100 sm:text-sm" />
+    </label>
+
+    <label class="block">
+      <span class="mb-1.5 block text-[11px] font-semibold tracking-wider text-ink-500 uppercase">Safe search</span>
+      <select name="safe_search" class="w-full rounded-xl border border-ink-200 bg-white px-3 py-3 text-base text-ink-800 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 sm:text-sm">
+        <option value="strict">Strict</option>
+        <option value="off">Off (Brave only)</option>
+      </select>
+    </label>
+
+    <button type="submit" data-image-submit class="btn-primary self-end">Search images</button>
+    <p class="text-xs leading-relaxed text-ink-400 sm:col-span-2">Search keys are sent to the server-side proxy for this request only and are not saved by the page.</p>
+  </form>
+
+  <div data-image-output aria-live="polite" class="hidden border-t border-ink-100"></div>
+</div>
+
+<script>
+  const escapeImageHtml = (value: unknown): string =>
+    String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char);
+  const safeImageUrl = (value: unknown): string => {
+    if (typeof value !== 'string') return '';
+    try {
+      const url = new URL(value);
+      return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : '';
+    } catch { return ''; }
+  };
+
+  document.querySelectorAll<HTMLElement>('[data-image-playground]').forEach((root) => {
+    const form = root.querySelector<HTMLFormElement>('[data-image-form]');
+    const output = root.querySelector<HTMLElement>('[data-image-output]');
+    const submit = root.querySelector<HTMLButtonElement>('[data-image-submit]');
+    if (!form || !output || !submit) return;
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const values = new FormData(form);
+      const query = String(values.get('query') ?? '').trim();
+      if (!query) return;
+      const key = String(values.get('api_key') ?? '').trim();
+      submit.disabled = true;
+      submit.textContent = 'Searching…';
+      output.classList.remove('hidden');
+      output.innerHTML = '<p class="p-5 text-sm text-ink-500">Searching image indexes…</p>';
+      try {
+        const response = await fetch('/api/v1/images', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(key ? { 'x-xweb-key': key } : {}) },
+          body: JSON.stringify({
+            query,
+            provider: String(values.get('provider') ?? 'brave'),
+            max_results: 20,
+            safe_search: String(values.get('safe_search') ?? 'strict'),
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data?.error?.message ?? `Request failed (${response.status})`);
+        const images = Array.isArray(data?.results) ? data.results : [];
+        const cards = images.map((image: any) => {
+          const preview = safeImageUrl(image.thumbnail_url || image.image_url);
+          const original = safeImageUrl(image.image_url);
+          const page = safeImageUrl(image.page_url);
+          const label = String(image.alt_text || image.title || 'Search result image');
+          const dimensions = image.width && image.height ? `${image.width} × ${image.height}` : '';
+          return `<article class="overflow-hidden rounded-xl border border-ink-100 bg-white">
+            ${preview ? `<a href="${escapeImageHtml(original || preview)}" target="_blank" rel="noreferrer noopener"><img src="${escapeImageHtml(preview)}" alt="${escapeImageHtml(label)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="aspect-[4/3] w-full bg-ink-50 object-cover" /></a>` : '<div class="grid aspect-[4/3] place-items-center bg-ink-50 text-sm text-ink-400">Preview unavailable</div>'}
+            <div class="p-3">
+              <p class="line-clamp-2 text-sm font-semibold text-ink-800">${escapeImageHtml(image.title || 'Untitled image')}</p>
+              <p class="mt-1 flex flex-wrap gap-x-2 text-[11px] text-ink-500">${dimensions ? `<span>${escapeImageHtml(dimensions)}</span>` : ''}${image.source ? `<span>${escapeImageHtml(image.source)}</span>` : ''}</p>
+              ${page ? `<a href="${escapeImageHtml(page)}" target="_blank" rel="noreferrer noopener" class="mt-2 block truncate text-xs font-medium text-brand-700 hover:underline">Open source page →</a>` : ''}
+            </div>
+          </article>`;
+        }).join('');
+        const unsupported = Array.isArray(data?.unsupported_params) && data.unsupported_params.length
+          ? `<p class="border-b border-amber-100 bg-amber-50 px-4 py-2 text-xs text-amber-800">Not supported by this provider: ${escapeImageHtml(data.unsupported_params.join(', '))}</p>` : '';
+        output.innerHTML = `<div class="flex flex-wrap items-center justify-between gap-2 border-b border-ink-100 bg-ink-50 px-4 py-2.5 text-xs text-ink-500"><span>${escapeImageHtml(data.provider)} · ${images.length} image${images.length === 1 ? '' : 's'}</span><span>${escapeImageHtml(data.took_ms)} ms</span></div>${unsupported}<div class="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-4">${cards || '<p class="col-span-full py-8 text-center text-sm text-ink-500">No images found. Try another query.</p>'}</div>`;
+      } catch (error) {
+        output.innerHTML = `<p role="alert" class="m-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">${escapeImageHtml(error instanceof Error ? error.message : 'Image search failed.')}</p>`;
+      } finally {
+        submit.disabled = false;
+        submit.textContent = 'Search images';
+      }
+    });
+  });
+</script>

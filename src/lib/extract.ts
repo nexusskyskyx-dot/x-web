@@ -25,10 +25,21 @@ import { detectLanguage } from './lang.ts';
 export interface ExtractOptions {
   /** Hard cap per page, applied at a sentence boundary where possible. */
   maxChars?: number;
+  /** Include image URLs, alt text and dimensions found in the main content. */
+  includeImages?: boolean;
   /** Wall-clock budget per page. */
   timeoutMs?: number;
   /** Reject responses larger than this before parsing. */
   maxBytes?: number;
+}
+
+export interface ExtractedImage {
+  image_url: string;
+  alt_text?: string;
+  title?: string;
+  width?: number;
+  height?: number;
+  source_url: string;
 }
 
 export interface ExtractedPage {
@@ -40,6 +51,7 @@ export interface ExtractedPage {
   published_date?: string;
   site_name?: string;
   description?: string;
+  images?: ExtractedImage[];
   /** Set instead of the fields above when the page could not be processed. */
   error?: string;
 }
@@ -48,6 +60,7 @@ const DEFAULTS: Required<ExtractOptions> = {
   maxChars: 12_000,
   timeoutMs: 15_000,
   maxBytes: 3_000_000,
+  includeImages: false,
 };
 
 const UA =
@@ -106,7 +119,7 @@ async function assertPublicUrl(url: URL): Promise<void> {
 const DROP_TAGS = new Set([
   'script', 'style', 'noscript', 'svg', 'canvas', 'iframe', 'object', 'embed',
   'form', 'input', 'select', 'textarea', 'button', 'nav', 'header', 'footer',
-  'aside', 'template', 'dialog', 'picture', 'source', 'video', 'audio', 'map',
+  'aside', 'template', 'dialog', 'video', 'audio', 'map',
 ]);
 
 /** Signposted boilerplate that survives tag stripping. */
@@ -184,6 +197,60 @@ function stripChrome(root: ReturnType<typeof parse>): void {
   }
 }
 
+function cleanImageUrl(raw: unknown, base: string): string | undefined {
+  if (typeof raw !== 'string' || !raw.trim() || /^(data:|blob:|javascript:)/i.test(raw.trim())) return undefined;
+  try {
+    const url = new URL(raw.trim(), base);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined;
+    return url.href;
+  } catch {
+    return undefined;
+  }
+}
+
+function extractImages(root: any, pageUrl: string): ExtractedImage[] {
+  const images: ExtractedImage[] = [];
+  const seen = new Set<string>();
+  for (const node of root.querySelectorAll('img')) {
+    const pictureSources = node.parentNode?.tagName?.toLowerCase() === 'picture'
+      ? node.parentNode.querySelectorAll('source')
+      : [];
+    const candidateSets = [
+      node.getAttribute('srcset'),
+      node.getAttribute('data-srcset'),
+      ...pictureSources.map((source: any) => source.getAttribute('srcset')),
+    ].filter(Boolean);
+    const largestSrcset = candidateSets
+      .flatMap((srcset: string) => srcset.split(','))
+      .map((entry: string) => entry.trim().split(/\s+/)[0])
+      .filter(Boolean)
+      .at(-1);
+    const imageUrl =
+      cleanImageUrl(node.getAttribute('src'), pageUrl) ??
+      cleanImageUrl(node.getAttribute('data-src'), pageUrl) ??
+      cleanImageUrl(node.getAttribute('data-original'), pageUrl) ??
+      cleanImageUrl(node.getAttribute('data-lazy-src'), pageUrl) ??
+      cleanImageUrl(largestSrcset, pageUrl);
+    if (!imageUrl || seen.has(imageUrl)) continue;
+    seen.add(imageUrl);
+
+    const width = Number(node.getAttribute('width'));
+    const height = Number(node.getAttribute('height'));
+    const alt = cleanText(node.getAttribute('alt') ?? '');
+    const title = cleanText(node.getAttribute('title') ?? '');
+    images.push({
+      image_url: imageUrl,
+      source_url: pageUrl,
+      ...(alt ? { alt_text: alt } : {}),
+      ...(title ? { title } : {}),
+      ...(Number.isFinite(width) && width > 0 ? { width } : {}),
+      ...(Number.isFinite(height) && height > 0 ? { height } : {}),
+    });
+    if (images.length >= 50) break;
+  }
+  return images;
+}
+
 export function extractFromHtml(html: string, url: string, options: ExtractOptions = {}): ExtractedPage {
   const opts = { ...DEFAULTS, ...options };
   const out: ExtractedPage = { url };
@@ -230,9 +297,11 @@ export function extractFromHtml(html: string, url: string, options: ExtractOptio
   }
 
   let text: string;
+  let contentRoot: any = root.querySelector('body') ?? root;
   if (candidates.length > 0) {
     candidates.sort((a, b) => b.score - a.score);
     const best = candidates[0].el;
+    contentRoot = best;
     text = cleanText(
       best
         .querySelectorAll('p, h1, h2, h3, h4, li, blockquote, pre, td')
@@ -252,6 +321,7 @@ export function extractFromHtml(html: string, url: string, options: ExtractOptio
   out.word_count = out.text.split(/\s+/).filter(Boolean).length;
   out.language = detectLanguage(out.text).language;
   if (out.language === 'und') delete out.language;
+  if (opts.includeImages) out.images = extractImages(contentRoot, url);
 
   return out;
 }

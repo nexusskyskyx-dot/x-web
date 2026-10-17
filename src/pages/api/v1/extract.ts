@@ -65,6 +65,7 @@ export async function POST({ request, clientAddress }: APIContext) {
   try {
     const results = await extractPages(urls, {
       maxChars: Math.min(Math.max(Number(body.max_chars) || 12_000, 500), 100_000),
+      includeImages: body.include_images === true,
     });
     return json({
       id: `xweb_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`,

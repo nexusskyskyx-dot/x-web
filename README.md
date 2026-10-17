@@ -69,8 +69,8 @@ Additional endpoints:
 
 - `POST /api/v1/intent` — classify a query, detect language/entities, infer recency, and rewrite it
   for a search index. No provider key required.
-- `POST /api/v1/extract` — fetch and clean up to ten public URLs. Private/local IPs and redirects
-  to them are blocked.
+- `POST /api/v1/extract` — fetch and clean up to ten public URLs, optionally including their page images and alt text. Private/local IPs and redirects to them are blocked.
+- `POST /api/v1/images` — live image search through Brave Images or Serper Images, normalized to image, thumbnail, source-page and dimension fields.
 
 Supported search providers — `tavily`, `brave`, `serper`, `exa` — are implemented in
 [`src/lib/search.ts`](src/lib/search.ts). The pipeline, language detector, extractive answerer,
@@ -108,6 +108,8 @@ project settings.
 | `BRAVE_API_KEY`          | Brave Search key                                               |
 | `SERPER_API_KEY`         | Serper key                                                     |
 | `EXA_API_KEY`            | Exa key                                                        |
+| `XWEB_IMAGE_SEARCH_PROVIDER` | Default image provider: `brave` or `serper`                 |
+| `XWEB_IMAGE_SEARCH_API_KEY` | Optional dedicated server-side image search key               |
 | `XWEB_API_BASE`          | Forward to a real x-web deployment instead of a provider       |
 | `SITE_URL`               | Canonical site URL used for canonical links and the sitemap     |
 
@@ -121,8 +123,8 @@ The repository is already connected to Vercel, so pushing is enough:
 2. Push to the branch — Vercel creates a preview deployment for every branch.
 3. Add `SITE_URL` and any provider keys in **Project Settings → Environment Variables**.
 
-The Vercel adapter reads `output: "static"` plus the two non-prerendered `/api/*` routes and
-emits a static bundle plus one serverless function.
+The Vercel adapter prerenders the documentation pages and dispatches the non-prerendered `/api/*`
+routes through the serverless handler.
 
 ---
 

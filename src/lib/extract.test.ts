@@ -110,6 +110,26 @@ describe('HTML extraction', () => {
     assert.match(page.text ?? '', /Clients/);
   });
 
+  test('extracts image URLs, alt text, title and dimensions only when requested', () => {
+    const html = `<html><body><article>
+      <h1>Photo guide</h1>
+      <p>This article contains enough meaningful text that the content extractor selects this article as the primary page.</p>
+      <picture><source srcset="/photo-small.jpg 1x, /photo-large.jpg 2x"><img alt="A purple mountain flower" title="Flower close-up" width="1600" height="1200"></picture>
+      <img src="data:image/png;base64,ignored" alt="inline data image">
+      <img src="javascript:alert(1)" alt="unsafe image">
+    </article></body></html>`;
+    const withoutImages = extractFromHtml(html, 'https://example.com/article');
+    assert.equal(withoutImages.images, undefined);
+
+    const page = extractFromHtml(html, 'https://example.com/article', { includeImages: true });
+    assert.equal(page.images?.length, 1);
+    assert.equal(page.images?.[0].image_url, 'https://example.com/photo-large.jpg');
+    assert.equal(page.images?.[0].alt_text, 'A purple mountain flower');
+    assert.equal(page.images?.[0].title, 'Flower close-up');
+    assert.equal(page.images?.[0].width, 1600);
+    assert.equal(page.images?.[0].height, 1200);
+  });
+
   test('blocks localhost and private IP URLs before fetching (SSRF guard)', async () => {
     const originalFetch = globalThis.fetch;
     let fetched = false;

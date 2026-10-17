@@ -42,6 +42,7 @@ export interface PipelineRequest {
   topic?: 'general' | 'news';
   include_answer?: boolean;
   include_raw_content?: boolean;
+  include_images?: boolean;
   include_domains?: string[];
   exclude_domains?: string[];
   /** BCP-47 tag, or "auto" (default) to detect from the query. */
@@ -194,6 +195,7 @@ export async function runPipeline(
   const understand = raw.understand !== false;
   const includeAnswer = raw.include_answer !== false;
   const includeRaw = raw.include_raw_content === true;
+  const includeImages = raw.include_images === true;
   const maxResults = clampInt(raw.max_results, 5, 1, MAX_RESULTS);
 
   const provider = (isProvider(raw.provider) ? raw.provider : undefined) as ProviderId | undefined;
@@ -289,26 +291,28 @@ export async function runPipeline(
   let extracted: ExtractedPage[] | undefined;
   stageStart = Date.now();
 
-  if (includeRaw) {
-    const alreadyHaveText = results.filter(
-      (hit) => (hit.raw_content?.length ?? 0) > 200,
-    ).length;
+  if (includeRaw || includeImages) {
+    const depth = clampInt(raw.extract_depth, 3, 1, 10);
+    const targets = results
+      .filter((hit) => includeImages || (hit.raw_content?.length ?? 0) <= 200)
+      .slice(0, depth)
+      .map((hit) => hit.url)
+      .filter((url) => /^https?:\/\//.test(url));
 
-    if (alreadyHaveText < results.length) {
-      const depth = clampInt(raw.extract_depth, 3, 1, 10);
-      const targets = results
-        .filter((hit) => (hit.raw_content?.length ?? 0) <= 200)
-        .slice(0, depth)
-        .map((hit) => hit.url)
-        .filter((url) => /^https?:\/\//.test(url));
-
-      if (targets.length > 0) {
-        const pages = await extractPages(targets, {
-          maxChars: clampInt(env('XWEB_EXTRACT_MAX_CHARS'), 12_000, 500, 100_000),
-        });
-        extracted = pages;
-        // Fold the fetched text back onto the matching results so callers get
-        // one place to read it.
+    if (targets.length > 0) {
+      const pages = await extractPages(targets, {
+        maxChars: clampInt(env('XWEB_EXTRACT_MAX_CHARS'), 12_000, 500, 100_000),
+        includeImages,
+      });
+      extracted = includeRaw
+        ? pages
+        : pages.map((page) => {
+            const { text: _text, word_count: _wordCount, ...metadata } = page;
+            return metadata;
+          });
+      // Fold fetched text back onto the results only when requested; image-only
+      // extraction should not unexpectedly expand every result with page text.
+      if (includeRaw) {
         const byUrl = new Map(pages.map((page) => [page.url, page]));
         results = results.map((hit) => {
           const page = byUrl.get(hit.url);
@@ -358,7 +362,7 @@ export async function runPipeline(
       effective_query: effectiveQuery,
       rewritten,
       time_sensitive: Boolean(filters.time_range),
-      extracted_count: extracted?.filter((page) => page.text).length ?? 0,
+      extracted_count: extracted?.filter((page) => page.text || (page.images?.length ?? 0) > 0).length ?? 0,
       stages_ms: stages,
     },
   };
