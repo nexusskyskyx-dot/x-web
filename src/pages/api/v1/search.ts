@@ -126,13 +126,16 @@ async function runSearchRequest(request: Request, body: Record<string, unknown>)
     const pipelineBody: Record<string, unknown> = accountKey && body.provider === undefined
       ? { ...body }
       : { ...body, provider: body.provider ?? provider };
-    if (accountKey && (body.mode === undefined || body.mode === 'automatic')) {
-      const preference = body.mode === 'automatic'
-        ? 'automatic'
-        : await getAccountSearchPreference(createAdminClient(), accountKey.userId);
-      pipelineBody.mode = resolveResearchMode(typeof body.query === 'string' ? body.query : '', preference);
+    let semanticCitationCheck = false;
+    if (accountKey) {
+      const preference = await getAccountSearchPreference(createAdminClient(), accountKey.userId);
+      semanticCitationCheck = preference.semanticCitationCheck;
+      if (body.mode === undefined || body.mode === 'automatic') {
+        const preferredMode = body.mode === 'automatic' ? 'automatic' : preference.mode;
+        pipelineBody.mode = resolveResearchMode(typeof body.query === 'string' ? body.query : '', preferredMode);
+      }
     }
-    const result = await runPipeline(pipelineBody, { apiKey: accountKey ? undefined : key, providerKeys, aiConfig });
+    const result = await runPipeline(pipelineBody, { apiKey: accountKey ? undefined : key, providerKeys, aiConfig, semanticCitationCheck });
     if (accountKey) {
       await recordApiUsage(accountKey, { endpoint: '/api/v1/search', provider: result.provider, resultCount: result.results.length, durationMs: result.took_ms });
     }

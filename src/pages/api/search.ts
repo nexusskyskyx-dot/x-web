@@ -75,13 +75,16 @@ export async function POST({ request, clientAddress }: APIContext) {
 
   try {
     let requestBody: Record<string, unknown> = { ...body, provider: body.provider ?? provider };
-    if (account && (body.mode === undefined || body.mode === 'automatic')) {
-      const preference = body.mode === 'automatic'
-        ? 'automatic'
-        : await getAccountSearchPreference(createAdminClient(), account.userId);
-      requestBody = { ...requestBody, mode: resolveResearchMode(typeof body.query === 'string' ? body.query : '', preference) };
+    let semanticCitationCheck = false;
+    if (account) {
+      const preference = await getAccountSearchPreference(createAdminClient(), account.userId);
+      semanticCitationCheck = preference.semanticCitationCheck;
+      if (body.mode === undefined || body.mode === 'automatic') {
+        const preferredMode = body.mode === 'automatic' ? 'automatic' : preference.mode;
+        requestBody = { ...requestBody, mode: resolveResearchMode(typeof body.query === 'string' ? body.query : '', preferredMode) };
+      }
     }
-    const result = await runPipeline(requestBody, { apiKey: account ? undefined : key, providerKeys, aiConfig });
+    const result = await runPipeline(requestBody, { apiKey: account ? undefined : key, providerKeys, aiConfig, semanticCitationCheck });
     return json(result, 200, { 'X-XWEB-Key-Source': account ? 'account' : source });
   } catch (error) {
     if (error instanceof PipelineError) {

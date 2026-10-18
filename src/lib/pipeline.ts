@@ -190,6 +190,7 @@ export async function runPipeline(
     apiKey?: string;
     providerKeys?: Partial<Record<ProviderId, string>>;
     aiConfig?: AiRuntimeConfig;
+    semanticCitationCheck?: boolean;
     queryRewriteDefault?: QueryRewrite;
   } = {},
 ): Promise<PipelineResponse> {
@@ -537,11 +538,12 @@ export async function runPipeline(
     }));
     const synthesized =
       mode === 'deep'
-        ? await synthesizeResearchReport(query, sources.slice(0, 10), options.aiConfig)
+        ? await synthesizeResearchReport(query, sources.slice(0, 10), options.aiConfig, options.semanticCitationCheck)
         : await synthesizeAnswer(query, sources, {
             providerAnswer: search.answer,
             allowLlm: env('XWEB_DISABLE_LLM') !== '1',
             aiConfig: options.aiConfig,
+            semanticCitationCheck: options.semanticCitationCheck,
           });
     if (synthesized && !synthesized.declined && synthesized.text) answer = synthesized;
     if (mode === 'deep' && !answer) {

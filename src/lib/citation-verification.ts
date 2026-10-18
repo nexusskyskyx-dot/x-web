@@ -1,11 +1,13 @@
 import type { AnswerSource } from './answer.ts';
 
 export interface CitationVerification {
-  /** Supported means the cited source contains a measurable lexical evidence match. */
+  /** Supported means the citation was matched to evidence in its fetched source. */
   status: 'supported' | 'flagged' | 'not_checked';
   supported_claims: number;
   flagged_claims: number;
-  method: 'source_text_overlap';
+  method: 'source_text_overlap' | 'lexical_plus_semantic';
+  semantic_checked_claims?: number;
+  semantic_supported_claims?: number;
 }
 
 export interface CitationCheckResult {
@@ -13,6 +15,21 @@ export interface CitationCheckResult {
   indices: number[];
   verification: CitationVerification;
 }
+
+export interface SemanticCitationCandidate {
+  id: number;
+  claim: string;
+  citation_index: number;
+  source_url: string;
+  source_text: string;
+}
+
+export interface SemanticCitationReviewResult {
+  checked_ids: number[];
+  supported_ids: number[];
+}
+
+export type SemanticCitationReviewer = (candidates: SemanticCitationCandidate[]) => Promise<SemanticCitationReviewResult>;
 
 const STOP_WORDS = new Set(
   `a an and are as at be been by can did do does for from had has have he her hers him his how i if in into is it its may might of on or our she that the their them then there these they this those through to was we were what when where which who why will with would you your el la los las un una unos unas de del al y o en por para con sin que es son fue ser como sobre entre`.split(/\s+/),
@@ -27,10 +44,7 @@ function claimTerms(claim: string): string[] {
   )];
 }
 
-/**
- * A conservative lexical evidence screen, not a semantic entailment proof.
- * Raw page text is preferred; snippets are not treated as scraped evidence.
- */
+/** A conservative lexical screen; snippets are not treated as fetched page evidence. */
 function hasSourceEvidence(claim: string, source: AnswerSource | undefined): boolean {
   const pageText = source?.raw_content?.trim();
   if (!pageText) return false;
@@ -43,61 +57,135 @@ function hasSourceEvidence(claim: string, source: AnswerSource | undefined): boo
 
   const matched = terms.filter((term) => sourceTerms.has(term)).length;
   const coverage = matched / terms.length;
-  const minimumMatches = terms.length < 5 ? 2 : 3;
-  return matched >= minimumMatches && coverage >= 0.3;
+  return matched >= (terms.length < 5 ? 2 : 3) && coverage >= 0.3;
 }
 
-/**
- * Validates each inline [n] reference against the corresponding fetched page.
- * Unsupported markers are removed and their claim is visibly flagged.
- */
-export function verifyCitedClaims(text: string, sources: AnswerSource[]): CitationCheckResult {
-  let supportedClaims = 0;
-  let flaggedClaims = 0;
-  const keptIndices = new Set<number>();
-  const lines = text.split('\n');
-  const checkedLines = lines.map((line) => {
-    // Each match is a claim fragment followed by one or more inline references.
+interface ClaimSegment {
+  prefix: string;
+  claim: string;
+  refs: number[];
+  accepted: number[];
+  semanticCandidates: SemanticCitationCandidate[];
+}
+
+interface ParsedText {
+  lines: Array<{ segments: ClaimSegment[]; trailing: string }>;
+  candidates: SemanticCitationCandidate[];
+}
+
+function parseText(text: string, sources: AnswerSource[]): ParsedText {
+  let nextId = 1;
+  const candidates: SemanticCitationCandidate[] = [];
+  const lines = text.split('\n').map((line) => {
     const citationGroup = /([^\[]*?)((?:\s*\[\d+\])+)/g;
-    let output = '';
+    const segments: ClaimSegment[] = [];
     let cursor = 0;
     let match: RegExpExecArray | null;
     while ((match = citationGroup.exec(line)) !== null) {
-      // A citation at the end of a line normally qualifies the immediately
-      // preceding sentence, not every earlier sentence on that same line.
       const claimPart = match[1];
+      // A citation at a sentence end qualifies the immediately preceding sentence.
       const claim = claimPart.split(/(?<=[.!?])\s+/u).at(-1) ?? claimPart;
-      const prefix = claimPart.slice(0, claimPart.length - claim.length);
-      const markerGroup = match[2];
-      const refs = [...markerGroup.matchAll(/\[(\d+)\]/g)].map((item) => Number(item[1]));
+      const prefix = line.slice(cursor, match.index) + claimPart.slice(0, claimPart.length - claim.length);
+      const refs = [...match[2].matchAll(/\[(\d+)\]/g)].map((item) => Number(item[1]));
       const accepted = refs.filter((index) => hasSourceEvidence(claim, sources[index - 1]));
-      output += line.slice(cursor, match.index) + prefix + claim;
-      if (accepted.length) {
-        supportedClaims += 1;
-        accepted.forEach((index) => keptIndices.add(index));
-        output += ` ${[...new Set(accepted)].map((index) => `[${index}]`).join(' ')}`;
-      } else {
-        flaggedClaims += 1;
-        output += ' [Unverified]';
-      }
+      const semanticCandidates = refs
+        .filter((index) => !accepted.includes(index))
+        .map((index) => ({ source: sources[index - 1], index }))
+        .filter(({ source }) => Boolean(source?.raw_content?.trim()))
+        .map(({ source, index }) => ({
+          id: nextId++,
+          claim: claim.trim(),
+          citation_index: index,
+          source_url: source!.url,
+          source_text: source!.raw_content!.trim(),
+        }));
+      candidates.push(...semanticCandidates);
+      segments.push({ prefix, claim, refs, accepted, semanticCandidates });
       cursor = match.index + match[0].length;
     }
-    return output + line.slice(cursor);
+    return { segments, trailing: line.slice(cursor) };
   });
+  return { lines, candidates };
+}
 
+function renderCheckedText(
+  parsed: ParsedText,
+  semanticSupportedIds: Set<number>,
+  semanticCheckedIds: Set<number>,
+): CitationCheckResult {
+  let supportedClaims = 0;
+  let flaggedClaims = 0;
+  let semanticSupportedClaims = 0;
+  const keptIndices = new Set<number>();
+  const lines = parsed.lines.map(({ segments, trailing }) => {
+    const line = segments.map((segment) => {
+      const semanticAccepted = segment.semanticCandidates
+        .filter((candidate) => semanticSupportedIds.has(candidate.id))
+        .map((candidate) => candidate.citation_index);
+      const accepted = [...new Set([...segment.accepted, ...semanticAccepted])];
+      if (accepted.length) {
+        supportedClaims += 1;
+        if (semanticAccepted.length) semanticSupportedClaims += 1;
+        accepted.forEach((index) => keptIndices.add(index));
+        return `${segment.prefix}${segment.claim} ${accepted.map((index) => `[${index}]`).join(' ')}`;
+      }
+      flaggedClaims += 1;
+      return `${segment.prefix}${segment.claim} [Unverified]`;
+    }).join('');
+    return line + trailing;
+  }).join('\n');
+
+  const semanticCheckedClaims = parsed.lines.reduce((count, line) => count + line.segments.filter((segment) =>
+    segment.semanticCandidates.some((candidate) => semanticCheckedIds.has(candidate.id)),
+  ).length, 0);
+  const method: CitationVerification['method'] = semanticCheckedClaims > 0
+    ? 'lexical_plus_semantic'
+    : 'source_text_overlap';
   const status: CitationVerification['status'] = flaggedClaims
     ? 'flagged'
     : supportedClaims
       ? 'supported'
       : 'not_checked';
   return {
-    text: checkedLines.join('\n'),
+    text: lines,
     indices: [...keptIndices].sort((a, b) => a - b),
     verification: {
       status,
       supported_claims: supportedClaims,
       flagged_claims: flaggedClaims,
-      method: 'source_text_overlap',
+      method,
+      ...(semanticCheckedClaims ? { semantic_checked_claims: semanticCheckedClaims } : {}),
+      ...(semanticSupportedClaims ? { semantic_supported_claims: semanticSupportedClaims } : {}),
     },
   };
+}
+
+/** Deterministically checks inline citations against their corresponding fetched page text. */
+export function verifyCitedClaims(text: string, sources: AnswerSource[]): CitationCheckResult {
+  return renderCheckedText(parseText(text, sources), new Set(), new Set());
+}
+
+/**
+ * Optional BYOK-backed second pass for claims that fail lexical matching.
+ * The reviewer is called once with a batch; it must return IDs only when the
+ * claim is entailed and backed by a quote that it has verified against source_text.
+ */
+export async function verifyCitedClaimsWithSemantic(
+  text: string,
+  sources: AnswerSource[],
+  reviewer: SemanticCitationReviewer,
+): Promise<CitationCheckResult> {
+  const parsed = parseText(text, sources);
+  let semanticSupportedIds = new Set<number>();
+  let semanticCheckedIds = new Set<number>();
+  if (parsed.candidates.length) {
+    try {
+      const review = await reviewer(parsed.candidates);
+      semanticSupportedIds = new Set(review.supported_ids);
+      semanticCheckedIds = new Set(review.checked_ids);
+    } catch {
+      // Fail closed: a timeout or malformed verifier reply cannot promote a citation.
+    }
+  }
+  return renderCheckedText(parsed, semanticSupportedIds, semanticCheckedIds);
 }

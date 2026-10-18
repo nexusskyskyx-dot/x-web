@@ -98,7 +98,7 @@ async function handleMcp({ request, clientAddress }: APIContext): Promise<Respon
       if (!aiResult.error && aiResult.data) aiConfig = await decryptAiCredential(aiResult.data as AiCredential);
 
       const preference = await getAccountSearchPreference(admin, accountKey.userId);
-      const effectiveMode = resolveResearchMode(query, preference);
+      const effectiveMode = resolveResearchMode(query, preference.mode);
       const result = await runPipeline({
         query,
         mode: effectiveMode,
@@ -106,7 +106,7 @@ async function handleMcp({ request, clientAddress }: APIContext): Promise<Respon
         include_answer: effectiveMode === 'deep' ? true : (include_answer ?? false),
         language,
         provider,
-      }, { providerKeys, aiConfig });
+      }, { providerKeys, aiConfig, semanticCitationCheck: preference.semanticCitationCheck });
       await recordApiUsage(accountKey, {
         endpoint: '/api/mcp',
         provider: result.provider,

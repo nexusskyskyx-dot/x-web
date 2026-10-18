@@ -157,6 +157,67 @@ describe('answer synthesis', () => {
     } finally { globalThis.fetch = originalFetch; }
   });
 
+  test('runs one optional semantic review through the saved BYOK model and validates its exact quote', async () => {
+    const originalFetch = globalThis.fetch;
+    let requests = 0;
+    const requestModels: string[] = [];
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      requests += 1;
+      const body = JSON.parse(String(init?.body ?? '{}'));
+      requestModels.push(body.model);
+      const content = requests === 1
+        ? 'MCP creates a standardized channel for software to transmit relevant context to AI systems [1]'
+        : JSON.stringify({ results: [{ id: 1, verdict: 'supported', quote: 'The Model Context Protocol (MCP) is an open protocol that standardises how applications provide context to large language models.' }] });
+      return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 });
+    }) as typeof fetch;
+    try {
+      const answer = await synthesizeAnswer('what is the model context protocol', [sources[0]], {
+        allowLlm: true,
+        semanticCitationCheck: true,
+        aiConfig: { provider: 'groq', model: 'llama-test', apiKey: 'user-secret', source: 'byok' },
+      });
+      assert.ok(answer);
+      assert.equal(requests, 2, 'one answer call and one batched semantic review call');
+      assert.deepEqual(requestModels, ['llama-test', 'llama-test']);
+      assert.match(answer.text, /\[1\]/);
+      assert.deepEqual(answer.citation_verification, {
+        status: 'supported',
+        supported_claims: 1,
+        flagged_claims: 0,
+        method: 'lexical_plus_semantic',
+        semantic_checked_claims: 1,
+        semantic_supported_claims: 1,
+      });
+    } finally { globalThis.fetch = originalFetch; }
+  });
+
+  test('does not accept a semantic verdict without an exact quote found in the cited page', async () => {
+    const originalFetch = globalThis.fetch;
+    let requests = 0;
+    globalThis.fetch = (async () => {
+      requests += 1;
+      const content = requests === 1
+        ? 'The Model Context Protocol is an open protocol [1]. MCP creates a standardized channel for software to transmit relevant context to AI systems [1]'
+        : JSON.stringify({ results: [{ id: 1, verdict: 'supported', quote: 'This claim is fully supported by magic.' }] });
+      return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 });
+    }) as typeof fetch;
+    try {
+      const answer = await synthesizeAnswer('what is the model context protocol', [sources[0]], {
+        allowLlm: true,
+        semanticCitationCheck: true,
+        aiConfig: { provider: 'groq', model: 'llama-test', apiKey: 'user-secret', source: 'byok' },
+      });
+      assert.ok(answer);
+      assert.equal(requests, 2);
+      assert.match(answer.text, /MCP creates a standardized channel.*\[Unverified\]/);
+      assert.deepEqual(answer.citations.map((citation) => citation.index), [1]);
+      assert.deepEqual(answer.citation_verification, {
+        status: 'flagged', supported_claims: 1, flagged_claims: 1,
+        method: 'lexical_plus_semantic', semantic_checked_claims: 1,
+      });
+    } finally { globalThis.fetch = originalFetch; }
+  });
+
   test('routes OpenRouter BYOK through its OpenAI-compatible endpoint', async () => {
     const originalFetch = globalThis.fetch;
     let requestUrl = '';

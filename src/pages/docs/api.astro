@@ -105,7 +105,8 @@ Content-Type: application/json`}
     and configure the server-only <code>XWEB_PROVIDER_KEY_ENCRYPTION_KEY</code>. To enable encrypted AI-key
     storage for Bring Your Own Key settings, apply <code>supabase/migrations/202610170001_ai_credentials.sql</code>;
     to enable OpenRouter and xKiro provider values, also apply <code>supabase/migrations/202610170002_add_openrouter_xkiro_ai_providers.sql</code>;
-    apply <code>supabase/migrations/202610180001_account_search_mode.sql</code> to persist Dashboard mode choices.
+    apply <code>supabase/migrations/202610180001_account_search_mode.sql</code> and
+    <code>supabase/migrations/202610180002_semantic_citation_review.sql</code> to persist Dashboard preferences.
     Configure the Supabase redirect allow-list for <code>/dashboard</code> and
     <code>/login?mode=update</code>; enter Google OAuth client credentials in Supabase Auth.
   </p>
@@ -255,7 +256,7 @@ Content-Type: application/json`}
   <ImagePlayground />
 
   <h3>Deep Research example</h3>
-  <p>Send <code>mode: "deep"</code> with an x-web account key, or select Deep Research in your Dashboard and omit <code>mode</code>. x-web uses only the account's saved search-provider and AI credentials. The Markdown report is in top-level <code>report</code> (also <code>answer.text</code>); top-level <code>citations</code> map retained inline <code>[n]</code> markers to source URLs. x-web cross-checks each cited claim against the fetched page text, removes unsupported citation markers and labels those claims <code>[Unverified]</code>. The machine-readable outcome is in <code>answer.citation_verification</code> and <code>meta.research.citation_verification</code>. This deterministic text-overlap screen validates source evidence and reference mapping; it cannot prove semantic entailment or guarantee that a supported claim is true. No headless browser is used: public pages are fetched and readable text is extracted.</p>
+  <p>Send <code>mode: "deep"</code> with an x-web account key, or select Deep Research in your Dashboard and omit <code>mode</code>. x-web uses only the account's saved search-provider and AI credentials. The Markdown report is in top-level <code>report</code> (also <code>answer.text</code>); top-level <code>citations</code> map retained inline <code>[n]</code> markers to source URLs. x-web cross-checks each cited claim against the fetched page text, removes unsupported citation markers and labels those claims <code>[Unverified]</code>. By default, this is a deterministic text-overlap screen. An account can optionally enable semantic review in the Dashboard: flagged claims are sent in one batch to that account's saved BYOK AI model, and a claim is rescued only if the model supplies an exact quote found in the cited page text. This extra request may incur usage charges from the chosen AI provider; uncertain claims remain <code>[Unverified]</code>. Neither check guarantees correctness or eliminates hallucinations. The machine-readable outcome is in <code>answer.citation_verification</code> and <code>meta.research.citation_verification</code>. No headless browser is used: public pages are fetched and readable text is extracted.</p>
   <CodeBlock lang="json" title="deep request" code={`{ "query": "Compare the leading approaches to…", "mode": "deep", "max_results": 10 }`} />
 
   <h2 id="response">Response shape</h2>

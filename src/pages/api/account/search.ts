@@ -62,16 +62,15 @@ export async function POST({ request, clientAddress }: APIContext) {
       }, 400);
     }
 
-    const storedMode = body.mode === undefined
-      ? await getAccountSearchPreference(admin, user.id)
-      : body.mode;
+    const preference = await getAccountSearchPreference(admin, user.id);
+    const storedMode = body.mode === undefined ? preference.mode : body.mode;
     let requestBody = body;
     if (storedMode === 'automatic') {
       requestBody = { ...body, mode: resolveResearchMode(typeof body.query === 'string' ? body.query : '', 'automatic') };
     } else if (body.mode === undefined && (storedMode === 'standard' || storedMode === 'deep')) {
       requestBody = { ...body, mode: storedMode };
     }
-    const result = await runPipeline(requestBody, { providerKeys, aiConfig });
+    const result = await runPipeline(requestBody, { providerKeys, aiConfig, semanticCitationCheck: preference.semanticCitationCheck });
     await admin.from('usage_events').insert({
       user_id: user.id,
       endpoint: '/api/account/search',

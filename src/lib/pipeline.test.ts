@@ -221,9 +221,11 @@ describe('search pipeline', () => {
         const body = JSON.parse(String(init.body));
         aiCalls.push(body);
         const system = body.messages?.[0]?.content ?? body.system ?? '';
-        const content = String(system).includes('research planner')
-          ? JSON.stringify({ queries: ['MCP architecture and protocol', 'MCP adoption and security'] })
-          : '## Overview\nThe Model Context Protocol standardizes connections between AI applications and tools [1].\n## Key findings\nIt is an open protocol [1].';
+        const content = String(system).includes('citation entailment reviewer')
+          ? JSON.stringify({ results: [{ id: 1, verdict: 'supported', quote: 'It defines a structured way for systems to communicate and exchange context.' }] })
+          : String(system).includes('research planner')
+            ? JSON.stringify({ queries: ['MCP architecture and protocol', 'MCP adoption and security'] })
+            : '## Overview\nThe Model Context Protocol standardizes connections between AI applications and tools [1].\n## Key findings\nThis standard lets separate software components exchange contextual information through a shared interface [2].';
         return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { headers: { 'Content-Type': 'application/json' } });
       }
       if (url.includes('api.tavily.com')) {
@@ -238,10 +240,10 @@ describe('search pipeline', () => {
     }) as typeof fetch;
     try {
       const result = await runPipeline({ query: 'Research the Model Context Protocol', mode: 'deep' }, {
-        providerKeys: { tavily: 'tvly-saved' }, aiConfig,
+        providerKeys: { tavily: 'tvly-saved' }, aiConfig, semanticCitationCheck: true,
       });
       assert.deepEqual(providerQueries, ['Research the Model Context Protocol', 'MCP architecture and protocol', 'MCP adoption and security']);
-      assert.equal(aiCalls.length, 2, 'the saved BYOK model should plan and write the report');
+      assert.equal(aiCalls.length, 3, 'the saved BYOK model should plan, write the report, and review flagged citations once');
       assert.equal(result.mode, 'deep');
       assert.equal(result.meta.research?.mode, 'deep');
       assert.equal(result.report, result.answer?.text);
@@ -252,6 +254,9 @@ describe('search pipeline', () => {
       assert.match(result.answer?.text ?? '', /## Key findings/);
       assert.equal(result.answer?.ai_key_source, 'byok');
       assert.ok(result.answer?.citations.length);
+      assert.equal(result.answer?.citation_verification?.method, 'lexical_plus_semantic');
+      assert.equal(result.answer?.citation_verification?.semantic_checked_claims, 1);
+      assert.equal(result.answer?.citation_verification?.semantic_supported_claims, 1);
       assert.equal(result.results.length, 3);
     } finally {
       globalThis.fetch = previousFetch;
