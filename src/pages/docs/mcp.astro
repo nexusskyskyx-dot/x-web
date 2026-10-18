@@ -74,7 +74,7 @@ const toc = [
   </p>
 
   <h2 id="modes">Search modes</h2>
-  <p>The <code>xweb_search</code> tool accepts an optional <code>mode</code>: <code>standard</code> (default) searches one configured provider for quick snippets, while <code>deep</code> plans 2–4 research queries, fans out across configured provider keys, reads up to 10 public pages, and returns a Markdown report in <code>report</code> (and <code>answer</code>) with inline citations and a structured <code>citations</code> list. The structured tool result includes results, citations, providers used and <code>research</code> metadata (subqueries, pages attempted/read). Deep mode requires the account's saved AI BYOK key; no server-managed model fallback is used.</p>
+  <p>The <code>xweb_search</code> tool accepts an optional <code>mode</code>. If omitted, it carries over the mode selected in the Dashboard. <code>automatic</code> (the default) keeps routine lookups lightweight and escalates research-heavy questions; <code>standard</code> searches one configured provider for quick snippets; <code>deep</code> plans 2–4 research queries, searches configured providers, reads up to 10 public pages, and returns a cited Markdown report. The structured result includes citations, providers used and research metadata. Deep mode requires the account's saved AI BYOK key; no server-managed model fallback is used.</p>
   <CodeBlock lang="json" title="deep tool arguments" code={`{ "query": "Compare…", "mode": "deep", "max_results": 10 }`} />
 
   <h2 id="credentials">Required credentials</h2>

@@ -12,6 +12,8 @@ import { SearchError } from '../../../lib/search.ts';
 import { AccountAuthError, authenticateAccountApiKey, createAdminClient, extractAccountApiKey, recordApiUsage, type AuthenticatedApiKey } from '../../../lib/account.ts';
 import { decryptProviderKeyMap, type StoredProviderCredential } from '../../../lib/provider-credentials.ts';
 import { decryptAiCredential, type AiCredential, type AiRuntimeConfig } from '../../../lib/ai-credentials.ts';
+import { getAccountSearchPreference } from '../../../lib/account-search-preference.ts';
+import { resolveResearchMode } from '../../../lib/research-mode.ts';
 import {
   json,
   errorResponse,
@@ -121,9 +123,15 @@ async function runSearchRequest(request: Request, body: Record<string, unknown>)
   }
 
   try {
-    const pipelineBody = accountKey && body.provider === undefined
+    const pipelineBody: Record<string, unknown> = accountKey && body.provider === undefined
       ? { ...body }
       : { ...body, provider: body.provider ?? provider };
+    if (accountKey && (body.mode === undefined || body.mode === 'automatic')) {
+      const preference = body.mode === 'automatic'
+        ? 'automatic'
+        : await getAccountSearchPreference(createAdminClient(), accountKey.userId);
+      pipelineBody.mode = resolveResearchMode(typeof body.query === 'string' ? body.query : '', preference);
+    }
     const result = await runPipeline(pipelineBody, { apiKey: accountKey ? undefined : key, providerKeys, aiConfig });
     if (accountKey) {
       await recordApiUsage(accountKey, { endpoint: '/api/v1/search', provider: result.provider, resultCount: result.results.length, durationMs: result.took_ms });

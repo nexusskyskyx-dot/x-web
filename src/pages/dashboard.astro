@@ -81,6 +81,7 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
         </label>
         <label class="block text-xs font-medium text-ink-600">Search mode
           <select data-dashboard-mode name="mode" class="mt-1.5 w-full rounded-lg border border-ink-200 bg-white px-3 py-3 text-base text-ink-900 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 sm:py-2.5 sm:text-sm">
+            <option value="automatic">Automatic — choose based on the question</option>
             <option value="standard">Standard — fast snippets</option>
             <option value="deep">Deep Research — cited report</option>
           </select>
@@ -193,11 +194,37 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
     const syncSearchModeHelp = () => {
       if (!searchModeHelp) return;
       searchModeHelp.textContent = searchMode?.value === 'deep'
-        ? 'Deep Research uses your saved AI key, searches all configured providers, reads up to 10 pages, and generates a cited Markdown report.'
-        : 'Standard searches one saved provider and returns snippets. It is the faster, lower-cost option.';
+        ? 'Deep Research always runs a full cited report. This preference is also used by connected x-web AI agents.'
+        : searchMode?.value === 'standard'
+          ? 'Standard searches one saved provider and returns snippets. This preference is also used by connected x-web AI agents.'
+          : 'Automatic keeps simple lookups fast and uses Deep Research for research-heavy questions. Connected x-web AI agents use this preference too.';
     };
-    searchMode?.addEventListener('change', syncSearchModeHelp);
+    const loadSearchPreference = async () => {
+      try {
+        const preference = await request('/api/account/search-preference');
+        if (searchMode && ['automatic', 'standard', 'deep'].includes(preference.mode)) searchMode.value = preference.mode;
+      } catch (error) {
+        if (searchOutput) {
+          searchOutput.classList.remove('hidden');
+          searchOutput.innerHTML = `<p class="px-5 py-4 text-xs text-amber-700">Could not load your saved mode. ${escapeHtml(error instanceof Error ? error.message : '')}</p>`;
+        }
+      }
+      syncSearchModeHelp();
+    };
+    searchMode?.addEventListener('change', () => {
+      syncSearchModeHelp();
+      void request('/api/account/search-preference', {
+        method: 'PUT',
+        body: JSON.stringify({ mode: searchMode.value }),
+      }).catch((error) => {
+        if (searchOutput) {
+          searchOutput.classList.remove('hidden');
+          searchOutput.innerHTML = `<p class="px-5 py-4 text-xs text-rose-700">Could not save this mode for connected agents. ${escapeHtml(error instanceof Error ? error.message : '')}</p>`;
+        }
+      });
+    });
     syncSearchModeHelp();
+    void loadSearchPreference();
 
     const safeHref = (raw: unknown) => {
       if (typeof raw !== 'string') return '#';
@@ -212,7 +239,7 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
       const queryInput = searchForm.querySelector<HTMLInputElement>('[name="query"]');
       const query = queryInput?.value.trim() ?? '';
       if (!query || !searchOutput) return;
-      const mode = searchMode?.value === 'deep' ? 'deep' : 'standard';
+      const mode = searchMode?.value === 'deep' || searchMode?.value === 'standard' ? searchMode.value : 'automatic';
       if (searchButton) {
         searchButton.disabled = true;
         searchButton.textContent = mode === 'deep' ? 'Researching…' : 'Searching…';

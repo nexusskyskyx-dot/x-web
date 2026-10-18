@@ -22,7 +22,7 @@ const toc = [
 
 const searchParams = [
   { name: 'query', type: 'string', required: true, description: 'Natural-language question or keyword query. Maximum 2,000 characters.' },
-  { name: 'mode', type: '"standard" | "deep"', default: '"standard" when supplied', description: 'standard uses one selected provider and snippets by default. deep uses your saved AI BYOK to plan 2–4 queries, search all configured/selected providers concurrently, extract up to 10 pages and write a cited Markdown report. Deep requires an x-web account key and saved AI credential. If omitted, legacy multi_source behavior is preserved.' },
+  { name: 'mode', type: '"automatic" | "standard" | "deep"', default: 'Saved Dashboard preference for x-web account keys; standard for direct provider keys', description: 'The Dashboard preference carries over to searches authenticated with an x-web account key, including connected agents. automatic keeps routine lookups standard and escalates research-heavy questions; standard returns quick snippets; deep uses your saved AI BYOK to plan 2–4 queries, search configured providers, read up to 10 pages and write a cited report.' },
   { name: 'provider', type: '"tavily" | "brave" | "serper" | "exa"', description: 'Primary provider. Defaults to the configured server provider, or Tavily.' },
   { name: 'multi_source', type: 'boolean', default: 'true', description: 'Legacy fan-out control when mode is omitted. With an explicit mode, standard is single-provider and deep federates across configured/selected providers.' },
   { name: 'providers', type: 'string[]', description: 'Optional provider allow-list for deep or legacy fan-out. Providers without a configured key are listed in unavailable_providers.' },
@@ -104,7 +104,8 @@ Content-Type: application/json`}
     drops the unused legacy plan column. For per-account provider credentials, apply <code>supabase/migrations/202610160002_provider_credentials.sql</code>
     and configure the server-only <code>XWEB_PROVIDER_KEY_ENCRYPTION_KEY</code>. To enable encrypted AI-key
     storage for Bring Your Own Key settings, apply <code>supabase/migrations/202610170001_ai_credentials.sql</code>;
-    to enable OpenRouter and xKiro provider values, also apply <code>supabase/migrations/202610170002_add_openrouter_xkiro_ai_providers.sql</code>.
+    to enable OpenRouter and xKiro provider values, also apply <code>supabase/migrations/202610170002_add_openrouter_xkiro_ai_providers.sql</code>;
+    apply <code>supabase/migrations/202610180001_account_search_mode.sql</code> to persist Dashboard mode choices.
     Configure the Supabase redirect allow-list for <code>/dashboard</code> and
     <code>/login?mode=update</code>; enter Google OAuth client credentials in Supabase Auth.
   </p>
@@ -112,10 +113,12 @@ Content-Type: application/json`}
     Dashboard APIs use the Supabase access token as a Bearer token:
     <code>GET /api/account/overview</code>, <code>POST /api/account/keys</code>,
     <code>DELETE /api/account/keys/:id</code>, authenticated dashboard search at
-    <code>POST /api/account/search</code>, and provider-key management at
+    <code>POST /api/account/search</code>, search-mode preferences at
+    <code>GET/PUT /api/account/search-preference</code>, and provider-key management at
     <code>/api/account/providers</code>. New x-web keys are shown only once and stored as
     SHA-256 hashes. Use one with <code>X-XWeb-Key</code> to call search. Searches can use your saved
     provider credentials from the dashboard, or fall back to provider keys configured on the x-web server.
+    The saved Dashboard search mode carries over to account-key API and MCP searches when a request does not specify a mode.
     Usage counts successful searches made with x-web account keys for information only. x-web is
     free to use, with no paid tiers, subscriptions, usage charges or account quotas. Third-party search
     and AI providers may charge you directly for usage of your own keys.

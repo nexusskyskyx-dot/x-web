@@ -2,6 +2,8 @@ import type { APIContext } from 'astro';
 import { AccountAuthError, authenticateAccountUser } from '../../../lib/account.ts';
 import { decryptAiCredential, type AiCredential } from '../../../lib/ai-credentials.ts';
 import { decryptProviderKeyMap, type StoredProviderCredential } from '../../../lib/provider-credentials.ts';
+import { getAccountSearchPreference } from '../../../lib/account-search-preference.ts';
+import { resolveResearchMode } from '../../../lib/research-mode.ts';
 import { runPipeline, PipelineError } from '../../../lib/pipeline.ts';
 import { SearchError } from '../../../lib/search.ts';
 import {
@@ -60,7 +62,16 @@ export async function POST({ request, clientAddress }: APIContext) {
       }, 400);
     }
 
-    const result = await runPipeline(body, { providerKeys, aiConfig });
+    const storedMode = body.mode === undefined
+      ? await getAccountSearchPreference(admin, user.id)
+      : body.mode;
+    let requestBody = body;
+    if (storedMode === 'automatic') {
+      requestBody = { ...body, mode: resolveResearchMode(typeof body.query === 'string' ? body.query : '', 'automatic') };
+    } else if (body.mode === undefined && (storedMode === 'standard' || storedMode === 'deep')) {
+      requestBody = { ...body, mode: storedMode };
+    }
+    const result = await runPipeline(requestBody, { providerKeys, aiConfig });
     await admin.from('usage_events').insert({
       user_id: user.id,
       endpoint: '/api/account/search',

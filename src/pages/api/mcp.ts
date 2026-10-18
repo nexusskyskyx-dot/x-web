@@ -12,6 +12,8 @@ import {
 } from '../../lib/account.ts';
 import { decryptProviderKeyMap, type StoredProviderCredential } from '../../lib/provider-credentials.ts';
 import { decryptAiCredential, type AiCredential } from '../../lib/ai-credentials.ts';
+import { getAccountSearchPreference } from '../../lib/account-search-preference.ts';
+import { resolveResearchMode } from '../../lib/research-mode.ts';
 import { runPipeline } from '../../lib/pipeline.ts';
 import { clientIp, errorResponse, internalError, pruneRateLimitBuckets, rateLimit } from '../../lib/http.ts';
 
@@ -73,14 +75,13 @@ async function handleMcp({ request, clientAddress }: APIContext): Promise<Respon
     description: 'Search current web sources through the x-web pipeline and return a grounded answer with citations and source links.',
     inputSchema: {
       query: z.string().trim().min(1).max(500).describe('The question or topic to search for.'),
-      mode: z.enum(['standard', 'deep']).optional().describe('standard uses one provider and snippets; deep plans multiple queries, searches all configured providers, reads up to 10 pages, and writes a cited Markdown report using your saved BYOK AI credential.'),
       max_results: z.number().int().min(1).max(20).optional().describe('Maximum number of web results to return (1–20).'),
       include_answer: z.boolean().optional().describe('Include a short grounded answer in standard mode (default false). Deep mode always returns its report.'),
       language: z.string().max(35).optional().describe('Optional BCP-47 language tag for the answer and results.'),
       provider: z.enum(['tavily', 'brave', 'serper', 'exa']).optional().describe('Optional search provider to use.'),
     },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: true },
-  }, async ({ query, mode, max_results, include_answer, language, provider }) => {
+  }, async ({ query, max_results, include_answer, language, provider }) => {
     try {
       const admin = createAdminClient();
       const [providerResult, aiResult] = await Promise.all([
@@ -96,11 +97,13 @@ async function handleMcp({ request, clientAddress }: APIContext): Promise<Respon
       let aiConfig;
       if (!aiResult.error && aiResult.data) aiConfig = await decryptAiCredential(aiResult.data as AiCredential);
 
+      const preference = await getAccountSearchPreference(admin, accountKey.userId);
+      const effectiveMode = resolveResearchMode(query, preference);
       const result = await runPipeline({
         query,
-        mode: mode ?? 'standard',
+        mode: effectiveMode,
         max_results,
-        include_answer: mode === 'deep' ? true : (include_answer ?? false),
+        include_answer: effectiveMode === 'deep' ? true : (include_answer ?? false),
         language,
         provider,
       }, { providerKeys, aiConfig });
@@ -119,7 +122,7 @@ async function handleMcp({ request, clientAddress }: APIContext): Promise<Respon
         results: result.results.map(({ title, url, snippet, published_date }) => ({ title, url, snippet, published_date })),
         providers_used: result.providers_used,
         effective_query: result.meta.effective_query,
-        mode: mode ?? 'standard',
+        mode: result.mode,
         research: result.meta.research,
       };
       return { content: [{ type: 'text' as const, text: JSON.stringify(payload) }] };

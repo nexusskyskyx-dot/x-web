@@ -10,6 +10,8 @@ import { runPipeline, PipelineError } from '../../lib/pipeline.ts';
 import { AccountAuthError, authenticateAccountApiKey, createAdminClient, extractAccountApiKey } from '../../lib/account.ts';
 import { decryptProviderKeyMap, type StoredProviderCredential } from '../../lib/provider-credentials.ts';
 import { decryptAiCredential, type AiCredential } from '../../lib/ai-credentials.ts';
+import { getAccountSearchPreference } from '../../lib/account-search-preference.ts';
+import { resolveResearchMode } from '../../lib/research-mode.ts';
 import { SearchError } from '../../lib/search.ts';
 import {
   json,
@@ -72,7 +74,14 @@ export async function POST({ request, clientAddress }: APIContext) {
   if (!key && Object.keys(providerKeys).length === 0) return missingKeyResponse();
 
   try {
-    const result = await runPipeline({ ...body, provider: body.provider ?? provider }, { apiKey: account ? undefined : key, providerKeys, aiConfig });
+    let requestBody: Record<string, unknown> = { ...body, provider: body.provider ?? provider };
+    if (account && (body.mode === undefined || body.mode === 'automatic')) {
+      const preference = body.mode === 'automatic'
+        ? 'automatic'
+        : await getAccountSearchPreference(createAdminClient(), account.userId);
+      requestBody = { ...requestBody, mode: resolveResearchMode(typeof body.query === 'string' ? body.query : '', preference) };
+    }
+    const result = await runPipeline(requestBody, { apiKey: account ? undefined : key, providerKeys, aiConfig });
     return json(result, 200, { 'X-XWEB-Key-Source': account ? 'account' : source });
   } catch (error) {
     if (error instanceof PipelineError) {
