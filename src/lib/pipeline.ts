@@ -36,6 +36,7 @@ import {
 } from './answer.ts';
 import type { AiRuntimeConfig } from './ai-credentials.ts';
 import { extractPages, type ExtractedPage } from './extract.ts';
+import { deepScrapePages } from './deep-scrape.ts';
 import {
   searchAcrossProviders,
   type FederatedSearchResponse,
@@ -72,6 +73,8 @@ export interface PipelineRequest {
   query_rewrite?: QueryRewrite;
   /** How many results to fetch full text for. Default 3, max 10. */
   extract_depth?: number;
+  /** Use Firecrawl's browser rendering and best-effort UI expansion on the top 3 pages. */
+  deep_scrape?: boolean;
 }
 
 export interface PipelineMeta {
@@ -80,6 +83,7 @@ export interface PipelineMeta {
   rewritten: boolean;
   time_sensitive: boolean;
   extracted_count: number;
+  deep_scrape?: { requested: true; pages_attempted: number; pages_enhanced: number; pages_fallback: number };
   stages_ms: Record<string, number>;
   research?: {
     mode: 'standard' | 'deep';
@@ -191,6 +195,7 @@ export async function runPipeline(
     providerKeys?: Partial<Record<ProviderId, string>>;
     aiConfig?: AiRuntimeConfig;
     semanticCitationCheck?: boolean;
+    scraperApiKey?: string;
     queryRewriteDefault?: QueryRewrite;
   } = {},
 ): Promise<PipelineResponse> {
@@ -218,6 +223,9 @@ export async function runPipeline(
     );
   }
 
+  if (raw.deep_scrape !== undefined && typeof raw.deep_scrape !== 'boolean') {
+    throw new PipelineError('`deep_scrape` must be a boolean.', 400, 'invalid_request_error', 'invalid_deep_scrape', 'deep_scrape');
+  }
   if (raw.mode !== undefined && raw.mode !== 'standard' && raw.mode !== 'deep') {
     throw new PipelineError(
       '`mode` must be \"standard\" or \"deep\".',
@@ -290,6 +298,16 @@ export async function runPipeline(
   }
 
   const mode = (raw.mode ?? 'standard') as 'standard' | 'deep';
+  const deepScrape = raw.deep_scrape === true;
+  if (deepScrape && !options.scraperApiKey) {
+    throw new PipelineError(
+      'Deep Scrape requires a Firecrawl API key. Save one in your Dashboard or provide it with the X-Firecrawl-API-Key header.',
+      400,
+      'invalid_request_error',
+      'deep_scrape_requires_firecrawl_key',
+      'deep_scrape',
+    );
+  }
   if (mode === 'deep' && !options.aiConfig) {
     throw new PipelineError(
       'Deep mode requires a saved BYOK AI provider credential for query planning and report generation.',
@@ -302,8 +320,9 @@ export async function runPipeline(
   const understand = raw.understand !== false;
   const includeAnswer =
     mode === 'deep' ||
+    deepScrape ||
     (raw.mode === undefined ? raw.include_answer !== false : raw.include_answer === true);
-  const includeRaw = raw.include_raw_content === true || mode === 'deep';
+  const includeRaw = raw.include_raw_content === true || mode === 'deep' || deepScrape;
   const includeImages = raw.include_images === true;
   const maxResults = clampInt(raw.max_results, mode === 'deep' ? 10 : 5, 1, MAX_RESULTS);
 
@@ -489,19 +508,45 @@ export async function runPipeline(
   stageStart = Date.now();
 
   if (includeRaw || includeImages) {
-    const depth = mode === 'deep' ? 10 : clampInt(raw.extract_depth, 3, 1, 10);
+    const depth = mode === 'deep' ? 10 : deepScrape ? Math.min(results.length, 3) : clampInt(raw.extract_depth, 3, 1, 10);
     const targets = results
-      .filter((hit) => mode === 'deep' || includeImages || (hit.raw_content?.length ?? 0) <= 200)
+      .filter((hit) => deepScrape || mode === 'deep' || includeImages || (hit.raw_content?.length ?? 0) <= 200)
       .slice(0, depth)
       .map((hit) => hit.url)
       .filter((url) => /^https?:\/\//.test(url));
     pagesAttempted = targets.length;
 
     if (targets.length > 0) {
-      const pages = await extractPages(targets, {
+      let pages = await extractPages(targets, {
         maxChars: clampInt(env('XWEB_EXTRACT_MAX_CHARS'), 12_000, 500, 100_000),
         includeImages,
       });
+      if (deepScrape && options.scraperApiKey) {
+        const dynamicPages = await deepScrapePages(targets.slice(0, 3), options.scraperApiKey, {
+          maxChars: clampInt(env('XWEB_DEEP_SCRAPE_MAX_CHARS'), 30_000, 500, 100_000),
+        });
+        const dynamicByUrl = new Map(dynamicPages.map((page) => [page.url, page]));
+        pages = pages.map((staticPage) => {
+          const dynamicPage = dynamicByUrl.get(staticPage.url);
+          if (!dynamicPage) return staticPage;
+          if (!dynamicPage.text) {
+            return {
+              ...staticPage,
+              extraction_mode: 'static_fallback',
+              ...(dynamicPage.error ? { scrape_warning: dynamicPage.error } : {}),
+            };
+          }
+          return {
+            ...staticPage,
+            ...dynamicPage,
+            title: dynamicPage.title ?? staticPage.title,
+            description: dynamicPage.description ?? staticPage.description,
+            language: dynamicPage.language ?? staticPage.language,
+            published_date: dynamicPage.published_date ?? staticPage.published_date,
+            extraction_mode: 'deep_dom',
+          };
+        });
+      }
       extracted = includeRaw
         ? pages
         : pages.map((page) => {
@@ -587,6 +632,14 @@ export async function runPipeline(
       time_sensitive: Boolean(filters.time_range),
       extracted_count:
         extracted?.filter((page) => page.text || (page.images?.length ?? 0) > 0).length ?? 0,
+      ...(deepScrape ? {
+        deep_scrape: {
+          requested: true as const,
+          pages_attempted: Math.min(pagesAttempted, 3),
+          pages_enhanced: extracted?.filter((page) => page.extraction_mode === 'deep_dom').length ?? 0,
+          pages_fallback: extracted?.filter((page) => page.extraction_mode === 'static_fallback').length ?? 0,
+        },
+      } : {}),
       stages_ms: stages,
       ...(mode === 'deep'
         ? {

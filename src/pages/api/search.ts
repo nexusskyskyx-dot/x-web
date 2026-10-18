@@ -11,6 +11,7 @@ import { AccountAuthError, authenticateAccountApiKey, createAdminClient, extract
 import { decryptProviderKeyMap, type StoredProviderCredential } from '../../lib/provider-credentials.ts';
 import { decryptAiCredential, type AiCredential } from '../../lib/ai-credentials.ts';
 import { getAccountSearchPreference } from '../../lib/account-search-preference.ts';
+import { getAccountScraperKey } from '../../lib/scraper-credentials.ts';
 import { resolveResearchMode } from '../../lib/research-mode.ts';
 import { SearchError } from '../../lib/search.ts';
 import {
@@ -52,6 +53,7 @@ export async function POST({ request, clientAddress }: APIContext) {
   const { key, provider, source } = resolveKey(accountToken ? new Request(request.url) : request, body);
   let providerKeys: Partial<Record<'tavily' | 'brave' | 'serper' | 'exa', string>> = {};
   let aiConfig;
+  let scraperApiKey: string | undefined = request.headers.get('X-Firecrawl-API-Key') ?? undefined;
   let account;
   if (accountToken) {
     try { account = await authenticateAccountApiKey(accountToken); }
@@ -67,6 +69,7 @@ export async function POST({ request, clientAddress }: APIContext) {
     try {
       if (!providerResult.error && providerResult.data?.length) providerKeys = await decryptProviderKeyMap(providerResult.data as StoredProviderCredential[]);
       if (!aiResult.error && aiResult.data) aiConfig = await decryptAiCredential(aiResult.data as AiCredential);
+      if (body.deep_scrape === true) scraperApiKey = await getAccountScraperKey(admin, account.userId);
     } catch {
       return internalError('Could not unlock the credentials saved to your x-web account. Check the server encryption configuration.');
     }
@@ -84,7 +87,7 @@ export async function POST({ request, clientAddress }: APIContext) {
         requestBody = { ...requestBody, mode: resolveResearchMode(typeof body.query === 'string' ? body.query : '', preferredMode) };
       }
     }
-    const result = await runPipeline(requestBody, { apiKey: account ? undefined : key, providerKeys, aiConfig, semanticCitationCheck });
+    const result = await runPipeline(requestBody, { apiKey: account ? undefined : key, providerKeys, aiConfig, semanticCitationCheck, scraperApiKey });
     return json(result, 200, { 'X-XWEB-Key-Source': account ? 'account' : source });
   } catch (error) {
     if (error instanceof PipelineError) {

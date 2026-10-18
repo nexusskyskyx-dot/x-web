@@ -263,6 +263,43 @@ describe('search pipeline', () => {
     }
   });
 
+  test('deep_scrape enhances at most the top three pages and reports static fallbacks', async () => {
+    const previousFetch = globalThis.fetch;
+    const firecrawlUrls: string[] = [];
+    globalThis.fetch = (async (input: any, init: any = {}) => {
+      const url = String(input);
+      if (url.includes('api.tavily.com')) {
+        return new Response(JSON.stringify({
+          query: 'MCP',
+          answer: 'The protocol connects software and data.',
+          results: [
+            { title: 'Page one', url: 'https://8.8.8.8/one', content: 'A protocol for applications to exchange context.' },
+            { title: 'Page two', url: 'https://1.1.1.1/two', content: 'Applications exchange context through a protocol.' },
+          ],
+        }), { headers: { 'Content-Type': 'application/json' } });
+      }
+      if (url === 'https://api.firecrawl.dev/v2/scrape') {
+        const body = JSON.parse(String(init.body));
+        firecrawlUrls.push(body.url);
+        return new Response(JSON.stringify({ success: true, data: { markdown: `Browser-rendered content for ${body.url}`, metadata: { title: 'Expanded page' } } }), { headers: { 'Content-Type': 'application/json' } });
+      }
+      if (url.startsWith('https://8.8.8.8/') || url.startsWith('https://1.1.1.1/')) {
+        return new Response('<html><title>Static page</title><main><p>Static page text with enough content to be extracted.</p></main></html>', { headers: { 'Content-Type': 'text/html' } });
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    }) as typeof fetch;
+    try {
+      const result = await runPipeline({ query: 'MCP', deep_scrape: true }, {
+        apiKey: 'tvly-test', scraperApiKey: 'firecrawl-user-key',
+      });
+      assert.equal(firecrawlUrls.length, 2);
+      assert.equal(result.meta.deep_scrape?.pages_enhanced, 2);
+      assert.equal(result.meta.deep_scrape?.pages_fallback, 0);
+      assert.ok(result.extracted?.every((page) => page.extraction_mode === 'deep_dom'));
+      assert.ok(result.results.every((hit) => hit.raw_content?.includes('Browser-rendered content')));
+    } finally { globalThis.fetch = previousFetch; }
+  });
+
   test('clamps max_results into range', async () => {
     const calls = mockProvider(TAVILY_PAYLOAD);
     await runPipeline({ query: 'MCP', max_results: 999 }, { apiKey: 'tvly-test' });
@@ -297,6 +334,22 @@ describe('pipeline validation', () => {
         return true;
       });
     }
+  });
+
+  test('requires a caller-provided Firecrawl key for Deep Scrape', async () => {
+    await assert.rejects(() => runPipeline({ query: 'research', deep_scrape: true }, { apiKey: 'tvly-test' }), (error: unknown) => {
+      assert.ok(error instanceof PipelineError);
+      assert.equal(error.code, 'deep_scrape_requires_firecrawl_key');
+      return true;
+    });
+  });
+
+  test('rejects a non-boolean deep_scrape value', async () => {
+    await assert.rejects(() => runPipeline({ query: 'research', deep_scrape: 'yes' }, { apiKey: 'tvly-test' }), (error: unknown) => {
+      assert.ok(error instanceof PipelineError);
+      assert.equal(error.code, 'invalid_deep_scrape');
+      return true;
+    });
   });
 
   test('requires the caller saved AI BYOK key for deep mode', async () => {

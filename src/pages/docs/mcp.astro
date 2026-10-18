@@ -75,7 +75,7 @@ const toc = [
   </p>
 
   <h2 id="modes">Search modes</h2>
-  <p>Choose <strong>Automatic</strong>, <strong>Standard</strong> or <strong>Deep Research</strong> once in your Dashboard. The connected <code>xweb_search</code> tool automatically follows that saved preference—there is no mode field to code or configure in the agent. Automatic keeps routine lookups lightweight and escalates research-heavy questions; Standard returns quick snippets from one provider; Deep Research plans multiple queries, searches configured providers, reads up to 10 public pages, and returns a cited Markdown report. Deep mode checks citations against fetched page text, removes unsupported markers and labels those claims <code>[Unverified]</code>. Optional semantic review can be enabled in the Dashboard; flagged claims are batched to the saved BYOK model and accepted only with an exact quote present in that cited page. This extra request may incur AI-provider usage costs; the check cannot guarantee correctness or eliminate hallucinations. It is off by default, and x-web never uses a server-managed model.</p>
+  <p>Choose <strong>Automatic</strong>, <strong>Standard</strong> or <strong>Deep Research</strong> once in your Dashboard. The connected <code>xweb_search</code> tool automatically follows that saved preference—there is no mode field to code or configure in the agent. Automatic keeps routine lookups lightweight and escalates research-heavy questions; Standard returns quick snippets from one provider; Deep Research plans multiple queries, searches configured providers, reads up to 10 public pages, and returns a cited Markdown report. Deep mode checks citations against fetched page text, removes unsupported markers and labels those claims <code>[Unverified]</code>. Optional semantic review can be enabled in the Dashboard; flagged claims are batched to the saved BYOK model and accepted only with an exact quote present in that cited page. This extra request may incur AI-provider usage costs; the check cannot guarantee correctness or eliminate hallucinations. It is off by default, and x-web never uses a server-managed model. The tool also accepts optional <code>deep_scrape: true</code> to use your saved Firecrawl key to render and best-effort expand/scroll the top three pages. Firecrawl may charge per page; interactions are not guaranteed to expose all content.</p>
   <CodeBlock lang="json" title="xweb_search input" code={`{ "query": "Compare the current leading video editors" }`} />
 
   <h2 id="credentials">Required credentials</h2>
@@ -83,6 +83,7 @@ const toc = [
     <li><strong>x-web API key:</strong> authenticates your account and records usage.</li>
     <li><strong>Search-provider key:</strong> saved in your dashboard; powers live web search.</li>
     <li><strong>AI-provider key:</strong> optional in standard mode, but required for AI-generated answers and mandatory in deep mode. x-web never substitutes a server-owned model key.</li>
+    <li><strong>Firecrawl key:</strong> optional and only used when the caller explicitly sets <code>deep_scrape: true</code>; Firecrawl may bill its account owner per page.</li>
   </ul>
   <p>
     Without an AI key, standard mode can still return live search results and any answer provided by the

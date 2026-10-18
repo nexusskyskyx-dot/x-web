@@ -13,6 +13,7 @@ import { AccountAuthError, authenticateAccountApiKey, createAdminClient, extract
 import { decryptProviderKeyMap, type StoredProviderCredential } from '../../../lib/provider-credentials.ts';
 import { decryptAiCredential, type AiCredential, type AiRuntimeConfig } from '../../../lib/ai-credentials.ts';
 import { getAccountSearchPreference } from '../../../lib/account-search-preference.ts';
+import { getAccountScraperKey } from '../../../lib/scraper-credentials.ts';
 import { resolveResearchMode } from '../../../lib/research-mode.ts';
 import {
   json,
@@ -95,6 +96,7 @@ async function runSearchRequest(request: Request, body: Record<string, unknown>)
   const { key, provider, source } = resolveKey(keyRequest, keyBody);
   let providerKeys: Partial<Record<'tavily' | 'brave' | 'serper' | 'exa', string>> = {};
   let aiConfig: AiRuntimeConfig | undefined;
+  let scraperApiKey: string | undefined = request.headers.get('X-Firecrawl-API-Key') ?? undefined;
   if (accountKey) {
     const { data, error } = await createAdminClient()
       .from('provider_credentials')
@@ -113,6 +115,10 @@ async function runSearchRequest(request: Request, body: Record<string, unknown>)
     if (!aiResult.error && aiResult.data) {
       try { aiConfig = await decryptAiCredential(aiResult.data as AiCredential); }
       catch { return errorResponse({ type: 'internal_error', code: 'ai_key_decryption_failed', message: 'Could not unlock your saved AI key. Check the server encryption configuration.' }, 503); }
+    }
+    if (body.deep_scrape === true) {
+      try { scraperApiKey = await getAccountScraperKey(createAdminClient(), accountKey.userId); }
+      catch { return errorResponse({ type: 'internal_error', code: 'scraper_credentials_unavailable', message: 'Could not load the Firecrawl key saved in your Dashboard.' }, 503); }
     }
   }
   if (!key && Object.keys(providerKeys).length === 0) {
@@ -135,7 +141,7 @@ async function runSearchRequest(request: Request, body: Record<string, unknown>)
         pipelineBody.mode = resolveResearchMode(typeof body.query === 'string' ? body.query : '', preferredMode);
       }
     }
-    const result = await runPipeline(pipelineBody, { apiKey: accountKey ? undefined : key, providerKeys, aiConfig, semanticCitationCheck });
+    const result = await runPipeline(pipelineBody, { apiKey: accountKey ? undefined : key, providerKeys, aiConfig, semanticCitationCheck, scraperApiKey });
     if (accountKey) {
       await recordApiUsage(accountKey, { endpoint: '/api/v1/search', provider: result.provider, resultCount: result.results.length, durationMs: result.took_ms });
     }

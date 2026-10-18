@@ -3,6 +3,7 @@ import { AccountAuthError, authenticateAccountUser } from '../../../lib/account.
 import { decryptAiCredential, type AiCredential } from '../../../lib/ai-credentials.ts';
 import { decryptProviderKeyMap, type StoredProviderCredential } from '../../../lib/provider-credentials.ts';
 import { getAccountSearchPreference } from '../../../lib/account-search-preference.ts';
+import { getAccountScraperKey } from '../../../lib/scraper-credentials.ts';
 import { resolveResearchMode } from '../../../lib/research-mode.ts';
 import { runPipeline, PipelineError } from '../../../lib/pipeline.ts';
 import { SearchError } from '../../../lib/search.ts';
@@ -63,6 +64,7 @@ export async function POST({ request, clientAddress }: APIContext) {
     }
 
     const preference = await getAccountSearchPreference(admin, user.id);
+    const scraperApiKey = body.deep_scrape === true ? await getAccountScraperKey(admin, user.id) : undefined;
     const storedMode = body.mode === undefined ? preference.mode : body.mode;
     let requestBody = body;
     if (storedMode === 'automatic') {
@@ -70,7 +72,7 @@ export async function POST({ request, clientAddress }: APIContext) {
     } else if (body.mode === undefined && (storedMode === 'standard' || storedMode === 'deep')) {
       requestBody = { ...body, mode: storedMode };
     }
-    const result = await runPipeline(requestBody, { providerKeys, aiConfig, semanticCitationCheck: preference.semanticCitationCheck });
+    const result = await runPipeline(requestBody, { providerKeys, aiConfig, semanticCitationCheck: preference.semanticCitationCheck, scraperApiKey });
     await admin.from('usage_events').insert({
       user_id: user.id,
       endpoint: '/api/account/search',

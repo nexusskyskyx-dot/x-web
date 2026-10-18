@@ -13,6 +13,7 @@ import {
 import { decryptProviderKeyMap, type StoredProviderCredential } from '../../lib/provider-credentials.ts';
 import { decryptAiCredential, type AiCredential } from '../../lib/ai-credentials.ts';
 import { getAccountSearchPreference } from '../../lib/account-search-preference.ts';
+import { getAccountScraperKey } from '../../lib/scraper-credentials.ts';
 import { resolveResearchMode } from '../../lib/research-mode.ts';
 import { runPipeline } from '../../lib/pipeline.ts';
 import { clientIp, errorResponse, internalError, pruneRateLimitBuckets, rateLimit } from '../../lib/http.ts';
@@ -79,9 +80,10 @@ async function handleMcp({ request, clientAddress }: APIContext): Promise<Respon
       include_answer: z.boolean().optional().describe('Include a short grounded answer in standard mode (default false). Deep mode always returns its report.'),
       language: z.string().max(35).optional().describe('Optional BCP-47 language tag for the answer and results.'),
       provider: z.enum(['tavily', 'brave', 'serper', 'exa']).optional().describe('Optional search provider to use.'),
+      deep_scrape: z.boolean().optional().describe('Use your saved Firecrawl key to render and best-effort expand the top three result pages. May incur Firecrawl usage costs.'),
     },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: true },
-  }, async ({ query, max_results, include_answer, language, provider }) => {
+  }, async ({ query, max_results, include_answer, language, provider, deep_scrape }) => {
     try {
       const admin = createAdminClient();
       const [providerResult, aiResult] = await Promise.all([
@@ -98,6 +100,7 @@ async function handleMcp({ request, clientAddress }: APIContext): Promise<Respon
       if (!aiResult.error && aiResult.data) aiConfig = await decryptAiCredential(aiResult.data as AiCredential);
 
       const preference = await getAccountSearchPreference(admin, accountKey.userId);
+      const scraperApiKey = deep_scrape ? await getAccountScraperKey(admin, accountKey.userId) : undefined;
       const effectiveMode = resolveResearchMode(query, preference.mode);
       const result = await runPipeline({
         query,
@@ -106,7 +109,8 @@ async function handleMcp({ request, clientAddress }: APIContext): Promise<Respon
         include_answer: effectiveMode === 'deep' ? true : (include_answer ?? false),
         language,
         provider,
-      }, { providerKeys, aiConfig, semanticCitationCheck: preference.semanticCitationCheck });
+        deep_scrape,
+      }, { providerKeys, aiConfig, semanticCitationCheck: preference.semanticCitationCheck, scraperApiKey });
       await recordApiUsage(accountKey, {
         endpoint: '/api/mcp',
         provider: result.provider,

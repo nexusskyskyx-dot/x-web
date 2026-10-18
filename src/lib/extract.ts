@@ -52,6 +52,8 @@ export interface ExtractedPage {
   site_name?: string;
   description?: string;
   images?: ExtractedImage[];
+  extraction_mode?: 'static' | 'deep_dom' | 'static_fallback';
+  scrape_warning?: string;
   /** Set instead of the fields above when the page could not be processed. */
   error?: string;
 }
@@ -97,7 +99,7 @@ function isPublicAddress(address: string): boolean {
   return false;
 }
 
-async function assertPublicUrl(url: URL): Promise<void> {
+export async function assertPublicUrl(url: URL): Promise<void> {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     throw new Error(`Unsupported URL scheme "${url.protocol}".`);
   }

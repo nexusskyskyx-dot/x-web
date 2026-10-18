@@ -30,6 +30,7 @@ const searchParams = [
   { name: 'include_answer', type: 'boolean', default: 'false in standard; true for legacy calls and deep', description: 'Return a grounded answer with citations in standard mode. Deep mode always produces its report. Account API keys use the saved OpenAI, Anthropic, Groq, OpenRouter, or xKiro BYOK when configured; otherwise x-web uses provider/extractive answer synthesis without an AI model.' },
   { name: 'include_raw_content', type: 'boolean', default: 'false', description: 'Fetch clean page text for up to extract_depth results. Pages are fetched server-side; private/local IPs are blocked.' },
   { name: 'extract_depth', type: 'integer', default: '3', description: 'Maximum result pages to extract when include_raw_content is true. 1–10.' },
+  { name: 'deep_scrape', type: 'boolean', default: 'false', description: 'Use Firecrawl browser rendering and best-effort expansion/scrolling on the top three result pages. Requires a saved Firecrawl key for account requests or X-Firecrawl-API-Key for direct requests; Firecrawl may charge per page. Does not guarantee complete page coverage.' },
   { name: 'time_range', type: '"day" | "week" | "month" | "year"', description: 'Restrict results to a recent window. Also inferred from wording such as “latest” or “today”.' },
   { name: 'language', type: 'string', default: '"auto"', description: 'BCP-47/ISO language code. Auto-detected from the query by default; explicit value wins.' },
   { name: 'country', type: 'string', description: 'Country code to bias results, e.g. "US", "GT". Some providers do not support it.' },
@@ -106,7 +107,8 @@ Content-Type: application/json`}
     storage for Bring Your Own Key settings, apply <code>supabase/migrations/202610170001_ai_credentials.sql</code>;
     to enable OpenRouter and xKiro provider values, also apply <code>supabase/migrations/202610170002_add_openrouter_xkiro_ai_providers.sql</code>;
     apply <code>supabase/migrations/202610180001_account_search_mode.sql</code> and
-    <code>supabase/migrations/202610180002_semantic_citation_review.sql</code> to persist Dashboard preferences.
+    <code>supabase/migrations/202610180002_semantic_citation_review.sql</code> for Dashboard preferences, and
+    <code>supabase/migrations/202610180003_scraper_credentials.sql</code> to store an optional Firecrawl key.
     Configure the Supabase redirect allow-list for <code>/dashboard</code> and
     <code>/login?mode=update</code>; enter Google OAuth client credentials in Supabase Auth.
   </p>
@@ -115,8 +117,9 @@ Content-Type: application/json`}
     <code>GET /api/account/overview</code>, <code>POST /api/account/keys</code>,
     <code>DELETE /api/account/keys/:id</code>, authenticated dashboard search at
     <code>POST /api/account/search</code>, search-mode preferences at
-    <code>GET/PUT /api/account/search-preference</code>, and provider-key management at
-    <code>/api/account/providers</code>. New x-web keys are shown only once and stored as
+    <code>GET/PUT /api/account/search-preference</code>, provider-key management at
+    <code>/api/account/providers</code>, and optional Firecrawl credential management at
+    <code>GET/PUT/DELETE /api/account/scraper</code>. New x-web keys are shown only once and stored as
     SHA-256 hashes. Use one with <code>X-XWeb-Key</code> to call search. Searches can use your saved
     provider credentials from the dashboard, or fall back to provider keys configured on the x-web server.
     The saved Dashboard search mode carries over to account-key API and MCP searches when a request does not specify a mode.
@@ -256,7 +259,7 @@ Content-Type: application/json`}
   <ImagePlayground />
 
   <h3>Deep Research example</h3>
-  <p>Send <code>mode: "deep"</code> with an x-web account key, or select Deep Research in your Dashboard and omit <code>mode</code>. x-web uses only the account's saved search-provider and AI credentials. The Markdown report is in top-level <code>report</code> (also <code>answer.text</code>); top-level <code>citations</code> map retained inline <code>[n]</code> markers to source URLs. x-web cross-checks each cited claim against the fetched page text, removes unsupported citation markers and labels those claims <code>[Unverified]</code>. By default, this is a deterministic text-overlap screen. An account can optionally enable semantic review in the Dashboard: flagged claims are sent in one batch to that account's saved BYOK AI model, and a claim is rescued only if the model supplies an exact quote found in the cited page text. This extra request may incur usage charges from the chosen AI provider; uncertain claims remain <code>[Unverified]</code>. Neither check guarantees correctness or eliminates hallucinations. The machine-readable outcome is in <code>answer.citation_verification</code> and <code>meta.research.citation_verification</code>. No headless browser is used: public pages are fetched and readable text is extracted.</p>
+  <p>Send <code>mode: "deep"</code> with an x-web account key, or select Deep Research in your Dashboard and omit <code>mode</code>. x-web uses only the account's saved search-provider and AI credentials. Add <code>deep_scrape: true</code> to also use Firecrawl browser rendering and best-effort clicks/scrolling on up to the top three pages; account requests use the Firecrawl key saved in the Dashboard, while direct requests must send <code>X-Firecrawl-API-Key</code>. Firecrawl can charge per page, and custom or protected interfaces may still hide content. The Markdown report is in top-level <code>report</code> (also <code>answer.text</code>); top-level <code>citations</code> map retained inline <code>[n]</code> markers to source URLs. x-web cross-checks each cited claim against the fetched page text, removes unsupported citation markers and labels those claims <code>[Unverified]</code>. By default, this is a deterministic text-overlap screen. An account can optionally enable semantic review in the Dashboard: flagged claims are sent in one batch to that account's saved BYOK AI model, and a claim is rescued only if the model supplies an exact quote found in the cited page text. This extra request may incur usage charges from the chosen AI provider; uncertain claims remain <code>[Unverified]</code>. Neither check guarantees correctness or eliminates hallucinations. The machine-readable outcome is in <code>answer.citation_verification</code> and <code>meta.research.citation_verification</code>. No headless browser is used: public pages are fetched and readable text is extracted.</p>
   <CodeBlock lang="json" title="deep request" code={`{ "query": "Compare the leading approaches to…", "mode": "deep", "max_results": 10 }`} />
 
   <h2 id="response">Response shape</h2>
