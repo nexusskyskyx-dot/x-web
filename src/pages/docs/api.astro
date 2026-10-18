@@ -91,7 +91,7 @@ Content-Type: application/json`}
 
   <h2 id="accounts">Accounts & dashboard</h2>
   <p>
-    Sign up with email/password at <code>/login</code>, then manage your plan label, monthly usage,
+    Sign up with email/password at <code>/login</code>, then manage informational monthly usage,
     recent requests, x-web API keys, and provider credentials at <code>/dashboard</code>. Add keys
     for Tavily, Brave Search, Serper and/or Exa there; account-authenticated searches use those
     saved credentials. Set <code>PUBLIC_SUPABASE_URL</code>,
@@ -99,8 +99,9 @@ Content-Type: application/json`}
     a public Supabase key (<code>SUPABASE_ANON_KEY</code> or
     <code>SUPABASE_PUBLISHABLE_KEY</code>), and the server-only
     <code>SUPABASE_SERVICE_ROLE_KEY</code> or <code>SUPABASE_SECRET_KEY</code>.
-    Apply <code>supabase/migrations/202610160001_account_dashboard.sql</code> to the project database.
-    For per-account provider credentials, apply <code>supabase/migrations/202610160002_provider_credentials.sql</code>
+    Apply <code>supabase/migrations/202610160001_account_dashboard.sql</code> and
+    <code>supabase/migrations/202610170003_remove_plan_tiers.sql</code> to the project database. The latter
+    drops the unused legacy plan column. For per-account provider credentials, apply <code>supabase/migrations/202610160002_provider_credentials.sql</code>
     and configure the server-only <code>XWEB_PROVIDER_KEY_ENCRYPTION_KEY</code>. To enable encrypted AI-key
     storage for Bring Your Own Key settings, apply <code>supabase/migrations/202610170001_ai_credentials.sql</code>;
     to enable OpenRouter and xKiro provider values, also apply <code>supabase/migrations/202610170002_add_openrouter_xkiro_ai_providers.sql</code>.
@@ -114,8 +115,9 @@ Content-Type: application/json`}
     <code>/api/account/providers</code>. New x-web keys are shown only once and stored as
     SHA-256 hashes. Use one with <code>X-XWeb-Key</code> to call search. Searches can use your saved
     provider credentials from the dashboard, or fall back to provider keys configured on the x-web server.
-    Usage counts successful searches made with x-web account keys. Plan display is available, but
-    paid subscriptions and quota enforcement are not enabled yet.
+    Usage counts successful searches made with x-web account keys for information only. x-web is
+    free to use, with no paid tiers, subscriptions, usage charges or account quotas. Third-party search
+    and AI providers may charge you directly for usage of your own keys.
   </p>
 
   <h2 id="search">Search the web</h2>

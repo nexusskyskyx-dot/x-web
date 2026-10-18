@@ -93,9 +93,11 @@ is never reused as another provider's credential. Request keys are not persisted
 
 ### Accounts and the developer dashboard
 
-`/login` supports email/password and Google through Supabase Auth. `/dashboard` shows the account's
-Free plan label, monthly usage and recent requests, and supports creating (shown once) and revoking
-x-web API keys. Account keys are stored as SHA-256 hashes. The dashboard also lets each account
+`/login` supports email/password and Google through Supabase Auth. `/dashboard` shows informational
+monthly usage and recent requests, and supports creating (shown once) and revoking x-web API keys.
+x-web is free to use: there are no paid tiers, subscriptions, usage charges or x-web account quotas.
+Search and AI providers may bill you directly for usage of your own API keys. Account keys are stored
+as SHA-256 hashes. The dashboard also lets each account
 connect Tavily, Brave Search, Serper, and Exa credentials. Provider keys are AES-GCM encrypted before
 database storage and are never returned to the browser after saving; account-key searches use those
 credentials alongside any deployment-configured providers. AI answer synthesis is BYOK-only: users can save an OpenAI, Anthropic, Groq, OpenRouter, or xKiro
@@ -103,10 +105,8 @@ key, encrypted at rest, and x-web uses that key for their answer synthesis. With
 x-web returns the grounded provider answer when available or uses cited extractive synthesis; it does
 not call a server-managed AI model.
 
-This is an account foundation, not a billing launch: paid subscriptions, plan changes and quota
-enforcement are not enabled. Apply
-[`supabase/migrations/202610160001_account_dashboard.sql`](supabase/migrations/202610160001_account_dashboard.sql)
-and enable Email in Supabase Auth. Because Astro statically builds `/login` and `/dashboard`, add
+Apply [`supabase/migrations/202610160001_account_dashboard.sql`](supabase/migrations/202610160001_account_dashboard.sql)
+and [`supabase/migrations/202610170003_remove_plan_tiers.sql`](supabase/migrations/202610170003_remove_plan_tiers.sql), then enable Email in Supabase Auth. The new schema has no plan field; the follow-up migration drops it from existing deployments. Because Astro statically builds `/login` and `/dashboard`, add
 `PUBLIC_SUPABASE_URL` and `PUBLIC_SUPABASE_ANON_KEY` to Vercel Preview (and Production when ready),
 using the same project URL and public anon/publishable key as the Supabase integration variables.
 These two values are public; never put `SUPABASE_SECRET_KEY` or `SUPABASE_SERVICE_ROLE_KEY` in a
@@ -162,7 +162,6 @@ routes through the serverless handler.
 
 The copy for the product itself is written as a working draft — adjust it to match reality:
 
-- **Pricing** on the landing page is placeholder copy.
 - The **`/v1/*` API surface** documented in `src/pages/docs/api.astro` is the intended spec; keep
   it in sync with the real service.
 - The **SDK snippets** reference `x-web` packages that are not published yet.

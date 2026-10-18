@@ -11,7 +11,7 @@ export async function GET({ request }: APIContext) {
     monthStart.setUTCDate(1);
     monthStart.setUTCHours(0, 0, 0, 0);
     const [profileResult, keysResult, usageCountResult, recentResult] = await Promise.all([
-      admin.from('profiles').select('email, full_name, plan').eq('id', user.id).maybeSingle(),
+      admin.from('profiles').select('email, full_name').eq('id', user.id).maybeSingle(),
       admin.from('api_keys').select('id, name, prefix, created_at, last_used_at').eq('user_id', user.id).is('revoked_at', null).order('created_at', { ascending: false }),
       admin.from('usage_events').select('id', { count: 'exact', head: true }).eq('user_id', user.id).gte('created_at', monthStart.toISOString()),
       admin.from('usage_events').select('id, endpoint, provider, result_count, duration_ms, created_at').eq('user_id', user.id).gte('created_at', monthStart.toISOString()).order('created_at', { ascending: false }).limit(20),
@@ -20,13 +20,10 @@ export async function GET({ request }: APIContext) {
     const error = profileResult.error ?? keysResult.error ?? usageCountResult.error ?? recentResult.error;
     if (error) return internalError('Could not load account data. Verify the Supabase database migration has been applied.', 'account_data_unavailable');
 
-    const plan = profileResult.data?.plan ?? 'free';
     return json({
       profile: {
         email: profileResult.data?.email ?? user.email ?? null,
         full_name: profileResult.data?.full_name ?? user.user_metadata?.full_name ?? user.user_metadata?.name ?? null,
-        plan,
-        plan_label: plan.charAt(0).toUpperCase() + plan.slice(1),
       },
       keys: keysResult.data ?? [],
       usage: {

@@ -135,8 +135,8 @@ const faqs = [
     a: 'Only when you save your own AI provider key. Without it, x-web uses an upstream provider answer or cited source sentences; it never calls a server-managed AI model.'
   },
   {
-    q: 'Can I create an account or select a payment plan?',
-    a: 'Yes. Email/password accounts, API keys and saved provider credentials are available. Paid plan selection and payments are not enabled.'
+    q: 'Is x-web free?',
+    a: 'Yes. x-web itself is free to use, with no paid tiers or subscriptions. You bring your own search and AI provider keys, and those providers may charge you directly.'
   },
 ];
 
@@ -437,9 +437,10 @@ const integrations = ['Tavily', 'Brave Search', 'Serper', 'Exa'];
       <h2 class="mt-2 text-3xl sm:text-4xl">Your API keys and usage, in one place</h2>
       <p class="mt-4 max-w-2xl leading-relaxed text-ink-600">
         Create an account, connect your Tavily, Brave Search, Serper and/or Exa keys, issue and revoke
-        x-web API keys, and review usage on your dashboard. Searches authenticated with your x-web key
-        use saved search-provider credentials and your AI summary settings. Connect OpenAI, Claude,
-        Groq, OpenRouter, or xKiro for BYOK control; paid upgrades are not enabled yet.
+        x-web API keys, and review usage on your dashboard. x-web is free to use with no paid tiers
+        or subscriptions. Searches authenticated with your x-web key use saved search-provider
+        credentials and your AI settings. Connect OpenAI, Claude, Groq, OpenRouter, or xKiro with BYOK;
+        those third-party providers may charge for their API usage.
       </p>
       <a href="/login" class="btn-primary mt-6 inline-flex">Create your account</a>
     </div>
