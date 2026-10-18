@@ -67,8 +67,9 @@ language, inspectable query intent, an optional cited answer, and optionally ext
 With multiple provider keys configured, it searches those providers in parallel, deduplicates and
 reranks their live results as one set. The playground uses the same pipeline at `POST /api/search`.
 
-Additional endpoints:
+Additional endpoints and integrations:
 
+- `POST /api/mcp` — remote, stateless Streamable HTTP MCP server with an `xweb_search` tool. Authenticate with `Authorization: Bearer <x-web-account-key>`; the account must have a search-provider key saved in its dashboard. AI answer synthesis additionally requires that account’s AI BYOK credential. See [`/docs/mcp`](src/pages/docs/mcp.astro) for client setup.
 - `POST /api/v1/intent` — classify a query, detect language/entities, infer recency, and rewrite it
   for a search index. No provider key required.
 - `POST /api/v1/extract` — fetch and clean up to ten public URLs, optionally including their page images and alt text. Private/local IPs and redirects to them are blocked.
@@ -77,7 +78,7 @@ Additional endpoints:
 Supported search providers — `tavily`, `brave`, `serper`, `exa` — are implemented in
 [`src/lib/search.ts`](src/lib/search.ts). Multi-source fan-out uses each configured provider-specific
 environment key and the visitor's key only for the visitor-selected provider. Set
-`multi_source: false` to use just the selected provider. Each returned result includes provider
+`multi_source: false` to use just the selected provider. Explicit `mode: "standard"` is a fast single-provider search; `mode: "deep"` plans multiple queries, searches configured providers concurrently, reads up to ten pages and writes a cited Markdown report (`report` plus structured `citations`) using the account’s saved BYOK AI key. Deep mode is available in both REST and MCP. Each returned result includes provider
 provenance, corroboration count, and an explainable ranking score. That score is an ordering heuristic,
 not a confidence probability; confidence scoring and personalized ranking are deferred.
 
@@ -92,20 +93,20 @@ is never reused as another provider's credential. Request keys are not persisted
 
 ### Accounts and the developer dashboard
 
-`/login` supports email/password and Google through Supabase Auth. `/dashboard` shows the account's
-Free plan label, monthly usage and recent requests, and supports creating (shown once) and revoking
-x-web API keys. Account keys are stored as SHA-256 hashes. The dashboard also lets each account
+`/login` supports email/password and Google through Supabase Auth. `/dashboard` shows informational
+monthly usage and recent requests, and supports creating (shown once) and revoking x-web API keys.
+x-web is free to use: there are no paid tiers, subscriptions, usage charges or x-web account quotas.
+Search and AI providers may bill you directly for usage of your own API keys. Account keys are stored
+as SHA-256 hashes. The dashboard also lets each account
 connect Tavily, Brave Search, Serper, and Exa credentials. Provider keys are AES-GCM encrypted before
 database storage and are never returned to the browser after saving; account-key searches use those
-credentials alongside any deployment-configured providers. The dashboard also supports AI Bring Your
-Own Key for OpenAI, Anthropic, and Groq; saved AI keys are encrypted at rest and used for that account's
-answer synthesis, while requests without a personal AI key use the server-managed default model when
-configured and then fall back to provider/extractive answers.
+credentials alongside any deployment-configured providers. AI answer synthesis is BYOK-only: users can save an OpenAI, Anthropic, Groq, OpenRouter, or xKiro
+key, encrypted at rest, and x-web uses that key for their answer synthesis. Without a saved AI key,
+x-web returns the grounded provider answer when available or uses cited extractive synthesis; it does
+not call a server-managed AI model.
 
-This is an account foundation, not a billing launch: paid subscriptions, plan changes and quota
-enforcement are not enabled. Apply
-[`supabase/migrations/202610160001_account_dashboard.sql`](supabase/migrations/202610160001_account_dashboard.sql)
-and enable Email in Supabase Auth. Because Astro statically builds `/login` and `/dashboard`, add
+Apply [`supabase/migrations/202610160001_account_dashboard.sql`](supabase/migrations/202610160001_account_dashboard.sql)
+and [`supabase/migrations/202610170003_remove_plan_tiers.sql`](supabase/migrations/202610170003_remove_plan_tiers.sql), then enable Email in Supabase Auth. The new schema has no plan field; the follow-up migration drops it from existing deployments. Because Astro statically builds `/login` and `/dashboard`, add
 `PUBLIC_SUPABASE_URL` and `PUBLIC_SUPABASE_ANON_KEY` to Vercel Preview (and Production when ready),
 using the same project URL and public anon/publishable key as the Supabase integration variables.
 These two values are public; never put `SUPABASE_SECRET_KEY` or `SUPABASE_SERVICE_ROLE_KEY` in a
@@ -113,8 +114,10 @@ These two values are public; never put `SUPABASE_SECRET_KEY` or `SUPABASE_SERVIC
 [`supabase/migrations/202610160002_provider_credentials.sql`](supabase/migrations/202610160002_provider_credentials.sql)
 and set `XWEB_PROVIDER_KEY_ENCRYPTION_KEY` to a random secret of at least 32 bytes in Vercel Preview
 and Production. Use the **same value** in both environments so saved credentials remain readable
-across deployments (generate one with `openssl rand -base64 32`). Google OAuth is optional and can
-be configured later.
+across deployments (generate one with `openssl rand -base64 32`). For AI BYOK, also apply
+[`supabase/migrations/202610170001_ai_credentials.sql`](supabase/migrations/202610170001_ai_credentials.sql)
+and [`supabase/migrations/202610170002_add_openrouter_xkiro_ai_providers.sql`](supabase/migrations/202610170002_add_openrouter_xkiro_ai_providers.sql).
+Google OAuth is optional and can be configured later.
 
 ---
 
@@ -137,8 +140,6 @@ project settings.
 | `PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_ANON_KEY` | Supabase anon/publishable key |
 | `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_SECRET_KEY` | Server-only Supabase key for account, API-key and usage operations |
 | `XWEB_PROVIDER_KEY_ENCRYPTION_KEY` | Random 32+ byte server-only secret for encrypting saved search and AI credentials |
-| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GROQ_API_KEY` | Optional x-web-managed default AI model keys (used when the account has no BYOK key) |
-| `XWEB_ANSWER_MODEL` | Optional server-managed default model override |
 | `XWEB_API_BASE`          | Forward to a real x-web deployment instead of a provider       |
 | `SITE_URL`               | Canonical site URL used for canonical links and the sitemap     |
 
@@ -161,7 +162,6 @@ routes through the serverless handler.
 
 The copy for the product itself is written as a working draft — adjust it to match reality:
 
-- **Pricing** on the landing page is placeholder copy.
 - The **`/v1/*` API surface** documented in `src/pages/docs/api.astro` is the intended spec; keep
   it in sync with the real service.
 - The **SDK snippets** reference `x-web` packages that are not published yet.

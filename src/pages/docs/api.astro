@@ -22,13 +22,15 @@ const toc = [
 
 const searchParams = [
   { name: 'query', type: 'string', required: true, description: 'Natural-language question or keyword query. Maximum 2,000 characters.' },
+  { name: 'mode', type: '"automatic" | "standard" | "deep"', default: 'Saved Dashboard preference for x-web account keys; standard for direct provider keys', description: 'The Dashboard preference carries over to searches authenticated with an x-web account key, including connected agents. automatic keeps routine lookups standard and escalates research-heavy questions; standard returns quick snippets; deep uses your saved AI BYOK to plan 2–4 queries, search configured providers, read up to 10 pages and write a cited report.' },
   { name: 'provider', type: '"tavily" | "brave" | "serper" | "exa"', description: 'Primary provider. Defaults to the configured server provider, or Tavily.' },
-  { name: 'multi_source', type: 'boolean', default: 'true', description: 'Search all providers with configured keys in parallel, then deduplicate and rerank. Set false to use only provider.' },
-  { name: 'providers', type: 'string[]', description: 'Optional provider allow-list for fan-out. Providers without a configured key are listed in unavailable_providers.' },
+  { name: 'multi_source', type: 'boolean', default: 'true', description: 'Legacy fan-out control when mode is omitted. With an explicit mode, standard is single-provider and deep federates across configured/selected providers.' },
+  { name: 'providers', type: 'string[]', description: 'Optional provider allow-list for deep or legacy fan-out. Providers without a configured key are listed in unavailable_providers.' },
   { name: 'max_results', type: 'integer', default: '5', description: 'Number of results. Clamped to 1–20.' },
-  { name: 'include_answer', type: 'boolean', default: 'true', description: 'Return a grounded answer with citations. Account API keys use the saved OpenAI, Anthropic, or Groq key when configured; otherwise x-web uses its server-managed model when enabled, then provider/extractive fallbacks.' },
+  { name: 'include_answer', type: 'boolean', default: 'false in standard; true for legacy calls and deep', description: 'Return a grounded answer with citations in standard mode. Deep mode always produces its report. Account API keys use the saved OpenAI, Anthropic, Groq, OpenRouter, or xKiro BYOK when configured; otherwise x-web uses provider/extractive answer synthesis without an AI model.' },
   { name: 'include_raw_content', type: 'boolean', default: 'false', description: 'Fetch clean page text for up to extract_depth results. Pages are fetched server-side; private/local IPs are blocked.' },
   { name: 'extract_depth', type: 'integer', default: '3', description: 'Maximum result pages to extract when include_raw_content is true. 1–10.' },
+  { name: 'deep_scrape', type: 'boolean', default: 'false', description: 'Use Firecrawl browser rendering and best-effort expansion/scrolling on the top three result pages. Requires a saved Firecrawl key for account requests or X-Firecrawl-API-Key for direct requests; Firecrawl may charge per page. Does not guarantee complete page coverage.' },
   { name: 'time_range', type: '"day" | "week" | "month" | "year"', description: 'Restrict results to a recent window. Also inferred from wording such as “latest” or “today”.' },
   { name: 'language', type: 'string', default: '"auto"', description: 'BCP-47/ISO language code. Auto-detected from the query by default; explicit value wins.' },
   { name: 'country', type: 'string', description: 'Country code to bias results, e.g. "US", "GT". Some providers do not support it.' },
@@ -59,7 +61,7 @@ const errorRows = [
 
 <Docs
   title="API reference"
-  description="Live web search, query understanding and page extraction — the current x-web API surface."
+  description="Live search, deep research, account-wide mode preferences, query understanding and page extraction — the current x-web API surface."
   toc={toc}
   updated="October 2026"
 >
@@ -90,7 +92,7 @@ Content-Type: application/json`}
 
   <h2 id="accounts">Accounts & dashboard</h2>
   <p>
-    Sign up with email/password at <code>/login</code>, then manage your plan label, monthly usage,
+    Sign up with email/password at <code>/login</code>, then manage informational monthly usage,
     recent requests, x-web API keys, and provider credentials at <code>/dashboard</code>. Add keys
     for Tavily, Brave Search, Serper and/or Exa there; account-authenticated searches use those
     saved credentials. Set <code>PUBLIC_SUPABASE_URL</code>,
@@ -98,22 +100,32 @@ Content-Type: application/json`}
     a public Supabase key (<code>SUPABASE_ANON_KEY</code> or
     <code>SUPABASE_PUBLISHABLE_KEY</code>), and the server-only
     <code>SUPABASE_SERVICE_ROLE_KEY</code> or <code>SUPABASE_SECRET_KEY</code>.
-    Apply <code>supabase/migrations/202610160001_account_dashboard.sql</code> to the project database.
-    For per-account provider credentials, apply <code>supabase/migrations/202610160002_provider_credentials.sql</code>
+    Apply <code>supabase/migrations/202610160001_account_dashboard.sql</code> and
+    <code>supabase/migrations/202610170003_remove_plan_tiers.sql</code> to the project database. The latter
+    drops the unused legacy plan column. For per-account provider credentials, apply <code>supabase/migrations/202610160002_provider_credentials.sql</code>
     and configure the server-only <code>XWEB_PROVIDER_KEY_ENCRYPTION_KEY</code>. To enable encrypted AI-key
-    storage for Bring Your Own Key settings, also apply <code>supabase/migrations/202610170001_ai_credentials.sql</code>.
+    storage for Bring Your Own Key settings, apply <code>supabase/migrations/202610170001_ai_credentials.sql</code>;
+    to enable OpenRouter and xKiro provider values, also apply <code>supabase/migrations/202610170002_add_openrouter_xkiro_ai_providers.sql</code>;
+    apply <code>supabase/migrations/202610180001_account_search_mode.sql</code> and
+    <code>supabase/migrations/202610180002_semantic_citation_review.sql</code> for Dashboard preferences, and
+    <code>supabase/migrations/202610180003_scraper_credentials.sql</code> to store an optional Firecrawl key.
     Configure the Supabase redirect allow-list for <code>/dashboard</code> and
     <code>/login?mode=update</code>; enter Google OAuth client credentials in Supabase Auth.
   </p>
   <p>
     Dashboard APIs use the Supabase access token as a Bearer token:
     <code>GET /api/account/overview</code>, <code>POST /api/account/keys</code>,
-    <code>DELETE /api/account/keys/:id</code>, and provider-key management at
-    <code>/api/account/providers</code>. New x-web keys are shown only once and stored as
+    <code>DELETE /api/account/keys/:id</code>, authenticated dashboard search at
+    <code>POST /api/account/search</code>, search-mode preferences at
+    <code>GET/PUT /api/account/search-preference</code>, provider-key management at
+    <code>/api/account/providers</code>, and optional Firecrawl credential management at
+    <code>GET/PUT/DELETE /api/account/scraper</code>. New x-web keys are shown only once and stored as
     SHA-256 hashes. Use one with <code>X-XWeb-Key</code> to call search. Searches can use your saved
     provider credentials from the dashboard, or fall back to provider keys configured on the x-web server.
-    Usage counts successful searches made with x-web account keys. Plan display is available, but
-    paid subscriptions and quota enforcement are not enabled yet.
+    The saved Dashboard search mode carries over to account-key API and MCP searches when a request does not specify a mode.
+    Usage counts successful searches made with x-web account keys for information only. x-web is
+    free to use, with no paid tiers, subscriptions, usage charges or account quotas. Third-party search
+    and AI providers may charge you directly for usage of your own keys.
   </p>
 
   <h2 id="search">Search the web</h2>
@@ -131,7 +143,7 @@ Content-Type: application/json`}
   -H "Content-Type: application/json" \\
   -d '{
     "query": "What is the latest on the Model Context Protocol?",
-    "multi_source": true,
+    "mode": "standard",
     "max_results": 5,
     "include_answer": true,
     "include_raw_content": false,
@@ -198,7 +210,7 @@ Content-Type: application/json`}
   <ParamTable
     params={[
       { name: 'query', type: 'string', required: true, description: 'Image query, up to 400 characters.' },
-      { name: 'provider', type: '"brave" | "serper"', default: '"brave"', description: 'Image search provider. Requires its own provider API key.' },
+  { name: 'provider', type: '"brave" | "serper"', default: '"brave"', description: 'Image search provider. Requires its own provider API key.' },
       { name: 'max_results', type: 'integer', default: '20', description: 'Results to return, clamped to 1–50.' },
       { name: 'safe_search', type: '"strict" | "off"', default: '"strict"', description: 'SafeSearch mode. Brave supports this; Serper reports it as unsupported.' },
       { name: 'country', type: 'string', description: 'Optional country/region preference.' },
@@ -246,6 +258,10 @@ Content-Type: application/json`}
   </p>
   <ImagePlayground />
 
+  <h3>Deep Research example</h3>
+  <p>Send <code>mode: "deep"</code> with an x-web account key, or select Deep Research in your Dashboard and omit <code>mode</code>. x-web uses only the account's saved search-provider and AI credentials. Add <code>deep_scrape: true</code> to also use Firecrawl browser rendering and best-effort clicks/scrolling on up to the top three pages; account requests use the Firecrawl key saved in the Dashboard, while direct requests must send <code>X-Firecrawl-API-Key</code>. Firecrawl can charge per page, and custom or protected interfaces may still hide content. The Markdown report is in top-level <code>report</code> (also <code>answer.text</code>); top-level <code>citations</code> map retained inline <code>[n]</code> markers to source URLs. x-web cross-checks each cited claim against the fetched page text, removes unsupported citation markers and labels those claims <code>[Unverified]</code>. By default, this is a deterministic text-overlap screen. An account can optionally enable semantic review in the Dashboard: flagged claims are sent in one batch to that account's saved BYOK AI model, and a claim is rescued only if the model supplies an exact quote found in the cited page text. This extra request may incur usage charges from the chosen AI provider; uncertain claims remain <code>[Unverified]</code>. Neither check guarantees correctness or eliminates hallucinations. The machine-readable outcome is in <code>answer.citation_verification</code> and <code>meta.research.citation_verification</code>. No headless browser is used: public pages are fetched and readable text is extracted.</p>
+  <CodeBlock lang="json" title="deep request" code={`{ "query": "Compare the leading approaches to…", "mode": "deep", "max_results": 10 }`} />
+
   <h2 id="response">Response shape</h2>
   <p>Search returns result snippets plus optional answer and intent metadata. Dates are normalized to UTC ISO-8601 where the provider supplies a parseable date.</p>
   <CodeBlock
@@ -255,22 +271,22 @@ Content-Type: application/json`}
   "id": "xweb_…",
   "object": "search",
   "query": "What is the latest on MCP?",
-  "provider": "multi",
-  "providers_used": ["tavily", "brave"],
+  "mode": "standard",
+  "provider": "tavily",
+  "providers_used": ["tavily"],
   "language": { "requested": "auto", "resolved": "en", "detected": { "code": "en", "language": "en", "confidence": 0.95, "name": "English" } },
   "intent": { "type": "news", "time_sensitive": true, "filters": { "topic": "news", "time_range": "week" } },
   "answer": { "text": "… [1]", "mode": "provider", "confidence": 0.7, "citations": [{ "index": 1, "title": "…", "url": "https://…", "result": 0 }] },
-  "results": [{ "title": "…", "url": "https://…", "snippet": "…", "published_date": "2026-10-16T…Z", "providers": ["tavily", "brave"], "source_count": 2, "ranking_score": 0.82, "rank_signals": { "relevance": 0.9, "freshness": 0.8, "authority": 0.7, "corroboration": 0.75 } }],
-  "meta": { "effective_query": "latest mcp", "rewritten": true, "time_sensitive": true, "extracted_count": 0, "stages_ms": { "understand": 0, "search": 420, "extract": 0, "answer": 2 } }
+  "results": [{ "title": "…", "url": "https://…", "snippet": "…", "published_date": "2026-10-16T…Z", "providers": ["tavily"], "source_count": 1, "ranking_score": 0.82, "rank_signals": { "relevance": 0.9, "freshness": 0.8, "authority": 0.7, "corroboration": 0.75 } }],
+  "meta": { "effective_query": "latest mcp", "rewritten": true, "time_sensitive": true, "extracted_count": 0, "stages_ms": { "understand": 0, "plan": 0, "search": 420, "extract": 0, "answer": 2 }, "research": { "mode": "standard", "subqueries": [], "pages_attempted": 0, "pages_read": 0 } }
 }`}
   />
   <p>
-    Answer modes are <code>llm</code> (an OpenAI, Anthropic, or Groq model),
+    Answer modes are <code>llm</code> (the account's saved OpenAI, Anthropic, Groq, OpenRouter, or xKiro BYOK),
     <code>provider</code> (answer returned by a search provider, with source citations attached), or
     <code>extractive</code> (relevant retrieved sentences selected and cited). LLM answers also report
-    <code>ai_provider</code> and <code>ai_key_source</code> (<code>byok</code> or <code>xweb</code>).
-    A server-managed default model must be configured for x-web's built-in LLM service; otherwise the
-    transparent provider/extractive fallback is used.
+    <code>ai_provider</code> and <code>ai_key_source</code> (<code>byok</code>). Without a saved key,
+    x-web returns a provider answer when available or falls back to cited extractive synthesis.
   </p>
 
   <h2 id="errors">Errors</h2>
@@ -292,9 +308,9 @@ Content-Type: application/json`}
 
   <h2 id="providers">Providers & capabilities</h2>
   <p>
-    The API currently supports Tavily, Brave Search, Serper and Exa. With <code>multi_source</code>
-    enabled (the default), x-web uses each configured provider-specific key plus the request's key
-    for its selected provider, queries those sources concurrently, tolerates partial failures, then
+    The API currently supports Tavily, Brave Search, Serper and Exa. In explicit <code>standard</code>
+    mode x-web uses one selected provider. <code>deep</code> mode uses available configured credentials
+    (and any explicit allow-list), queries providers concurrently for each planned subquery, tolerates partial failures, then
     canonicalizes URLs, removes duplicates and returns one blended top set. Configure additional keys
     with <code>TAVILY_API_KEY</code>, <code>BRAVE_API_KEY</code>, <code>SERPER_API_KEY</code>, and
     <code>EXA_API_KEY</code>; a visitor-supplied key is never reused for a different provider.

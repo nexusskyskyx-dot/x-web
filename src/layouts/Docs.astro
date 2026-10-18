@@ -51,11 +51,11 @@ const current = allItems.find((item) => isActive(item.href)) ?? allItems[0];
 ---
 
 <Base title={`${title} · x-web docs`} description={description}>
-  <div
-    class="mx-auto grid max-w-7xl gap-10 px-4 py-8 sm:px-6 lg:grid-cols-[230px_minmax(0,1fr)] lg:px-8 lg:py-12"
-  >
+  <div class="relative isolate overflow-hidden bg-gradient-to-b from-brand-50/50 via-white to-white">
+    <div aria-hidden="true" class="pointer-events-none absolute -top-40 right-[-9rem] h-[28rem] w-[28rem] rounded-full border-[5rem] border-brand-100/60"></div>
+    <div class="relative mx-auto grid max-w-7xl gap-7 px-4 py-7 sm:px-6 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-10 lg:px-8 lg:py-10">
     <aside
-      class="hidden lg:sticky lg:top-24 lg:block lg:h-[calc(100vh-8rem)] lg:overflow-y-auto lg:pr-2"
+      class="hidden lg:sticky lg:top-24 lg:block lg:h-[calc(100vh-8rem)] lg:overflow-y-auto lg:rounded-2xl lg:border lg:border-ink-100 lg:bg-white/85 lg:p-4 lg:shadow-card"
     >
       <p class="mb-4 px-3 text-xs font-semibold tracking-wider text-ink-400 uppercase">{eyebrow}</p>
       <nav class="space-y-6" aria-label="Documentation">
@@ -155,16 +155,20 @@ const current = allItems.find((item) => isActive(item.href)) ?? allItems[0];
         </nav>
       </details>
 
-      <div class="mb-10">
-        <p class="text-sm font-semibold text-brand-600">{eyebrow}</p>
-        <h1 class="mt-2 text-3xl sm:text-4xl">{title}</h1>
-        <p class="mt-3 max-w-2xl text-lg leading-relaxed text-ink-600">{description}</p>
-        {
-          updated && (
-            <p class="mt-3 text-sm text-ink-400">Last updated {updated}</p>
-          )
-        }
-      </div>
+      <header class="relative isolate mb-8 overflow-hidden rounded-3xl border border-brand-100 bg-gradient-to-br from-white via-brand-50/70 to-white p-5 shadow-card sm:mb-10 sm:p-8">
+        <div aria-hidden="true" class="pointer-events-none absolute -right-10 -top-16 -z-10 h-48 w-48 rounded-full border-[2rem] border-brand-100/70"></div>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <p class="inline-flex items-center gap-2 text-xs font-bold tracking-[0.15em] text-brand-700 uppercase"><span class="h-1.5 w-1.5 rounded-full bg-brand-500"></span>{eyebrow}</p>
+          {updated && <span class="rounded-full border border-brand-100 bg-white/80 px-3 py-1 text-[11px] font-medium text-ink-500">Updated {updated}</span>}
+        </div>
+        <h1 class="mt-4 text-3xl font-bold tracking-tight text-ink-950 sm:text-4xl">{title}</h1>
+        <p class="mt-3 max-w-2xl text-base leading-relaxed text-ink-600 sm:text-lg">{description}</p>
+        <div class="mt-5 flex flex-wrap gap-2">
+          <span class="rounded-full border border-brand-100 bg-white/80 px-3 py-1 text-[11px] font-semibold text-brand-700">Live web data</span>
+          <span class="rounded-full border border-brand-100 bg-white/80 px-3 py-1 text-[11px] font-semibold text-brand-700">BYOK</span>
+          <span class="rounded-full border border-brand-100 bg-white/80 px-3 py-1 text-[11px] font-semibold text-brand-700">Automatic · Standard · Deep</span>
+        </div>
+      </header>
 
       <!-- mobile / tablet: the on-page TOC is otherwise unreachable below xl -->
       {
@@ -216,6 +220,7 @@ const current = allItems.find((item) => isActive(item.href)) ?? allItems[0];
           )
         }
       </div>
+    </div>
     </div>
   </div>
 </Base>

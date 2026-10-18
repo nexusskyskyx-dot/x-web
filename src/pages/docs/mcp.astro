@@ -1,34 +1,100 @@
 ---
 import Docs from '../../layouts/Docs.astro';
 import Callout from '../../components/Callout.astro';
+import CodeBlock from '../../components/CodeBlock.astro';
+
+const clientConfig = `{
+  "mcpServers": {
+    "x-web": {
+      "url": "https://YOUR-X-WEB-HOST/api/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_XWEB_API_KEY"
+      }
+    }
+  }
+}`;
 
 const toc = [
-  { id: 'status', text: 'Status' },
-  { id: 'api-first', text: 'Use the REST API now' },
+  { id: 'quick-connect', text: 'Quick connect' },
+  { id: 'client-config', text: 'Client configuration' },
+  { id: 'tool', text: 'Available tool' },
+  { id: 'modes', text: 'Dashboard search modes' },
+  { id: 'credentials', text: 'Required credentials' },
+  { id: 'security', text: 'Security' },
 ];
 ---
 
 <Docs
   title="MCP integration"
-  description="MCP support is planned after the first REST API capabilities are in place."
+  description="Connect an AI client to x-web's hosted MCP search tool; its Standard, Deep Research or Automatic mode follows your Dashboard preference."
   toc={toc}
   updated="October 2026"
 >
-  <h2 id="status">Status</h2>
-  <Callout type="note" title="Not available yet">
-    The x-web MCP server and remote MCP endpoint are not implemented. We are building and validating
-    the search API first; MCP can be added as a client adapter after that contract is stable.
-  </Callout>
   <p>
-    No package named <code>x-web-mcp</code>, hosted MCP URL, or account-issued x-web API key is
-    required or available today. Avoid using the example configs you may see in older drafts of
-    these docs.
+    x-web provides a hosted <strong>Model Context Protocol (MCP)</strong> server. An MCP-compatible
+    AI client can call x-web's live web search tool directly, without you writing an adapter or
+    running a local MCP package.
   </p>
 
-  <h2 id="api-first">Use the REST API now</h2>
+  <h2 id="quick-connect">Quick connect</h2>
+  <ol>
+    <li>Sign in to your <a href="/dashboard">x-web dashboard</a> and create an x-web API key.</li>
+    <li>Save at least one search-provider key in the dashboard. To have x-web synthesize answers with an AI model, also save your own AI provider key.</li>
+    <li>In your MCP client, add the remote server URL <code>https://YOUR-X-WEB-HOST/api/mcp</code>.</li>
+    <li>Set the request header <code>Authorization: Bearer YOUR_XWEB_API_KEY</code>, then connect.</li>
+  </ol>
+  <Callout type="note" title="Use your deployment host">
+    Replace <code>YOUR-X-WEB-HOST</code> with the domain for your own x-web deployment. Keep your
+    API key private and configure it in the client’s secret/header settings.
+  </Callout>
+
+  <h2 id="client-config">Client configuration</h2>
   <p>
-    Your agent can call <code>POST /api/v1/search</code> from a server-side tool/function and pass
-    the returned answer, citations and results to the model. See the
-    <a href="/docs/quickstart">quickstart</a> for working cURL and JavaScript examples.
+    For a client that accepts remote Streamable HTTP MCP servers and custom headers, use the server
+    URL and bearer header above. A Cursor-style JSON configuration looks like this; put your actual
+    x-web key in the client’s secure settings rather than committing it to a shared project:
   </p>
+  <CodeBlock lang="json" title="mcp.json" code={clientConfig} />
+  <p>
+    In Claude Desktop or another client, add x-web as a remote MCP connector if that client version
+    supports remote Streamable HTTP servers and custom authorization headers. Client setup screens
+    differ; do not install an unrelated package or paste your API key into a public prompt.
+  </p>
+
+  <h2 id="tool">Available tool</h2>
+  <p>
+    The server exposes <code>xweb_search</code>. Give it a question or topic; it returns a grounded
+    answer when available, citations, source links, the search providers used and the effective
+    query. Optional inputs let the client limit the results, choose a search provider, or set the
+    answer language.
+  </p>
+  <p>
+    The endpoint uses MCP Streamable HTTP and requires your x-web account key as a bearer token on
+    each request. It is stateless, so clients do not need a separate session setup.
+  </p>
+
+  <h2 id="modes">Search modes</h2>
+  <p>Choose <strong>Automatic</strong>, <strong>Standard</strong> or <strong>Deep Research</strong> once in your Dashboard. The connected <code>xweb_search</code> tool automatically follows that saved preference—there is no mode field to code or configure in the agent. Automatic keeps routine lookups lightweight and escalates research-heavy questions; Standard returns quick snippets from one provider; Deep Research plans multiple queries, searches configured providers, reads up to 10 public pages, and returns a cited Markdown report. Deep mode checks citations against fetched page text, removes unsupported markers and labels those claims <code>[Unverified]</code>. Optional semantic review can be enabled in the Dashboard; flagged claims are batched to the saved BYOK model and accepted only with an exact quote present in that cited page. This extra request may incur AI-provider usage costs; the check cannot guarantee correctness or eliminate hallucinations. It is off by default, and x-web never uses a server-managed model. The tool also accepts optional <code>deep_scrape: true</code> to use your saved Firecrawl key to render and best-effort expand/scroll the top three pages. Firecrawl may charge per page; interactions are not guaranteed to expose all content.</p>
+  <CodeBlock lang="json" title="xweb_search input" code={`{ "query": "Compare the current leading video editors" }`} />
+
+  <h2 id="credentials">Required credentials</h2>
+  <ul>
+    <li><strong>x-web API key:</strong> authenticates your account and records usage.</li>
+    <li><strong>Search-provider key:</strong> saved in your dashboard; powers live web search.</li>
+    <li><strong>AI-provider key:</strong> optional in standard mode, but required for AI-generated answers and mandatory in deep mode. x-web never substitutes a server-owned model key.</li>
+    <li><strong>Firecrawl key:</strong> optional and only used when the caller explicitly sets <code>deep_scrape: true</code>; Firecrawl may bill its account owner per page.</li>
+  </ul>
+  <p>
+    Without an AI key, standard mode can still return live search results and any answer provided by the
+    search provider; deep mode rejects the request. x-web does not call an AI model as a fallback. See the
+    <a href="/docs/providers">provider guide</a> for supported search providers.
+  </p>
+
+  <h2 id="security">Security</h2>
+  <ul>
+    <li>Create a separate x-web API key for each client and revoke it from your dashboard if it is lost.</li>
+    <li>Store the key in the MCP client’s secret/header configuration, not source control or a shared chat.</li>
+    <li>x-web validates the key on every request and loads only the credentials saved to that account.</li>
+    <li>The search tool is read-only; it does not take actions on websites or access private pages.</li>
+  </ul>
 </Docs>

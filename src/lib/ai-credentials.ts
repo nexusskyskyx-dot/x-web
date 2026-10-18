@@ -1,6 +1,6 @@
 import { decryptProviderKey, encryptProviderKey, type EncryptedProviderCredential } from './provider-credentials.ts';
 
-export const AI_PROVIDERS = ['openai', 'anthropic', 'groq'] as const;
+export const AI_PROVIDERS = ['openai', 'anthropic', 'groq', 'openrouter', 'xkiro'] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
 
 export interface AiCredential extends EncryptedProviderCredential {
@@ -12,7 +12,7 @@ export interface AiRuntimeConfig {
   provider: AiProvider;
   model: string;
   apiKey: string;
-  source: 'byok' | 'xweb';
+  source: 'byok';
   baseUrl?: string;
 }
 
@@ -20,6 +20,8 @@ export const AI_DEFAULT_MODELS: Record<AiProvider, string> = {
   openai: 'gpt-4o-mini',
   anthropic: 'claude-3-5-haiku-latest',
   groq: 'llama-3.3-70b-versatile',
+  openrouter: 'openai/gpt-5.2',
+  xkiro: 'openai/gpt-5.6-sol',
 };
 
 export function isAiProvider(value: unknown): value is AiProvider {

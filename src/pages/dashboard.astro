@@ -6,31 +6,57 @@ const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL ?? '';
 const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '';
 ---
 
-<Base title="Dashboard — x-web" description="Manage your x-web API keys, plan, and usage." >
-  <section data-dashboard data-supabase-url={supabaseUrl} data-supabase-anon-key={supabaseAnonKey} class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-    <div class="flex flex-wrap items-start justify-between gap-4">
-      <div><p class="text-xs font-semibold tracking-wider text-brand-700 uppercase">Developer console</p><h1 class="mt-1 text-3xl font-bold tracking-tight text-ink-950">Dashboard</h1><p class="mt-1 text-sm text-ink-500" data-welcome>Loading your account…</p></div>
-      <div class="flex gap-2"><a href="/docs/quickstart" class="btn-ghost btn-sm">Quickstart</a><button type="button" data-signout class="btn-ghost btn-sm">Sign out</button></div>
+<Base title="Dashboard — x-web" description="Manage your x-web API keys and usage." >
+  <section data-dashboard data-supabase-url={supabaseUrl} data-supabase-anon-key={supabaseAnonKey} class="mx-auto max-w-7xl px-4 py-7 sm:px-6 sm:py-10 lg:px-8">
+    <div class="relative isolate overflow-hidden rounded-[2rem] border border-brand-200 bg-gradient-to-br from-brand-100 via-brand-50 to-white p-6 shadow-card sm:p-9">
+      <div aria-hidden="true" class="pointer-events-none absolute -top-28 right-[-2rem] -z-10 h-72 w-72 rounded-full border-[36px] border-brand-200/50 sm:right-8"></div>
+      <div aria-hidden="true" class="pointer-events-none absolute right-16 bottom-[-7rem] -z-10 h-48 w-48 rounded-full bg-brand-100/80 blur-2xl"></div>
+      <div class="flex flex-wrap items-start justify-between gap-5">
+        <div class="max-w-2xl">
+          <span class="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-white/80 px-3 py-1 text-[11px] font-bold tracking-[0.16em] text-brand-700 uppercase"><span class="h-1.5 w-1.5 rounded-full bg-brand-500"></span> x-web developer console</span>
+          <h1 class="mt-4 text-3xl font-bold tracking-tight text-ink-950 sm:text-4xl">Your web search, <span class="text-brand-700">your way.</span></h1>
+          <p class="mt-2 text-sm leading-relaxed text-ink-600 sm:text-base" data-welcome>Loading your account…</p>
+          <div class="mt-6 flex flex-wrap gap-2.5">
+            <a href="#dashboard-search" class="btn-primary">Open search <span aria-hidden="true">↓</span></a>
+            <a href="/docs/quickstart" class="btn-secondary">Quickstart guide <span aria-hidden="true">↗</span></a>
+            <button type="button" data-signout class="btn-ghost">Sign out</button>
+          </div>
+        </div>
+        <aside class="w-full max-w-xs rounded-2xl border border-white/80 bg-white/75 p-4 shadow-card backdrop-blur-sm sm:mt-2">
+          <p class="text-[10px] font-bold tracking-[0.16em] text-brand-700 uppercase">Your setup</p>
+          <p class="mt-2 text-sm font-semibold text-ink-900">Bring your own keys</p>
+          <p class="mt-1 text-xs leading-relaxed text-ink-500">Connect a search provider and AI model, then choose a search mode for your account and agent.</p>
+          <a href="#provider-settings" class="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-900">Configure providers <span aria-hidden="true">→</span></a>
+        </aside>
+      </div>
     </div>
+
+    <nav aria-label="Dashboard sections" class="mt-5 flex gap-2 overflow-x-auto pb-1">
+      <a href="#provider-settings" class="shrink-0 rounded-full border border-ink-100 bg-white px-3.5 py-2 text-xs font-semibold text-ink-600 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700">Providers</a>
+      <a href="#ai-settings" class="shrink-0 rounded-full border border-ink-100 bg-white px-3.5 py-2 text-xs font-semibold text-ink-600 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700">AI model</a>
+      <a href="#dashboard-search" class="shrink-0 rounded-full border border-ink-100 bg-white px-3.5 py-2 text-xs font-semibold text-ink-600 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700">Search mode</a>
+      <a href="#api-keys" class="shrink-0 rounded-full border border-ink-100 bg-white px-3.5 py-2 text-xs font-semibold text-ink-600 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700">API keys</a>
+      <a href="#recent-usage" class="shrink-0 rounded-full border border-ink-100 bg-white px-3.5 py-2 text-xs font-semibold text-ink-600 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700">Usage</a>
+    </nav>
 
     <div data-dashboard-error role="status" aria-live="polite" class="mt-5 hidden rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"></div>
 
-    <div class="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4" data-stats>
-      <article class="rounded-2xl border border-ink-100 bg-white p-5 shadow-card"><p class="text-xs font-medium text-ink-500">Current plan</p><p class="mt-2 text-2xl font-bold text-ink-900" data-stat-plan>—</p><p class="mt-1 text-xs text-ink-400" data-stat-plan-note>Billing is not enabled yet.</p></article>
-      <article class="rounded-2xl border border-ink-100 bg-white p-5 shadow-card"><p class="text-xs font-medium text-ink-500">Requests this month</p><p class="mt-2 text-2xl font-bold text-ink-900" data-stat-usage>—</p><p class="mt-1 text-xs text-ink-400">Tracked through x-web API keys</p></article>
-      <article class="rounded-2xl border border-ink-100 bg-white p-5 shadow-card"><p class="text-xs font-medium text-ink-500">Active API keys</p><p class="mt-2 text-2xl font-bold text-ink-900" data-stat-keys>—</p><p class="mt-1 text-xs text-ink-400">Secrets are only shown once</p></article>
-      <article class="rounded-2xl border border-ink-100 bg-white p-5 shadow-card"><p class="text-xs font-medium text-ink-500">Account</p><p class="mt-2 truncate text-sm font-semibold text-ink-900" data-stat-email>—</p><p class="mt-1 text-xs text-ink-400">Authenticated with Supabase</p></article>
+    <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-stats>
+      <article class="card card-hover relative overflow-hidden p-5 sm:p-6"><span aria-hidden="true" class="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-xl bg-brand-50 text-brand-700"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5"><path d="M4 19V5m0 14h16M8 15v-4m4 4V7m4 8v-6m4 6V4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><p class="text-xs font-semibold tracking-wide text-ink-500 uppercase">Requests this month</p><p class="mt-3 text-3xl font-bold tracking-tight text-ink-950" data-stat-usage>—</p><p class="mt-2 text-xs text-ink-400">Informational only · x-web is free</p></article>
+      <article class="card card-hover relative overflow-hidden p-5 sm:p-6"><span aria-hidden="true" class="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-xl bg-brand-50 text-brand-700"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 1 1 8 0v3m-4 5v2" stroke-linecap="round"/></svg></span><p class="text-xs font-semibold tracking-wide text-ink-500 uppercase">Active API keys</p><p class="mt-3 text-3xl font-bold tracking-tight text-ink-950" data-stat-keys>—</p><p class="mt-2 text-xs text-ink-400">Secrets are only shown once</p></article>
+      <article class="card card-hover relative overflow-hidden p-5 sm:p-6"><span aria-hidden="true" class="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-xl bg-brand-50 text-brand-700"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0" stroke-linecap="round"/></svg></span><p class="text-xs font-semibold tracking-wide text-ink-500 uppercase">Signed-in account</p><p class="mt-3 truncate text-base font-semibold text-ink-900" data-stat-email>—</p><p class="mt-2 text-xs text-ink-400">Authenticated and ready</p></article>
     </div>
 
-    <section class="mt-6 rounded-2xl border border-ink-100 bg-white shadow-card" aria-labelledby="provider-settings-title">
-      <div class="border-b border-ink-100 px-5 py-4">
-        <h2 id="provider-settings-title" class="font-semibold text-ink-900">Search providers</h2>
+    <section id="provider-settings" class="mt-8 scroll-mt-28 rounded-3xl border border-ink-100 bg-white shadow-card" aria-labelledby="provider-settings-title">
+      <div class="border-b border-ink-100 bg-gradient-to-r from-brand-50/70 to-white px-5 py-5 sm:px-6">
+        <p class="text-[10px] font-bold tracking-[0.16em] text-brand-700 uppercase">01 · Connect</p>
+        <h2 id="provider-settings-title" class="mt-1 text-lg font-bold text-ink-950">Search providers</h2>
         <p class="mt-1 max-w-3xl text-sm leading-relaxed text-ink-500">Connect your own provider API keys. They are encrypted before storage and never shown again after saving. Searches made with your x-web API key can use the providers you connect here.</p>
       </div>
       <div data-provider-feedback role="status" aria-live="polite" class="mx-5 mt-4 hidden rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-800"></div>
       <div data-provider-list class="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-4">
         {PROVIDERS.map((provider) => (
-          <article data-provider-card={provider} class="flex min-w-0 flex-col rounded-xl border border-ink-100 bg-white p-4">
+          <article data-provider-card={provider} class="card-hover flex min-w-0 flex-col rounded-2xl border border-ink-100 bg-white p-4 transition-colors">
             <div class="flex items-start justify-between gap-2">
               <div><h3 class="font-semibold text-ink-900">{PROVIDER_META[provider].label}</h3><p class="mt-1 text-xs leading-relaxed text-ink-500">{PROVIDER_META[provider].blurb}</p></div>
               <span data-provider-status class="shrink-0 rounded-full bg-ink-50 px-2 py-1 text-[10px] font-semibold text-ink-500">Checking…</span>
@@ -46,18 +72,32 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
           </article>
         ))}
       </div>
+      <div class="border-t border-ink-100 px-5 py-5 sm:px-6">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div><h3 class="text-sm font-semibold text-ink-900">Deep DOM scraper · Firecrawl</h3><p class="mt-1 max-w-3xl text-xs leading-relaxed text-ink-500">Optional BYOK service for browser-rendered extraction. Firecrawl may expand common accordions, click common “Read more” controls, and scroll for lazy content on the top three result pages. Interactions are best-effort, not complete page coverage. Firecrawl may charge for each page.</p></div>
+          <span data-firecrawl-status class="shrink-0 rounded-full bg-ink-50 px-2 py-1 text-[10px] font-semibold text-ink-500">Checking…</span>
+        </div>
+        <div data-firecrawl-feedback role="status" aria-live="polite" class="mt-3 hidden rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-800"></div>
+        <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+          <label class="block min-w-0 flex-1 text-xs font-medium text-ink-600">Firecrawl_Key
+            <input data-firecrawl-key type="password" autocomplete="off" spellcheck="false" placeholder="Paste key to connect or replace" class="mt-1.5 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm text-ink-900 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100" />
+          </label>
+          <div class="flex gap-2"><button type="button" data-firecrawl-save class="btn-primary btn-sm">Save key</button><button type="button" data-firecrawl-remove class="btn-ghost btn-sm hidden">Remove</button></div>
+        </div>
+      </div>
     </section>
 
-    <section class="mt-6 rounded-2xl border border-ink-100 bg-white shadow-card" aria-labelledby="ai-settings-title">
-      <div class="border-b border-ink-100 px-5 py-4">
-        <h2 id="ai-settings-title" class="font-semibold text-ink-900">AI summaries</h2>
-        <p class="mt-1 max-w-3xl text-sm leading-relaxed text-ink-500">Use x-web’s built-in AI, or bring your own OpenAI, Anthropic, or Groq key. Your key is encrypted before storage and sent only to the AI provider you choose. If you connect a key, you pay that provider directly.</p>
+    <section id="ai-settings" class="mt-6 scroll-mt-28 rounded-3xl border border-ink-100 bg-white shadow-card" aria-labelledby="ai-settings-title">
+      <div class="border-b border-ink-100 bg-gradient-to-r from-brand-50/70 to-white px-5 py-5 sm:px-6">
+        <p class="text-[10px] font-bold tracking-[0.16em] text-brand-700 uppercase">02 · Intelligence</p>
+        <h2 id="ai-settings-title" class="mt-1 text-lg font-bold text-ink-950">AI summaries</h2>
+        <p class="mt-1 max-w-3xl text-sm leading-relaxed text-ink-500">AI answer generation requires your own OpenAI, Anthropic, Groq, OpenRouter, or xKiro key. Your key is encrypted before storage and sent only to the provider you choose; you pay that provider directly. Without a saved key, x-web uses cited search-result answers without an AI model.</p>
       </div>
       <div data-ai-feedback role="status" aria-live="polite" class="mx-5 mt-4 hidden rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-800"></div>
       <div class="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
         <label class="block text-xs font-medium text-ink-600">AI provider
           <select data-ai-provider class="mt-1.5 w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100">
-            <option value="openai">OpenAI</option><option value="anthropic">Anthropic (Claude)</option><option value="groq">Groq</option>
+            <option value="openai">OpenAI</option><option value="anthropic">Anthropic (Claude)</option><option value="groq">Groq</option><option value="openrouter">OpenRouter</option><option value="xkiro">xKiro</option>
           </select>
         </label>
         <label class="block text-xs font-medium text-ink-600">Model <span class="font-normal text-ink-400">(optional)</span>
@@ -71,9 +111,89 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
       </div>
     </section>
 
-    <div class="mt-7 grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
-      <section class="rounded-2xl border border-ink-100 bg-white shadow-card">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 px-5 py-4">
+    <section id="dashboard-search" class="mt-6 scroll-mt-28 overflow-hidden rounded-3xl border border-brand-200 bg-white shadow-glow" aria-labelledby="dashboard-search-title">
+      <div class="border-b border-brand-100 bg-gradient-to-r from-brand-50 via-white to-white px-5 py-5 sm:px-7">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div><p class="text-[10px] font-bold tracking-[0.16em] text-brand-700 uppercase">03 · Search console</p><h2 id="dashboard-search-title" class="mt-1 text-xl font-bold text-ink-950">Ask the web</h2><p class="mt-1 text-sm text-ink-500">Choose a mode and search with the keys saved to your account. Your choice carries over to your connected agent.</p></div>
+          <span class="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-white px-3 py-1.5 text-xs font-semibold text-brand-700"><span class="h-2 w-2 rounded-full bg-brand-500"></span>Mode syncs to agent</span>
+        </div>
+      </div>
+      <form data-dashboard-search-form class="grid gap-4 p-5 sm:grid-cols-[minmax(0,1fr)_270px_auto] sm:items-end sm:p-7">
+        <label class="block text-xs font-medium text-ink-600">Research question
+          <input data-dashboard-query name="query" type="text" required maxlength="2000" placeholder="Ask a question about the web…" class="mt-1.5 w-full rounded-lg border border-ink-200 px-3 py-3 text-base text-ink-900 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 sm:py-2.5 sm:text-sm" />
+        </label>
+        <label class="block text-xs font-medium text-ink-600">Search mode
+          <select data-dashboard-mode name="mode" class="mt-1.5 w-full rounded-lg border border-ink-200 bg-white px-3 py-3 text-base text-ink-900 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 sm:py-2.5 sm:text-sm">
+            <option value="automatic">Automatic — choose based on the question</option>
+            <option value="standard">Standard — fast snippets</option>
+          </select>
+        </label>
+        <button data-dashboard-search-submit type="submit" class="btn-primary">Search</button>
+        <p data-dashboard-mode-help class="text-xs leading-relaxed text-ink-500 sm:col-span-3">Automatic keeps simple lookups fast and escalates research-heavy questions. Standard searches one saved provider. The selected mode is shared with connected agents.</p>
+        <section class="rounded-2xl border border-brand-200 bg-brand-50/50 p-4 sm:col-span-3 sm:p-5" aria-labelledby="deep-search-title">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div class="min-w-0 flex-1">
+              <h3 id="deep-search-title" class="text-sm font-semibold text-ink-950">Deep search</h3>
+              <details class="group mt-1 max-w-3xl text-xs text-ink-500">
+                <summary class="inline-flex cursor-pointer list-none items-center gap-1 font-semibold text-brand-700 hover:text-brand-900">More info <span aria-hidden="true">↓</span></summary>
+                <p class="mt-2 leading-relaxed">Plans several focused queries, searches configured providers, reads up to ten public pages, and generates a cited report with your saved AI model. Requires your AI BYOK key. Search and AI providers may charge for usage. This preference also applies to connected agents.</p>
+              </details>
+              <p class="mt-2 text-[11px] font-medium text-ink-500">Deep Research mode: <span data-deep-search-status>Off</span></p>
+            </div>
+            <label class="relative inline-flex h-7 w-[4.25rem] shrink-0 cursor-pointer items-center" aria-label="Deep search">
+              <input data-deep-search type="checkbox" role="switch" aria-label="Deep search" class="peer sr-only" />
+              <span class="absolute inset-0 rounded-full bg-rose-600 transition-colors peer-checked:bg-emerald-600 peer-focus-visible:outline-none peer-focus-visible:ring-4 peer-focus-visible:ring-brand-200" aria-hidden="true"></span>
+              <span class="pointer-events-none absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-[2.5rem]" aria-hidden="true"></span>
+              <span class="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-white transition-opacity peer-checked:opacity-0" aria-hidden="true">Off</span>
+              <span class="pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-white opacity-0 transition-opacity peer-checked:opacity-100" aria-hidden="true">On</span>
+            </label>
+          </div>
+        </section>
+        <section class="rounded-2xl border border-brand-200 bg-brand-50/50 p-4 sm:col-span-3 sm:p-5" aria-labelledby="deep-scrape-title">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div class="min-w-0 flex-1">
+              <h3 id="deep-scrape-title" class="text-sm font-semibold text-ink-950">Deep scrape</h3>
+              <details class="group mt-1 max-w-3xl text-xs text-ink-500">
+                <summary class="inline-flex cursor-pointer list-none items-center gap-1 font-semibold text-brand-700 hover:text-brand-900">More info <span aria-hidden="true">↓</span></summary>
+                <p class="mt-2 leading-relaxed">Uses your Firecrawl_Key to browser-render the top three pages, try common “Read more” and accordion controls, and scroll for lazy content. This is best-effort—not complete page coverage. Firecrawl may charge per page; unsuccessful pages fall back to regular extraction.</p>
+              </details>
+              <p class="mt-2 text-[11px] font-medium text-ink-500">Firecrawl_Key: <span data-deep-scrape-key-status>Checking…</span> <a href="#provider-settings" class="ml-1 font-semibold text-brand-700 underline decoration-brand-300 underline-offset-2">Manage key</a></p>
+            </div>
+            <label class="relative inline-flex h-7 w-[4.25rem] shrink-0 cursor-pointer items-center" aria-label="Deep scrape">
+              <input data-deep-scrape type="checkbox" role="switch" aria-label="Deep scrape" class="peer sr-only" />
+              <span class="absolute inset-0 rounded-full bg-rose-600 transition-colors peer-checked:bg-emerald-600 peer-focus-visible:outline-none peer-focus-visible:ring-4 peer-focus-visible:ring-brand-200" aria-hidden="true"></span>
+              <span class="pointer-events-none absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-[2.5rem]" aria-hidden="true"></span>
+              <span class="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-white transition-opacity peer-checked:opacity-0" aria-hidden="true">Off</span>
+              <span class="pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-white opacity-0 transition-opacity peer-checked:opacity-100" aria-hidden="true">On</span>
+            </label>
+          </div>
+        </section>
+        <section class="rounded-2xl border border-brand-200 bg-brand-50/50 p-4 sm:col-span-3 sm:p-5" aria-labelledby="semantic-review-title">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div class="min-w-0 flex-1">
+              <h3 id="semantic-review-title" class="text-sm font-semibold text-ink-950">Semantic citation review</h3>
+              <details class="group mt-1 max-w-3xl text-xs text-ink-500">
+                <summary class="inline-flex cursor-pointer list-none items-center gap-1 font-semibold text-brand-700 hover:text-brand-900">More info <span aria-hidden="true">↓</span></summary>
+                <p class="mt-2 leading-relaxed">Claims flagged by the text-overlap check are sent in one batch to your saved BYOK AI model. A claim is accepted only when the model provides an exact quote found in the cited page. This may use tokens and incur provider charges; it can improve paraphrase handling but cannot guarantee correctness.</p>
+              </details>
+              <p class="mt-2 text-[11px] font-medium text-ink-500">Semantic review: <span data-semantic-review-status>Off</span></p>
+            </div>
+            <label class="relative inline-flex h-7 w-[4.25rem] shrink-0 cursor-pointer items-center" aria-label="Semantic citation review">
+              <input data-semantic-citation-check type="checkbox" role="switch" aria-label="Semantic citation review" class="peer sr-only" />
+              <span class="absolute inset-0 rounded-full bg-rose-600 transition-colors peer-checked:bg-emerald-600 peer-focus-visible:outline-none peer-focus-visible:ring-4 peer-focus-visible:ring-brand-200" aria-hidden="true"></span>
+              <span class="pointer-events-none absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-[2.5rem]" aria-hidden="true"></span>
+              <span class="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-white transition-opacity peer-checked:opacity-0" aria-hidden="true">Off</span>
+              <span class="pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-white opacity-0 transition-opacity peer-checked:opacity-100" aria-hidden="true">On</span>
+            </label>
+          </div>
+        </section>
+      </form>
+      <div data-dashboard-search-output class="hidden border-t border-ink-100"></div>
+    </section>
+
+    <div class="mt-7">
+      <section id="api-keys" class="scroll-mt-28 overflow-hidden rounded-3xl border border-ink-100 bg-white shadow-card">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 bg-brand-50/60 px-5 py-4 sm:px-6">
           <div><h2 class="font-semibold text-ink-900">API keys</h2><p class="mt-0.5 text-xs text-ink-500">Use an x-web key with the <code>x-xweb-key</code> header.</p></div>
           <div class="flex w-full gap-2 sm:w-auto">
             <input data-key-name maxlength="48" aria-label="API key name" placeholder="Key name" class="min-w-0 flex-1 rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 sm:w-36 sm:flex-none" />
@@ -88,17 +208,13 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
         <div data-key-list class="divide-y divide-ink-100"><p class="px-5 py-8 text-center text-sm text-ink-400">Loading keys…</p></div>
       </section>
 
-      <section class="rounded-2xl border border-ink-100 bg-white shadow-card">
-        <div class="border-b border-ink-100 px-5 py-4"><h2 class="font-semibold text-ink-900">Plan</h2><p class="mt-0.5 text-xs text-ink-500">Your current account tier.</p></div>
-        <div class="p-5"><div class="flex items-center justify-between"><p class="text-2xl font-bold text-ink-900" data-plan-name>Free</p><span class="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700" data-plan-status>Active</span></div><p class="mt-2 text-sm leading-relaxed text-ink-500">Plan display is active. Paid upgrades, billing, and quota enforcement are not enabled yet.</p><a href="/docs/api" class="mt-4 inline-flex text-sm font-semibold text-brand-700 hover:underline">Explore the API →</a></div>
-      </section>
     </div>
 
-    <section class="mt-6 rounded-2xl border border-ink-100 bg-white shadow-card">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 px-5 py-4"><div><h2 class="font-semibold text-ink-900">Recent API usage</h2><p class="mt-0.5 text-xs text-ink-500">Requests made with your x-web account keys this month.</p></div><span class="font-mono text-xs text-ink-400" data-usage-month></span></div>
+    <section id="recent-usage" class="mt-6 scroll-mt-28 overflow-hidden rounded-3xl border border-ink-100 bg-white shadow-card">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 bg-brand-50/60 px-5 py-4 sm:px-6"><div><h2 class="font-semibold text-ink-900">Recent API usage</h2><p class="mt-0.5 text-xs text-ink-500">Requests made through your dashboard or x-web account keys this month.</p></div><span class="font-mono text-xs text-ink-400" data-usage-month></span></div>
       <div class="overflow-x-auto"><table class="w-full min-w-[600px] text-left text-sm"><thead class="bg-ink-50 text-[11px] tracking-wider text-ink-500 uppercase"><tr><th class="px-5 py-3 font-semibold">Time</th><th class="px-5 py-3 font-semibold">Endpoint</th><th class="px-5 py-3 font-semibold">Provider</th><th class="px-5 py-3 text-right font-semibold">Results</th></tr></thead><tbody data-usage-list class="divide-y divide-ink-100"><tr><td colspan="4" class="px-5 py-8 text-center text-sm text-ink-400">Loading usage…</td></tr></tbody></table></div>
     </section>
-    <p class="mt-5 text-xs leading-relaxed text-ink-400">Usage tracks successful requests authenticated with x-web API keys. Searches using your own provider key in the playground are not included.</p>
+    <p class="mt-5 text-xs leading-relaxed text-ink-400">Usage is informational and includes dashboard searches and requests authenticated with x-web API keys. Direct provider-key searches from the home playground are not included.</p>
   </section>
 </Base>
 
@@ -114,6 +230,11 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
   const secretEl = root.querySelector<HTMLElement>('[data-secret]');
   const providerList = root.querySelector<HTMLElement>('[data-provider-list]');
   const providerFeedback = root.querySelector<HTMLElement>('[data-provider-feedback]');
+  const firecrawlKey = root.querySelector<HTMLInputElement>('[data-firecrawl-key]');
+  const firecrawlStatus = root.querySelector<HTMLElement>('[data-firecrawl-status]');
+  const deepScrapeKeyStatus = root.querySelector<HTMLElement>('[data-deep-scrape-key-status]');
+  const firecrawlFeedback = root.querySelector<HTMLElement>('[data-firecrawl-feedback]');
+  const firecrawlRemove = root.querySelector<HTMLButtonElement>('[data-firecrawl-remove]');
   const aiFeedback = root.querySelector<HTMLElement>('[data-ai-feedback]');
   const aiProvider = root.querySelector<HTMLSelectElement>('[data-ai-provider]');
   const aiModel = root.querySelector<HTMLInputElement>('[data-ai-model]');
@@ -169,6 +290,163 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
       return payload;
     };
 
+    const searchForm = root.querySelector<HTMLFormElement>('[data-dashboard-search-form]');
+    const searchMode = root.querySelector<HTMLSelectElement>('[data-dashboard-mode]');
+    const deepSearchToggle = root.querySelector<HTMLInputElement>('[data-deep-search]');
+    const deepSearchStatus = root.querySelector<HTMLElement>('[data-deep-search-status]');
+    const deepScrapeToggle = root.querySelector<HTMLInputElement>('[data-deep-scrape]');
+    const semanticCitationCheck = root.querySelector<HTMLInputElement>('[data-semantic-citation-check]');
+    const semanticReviewStatus = root.querySelector<HTMLElement>('[data-semantic-review-status]');
+    const searchModeHelp = root.querySelector<HTMLElement>('[data-dashboard-mode-help]');
+    const searchOutput = root.querySelector<HTMLElement>('[data-dashboard-search-output]');
+    const searchButton = root.querySelector<HTMLButtonElement>('[data-dashboard-search-submit]');
+    let modeBeforeDeep: 'automatic' | 'standard' = 'automatic';
+    const syncDeepSearchUi = () => {
+      const enabled = deepSearchToggle?.checked === true;
+      if (searchMode) searchMode.disabled = enabled;
+      if (deepSearchStatus) deepSearchStatus.textContent = enabled ? 'On · Deep Research' : 'Off';
+    };
+    const syncSemanticReviewUi = () => {
+      if (semanticReviewStatus) semanticReviewStatus.textContent = semanticCitationCheck?.checked ? 'On' : 'Off';
+    };
+    const syncSearchModeHelp = () => {
+      if (!searchModeHelp) return;
+      searchModeHelp.textContent = deepSearchToggle?.checked
+        ? 'Deep Research plans multiple searches, reads up to 10 pages, and creates a cited report. This saved preference also controls connected agents.'
+        : searchMode?.value === 'standard'
+          ? 'Standard searches one saved provider and returns quick snippets. This preference is also used by connected x-web AI agents.'
+          : 'Automatic keeps simple lookups fast and escalates research-heavy questions. Connected x-web AI agents use this preference too.';
+    };
+    const loadSearchPreference = async () => {
+      try {
+        const preference = await request('/api/account/search-preference');
+        if (searchMode && (preference.mode === 'automatic' || preference.mode === 'standard')) {
+          modeBeforeDeep = preference.mode;
+          searchMode.value = preference.mode;
+        } else if (preference.mode === 'deep') {
+          modeBeforeDeep = 'automatic';
+          if (searchMode) searchMode.value = 'automatic';
+          if (deepSearchToggle) deepSearchToggle.checked = true;
+        }
+        if (semanticCitationCheck) semanticCitationCheck.checked = preference.semantic_citation_check === true;
+        syncDeepSearchUi();
+        syncSemanticReviewUi();
+      } catch (error) {
+        if (searchOutput) {
+          searchOutput.classList.remove('hidden');
+          searchOutput.innerHTML = `<p class="px-5 py-4 text-xs text-amber-700">Could not load your saved mode. ${escapeHtml(error instanceof Error ? error.message : '')}</p>`;
+        }
+      }
+      syncSearchModeHelp();
+    };
+    searchMode?.addEventListener('change', () => {
+      modeBeforeDeep = searchMode.value === 'standard' ? 'standard' : 'automatic';
+      syncSearchModeHelp();
+      void request('/api/account/search-preference', {
+        method: 'PUT',
+        body: JSON.stringify({ mode: modeBeforeDeep }),
+      }).catch((error) => {
+        if (searchOutput) {
+          searchOutput.classList.remove('hidden');
+          searchOutput.innerHTML = `<p class="px-5 py-4 text-xs text-rose-700">Could not save this mode for connected agents. ${escapeHtml(error instanceof Error ? error.message : '')}</p>`;
+        }
+      });
+    });
+    deepSearchToggle?.addEventListener('change', () => {
+      const enabled = deepSearchToggle.checked;
+      if (enabled) modeBeforeDeep = searchMode?.value === 'standard' ? 'standard' : 'automatic';
+      syncDeepSearchUi();
+      syncSearchModeHelp();
+      void request('/api/account/search-preference', {
+        method: 'PUT',
+        body: JSON.stringify({ mode: enabled ? 'deep' : modeBeforeDeep }),
+      }).catch((error) => {
+        deepSearchToggle.checked = !enabled;
+        syncDeepSearchUi();
+        syncSearchModeHelp();
+        if (searchOutput) {
+          searchOutput.classList.remove('hidden');
+          searchOutput.innerHTML = `<p class="px-5 py-4 text-xs text-rose-700">Could not save Deep search for connected agents. ${escapeHtml(error instanceof Error ? error.message : '')}</p>`;
+        }
+      });
+    });
+    semanticCitationCheck?.addEventListener('change', () => {
+      syncSemanticReviewUi();
+      void request('/api/account/search-preference', {
+        method: 'PUT',
+        body: JSON.stringify({ semantic_citation_check: semanticCitationCheck.checked }),
+      }).catch((error) => {
+        semanticCitationCheck.checked = !semanticCitationCheck.checked;
+        syncSemanticReviewUi();
+        if (searchOutput) {
+          searchOutput.classList.remove('hidden');
+          searchOutput.innerHTML = `<p class="px-5 py-4 text-xs text-rose-700">Could not save the semantic citation preference. ${escapeHtml(error instanceof Error ? error.message : '')}</p>`;
+        }
+      });
+    });
+    syncDeepSearchUi();
+    syncSemanticReviewUi();
+    syncSearchModeHelp();
+    void loadSearchPreference();
+
+    const safeHref = (raw: unknown) => {
+      if (typeof raw !== 'string') return '#';
+      try {
+        const url = new URL(raw);
+        return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : '#';
+      } catch { return '#'; }
+    };
+
+    searchForm?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const queryInput = searchForm.querySelector<HTMLInputElement>('[name="query"]');
+      const query = queryInput?.value.trim() ?? '';
+      if (!query || !searchOutput) return;
+      const mode = deepSearchToggle?.checked
+        ? 'deep'
+        : searchMode?.value === 'standard' ? 'standard' : 'automatic';
+      const deepScrape = deepScrapeToggle?.checked === true;
+      if (searchButton) {
+        searchButton.disabled = true;
+        searchButton.textContent = deepScrape ? 'Deep scraping…' : mode === 'deep' ? 'Researching…' : 'Searching…';
+      }
+      searchOutput.classList.remove('hidden');
+      searchOutput.innerHTML = '<p class="px-5 py-6 text-sm text-ink-500">Searching your saved providers…</p>';
+      try {
+        const result = await request('/api/account/search', {
+          method: 'POST',
+          body: JSON.stringify({ query, mode, deep_scrape: deepScrape }),
+        });
+        const citations = Array.isArray(result.citations) ? result.citations : (result.answer?.citations ?? []);
+        const report = typeof result.report === 'string' ? result.report : '';
+        const scrape = result.meta?.deep_scrape;
+        const scrapeNote = scrape
+          ? `<p class="mt-2 rounded-lg border border-brand-200 bg-white px-3 py-2 text-xs leading-relaxed text-brand-800">Deep Scrape enhanced ${escapeHtml(scrape.pages_enhanced)} of ${escapeHtml(scrape.pages_attempted)} requested top page(s); ${escapeHtml(scrape.pages_fallback)} used regular extraction fallback. Browser interactions are best-effort, not complete page coverage.</p>`
+          : '';
+        const verification = result.answer?.citation_verification ?? result.meta?.research?.citation_verification;
+        const verificationNote = verification
+          ? `<p class="mt-3 rounded-lg border border-brand-200 bg-white px-3 py-2 text-xs leading-relaxed text-brand-800">Citation evidence check: ${escapeHtml(verification.supported_claims)} claim(s) supported; ${escapeHtml(verification.flagged_claims)} flagged as unverified. ${verification.method === 'lexical_plus_semantic' ? `Optional semantic review checked ${escapeHtml(verification.semantic_checked_claims ?? 0)} flagged claim(s) and supported ${escapeHtml(verification.semantic_supported_claims ?? 0)} with source quotes; it is not a guarantee of correctness.` : 'Text-overlap check only; this is not a semantic truth guarantee.'}</p>`
+          : '';
+        const reportBlock = report
+          ? `<section class="border-b border-ink-100 bg-brand-50/50 p-5"><h3 class="text-sm font-semibold text-ink-900">Research report</h3>${scrapeNote}${verificationNote}<pre class="mt-3 whitespace-pre-wrap font-sans text-sm leading-relaxed text-ink-700">${escapeHtml(report)}</pre>${citations.length ? `<h4 class="mt-4 text-xs font-semibold tracking-wide text-ink-500 uppercase">Sources</h4><ol class="mt-2 flex flex-wrap gap-x-4 gap-y-2">${citations.map((item: any) => `<li><a class="text-xs font-semibold text-brand-700 hover:underline" href="${escapeHtml(safeHref(item.url))}" target="_blank" rel="noreferrer noopener">[${escapeHtml(item.index)}] ${escapeHtml(item.title || item.url)}</a></li>`).join('')}</ol>` : ''}</section>`
+          : '';
+        const standardAnswer = !report && typeof result.answer?.text === 'string'
+          ? `<section class="border-b border-ink-100 bg-brand-50/50 p-5"><h3 class="text-sm font-semibold text-ink-900">Cited answer</h3>${scrapeNote}${verificationNote}<p class="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-ink-700">${escapeHtml(result.answer.text)}</p>${citations.length ? `<ol class="mt-3 flex flex-wrap gap-x-4 gap-y-2">${citations.map((item: any) => `<li><a class="text-xs font-semibold text-brand-700 hover:underline" href="${escapeHtml(safeHref(item.url))}" target="_blank" rel="noreferrer noopener">[${escapeHtml(item.index)}] ${escapeHtml(item.title || item.url)}</a></li>`).join('')}</ol>` : ''}</section>`
+          : '';
+        const results = Array.isArray(result.results) ? result.results : [];
+        const resultList = results.map((item: any, index: number) => `<li class="flex gap-3 border-t border-ink-100 px-5 py-4 first:border-0"><span class="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-brand-50 font-mono text-xs font-semibold text-brand-700">${index + 1}</span><div class="min-w-0"><a class="text-sm font-semibold text-ink-900 hover:text-brand-700" href="${escapeHtml(safeHref(item.url))}" target="_blank" rel="noreferrer noopener">${escapeHtml(item.title)}</a><p class="mt-1 text-sm leading-relaxed text-ink-600">${escapeHtml(item.snippet)}</p></div></li>`).join('');
+        const info = `${escapeHtml(result.mode ?? mode)} · ${escapeHtml(result.providers_used?.join(', ') ?? result.provider ?? 'provider')} · ${results.length} results${result.meta?.research?.mode === 'deep' ? ` · ${escapeHtml(result.meta.research.pages_read)} pages read` : ''}`;
+        searchOutput.innerHTML = `<div class="flex flex-wrap items-center gap-2 bg-ink-50 px-5 py-3 font-mono text-xs text-ink-500">${info}</div>${reportBlock}${standardAnswer}<ul>${resultList || '<li class="px-5 py-6 text-sm text-ink-500">No results returned.</li>'}</ul>`;
+      } catch (error) {
+        searchOutput.innerHTML = `<div class="p-5"><p class="text-sm font-semibold text-rose-800">Search failed</p><p class="mt-1 text-sm text-rose-700">${escapeHtml(error instanceof Error ? error.message : 'Could not complete search.')}</p></div>`;
+      } finally {
+        if (searchButton) {
+          searchButton.disabled = false;
+          searchButton.textContent = 'Search';
+        }
+      }
+    });
+
     const refreshProviderSettings = async () => {
       try {
         const data = await request('/api/account/providers');
@@ -194,6 +472,54 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
       }
     };
 
+    const showFirecrawlFeedback = (message: string) => {
+      if (!firecrawlFeedback) return;
+      firecrawlFeedback.textContent = message;
+      firecrawlFeedback.classList.remove('hidden');
+    };
+    const refreshFirecrawlSettings = async () => {
+      try {
+        const data = await request('/api/account/scraper');
+        if (firecrawlStatus) {
+          firecrawlStatus.textContent = data.configured ? 'Connected' : 'Not connected';
+          firecrawlStatus.className = data.configured
+            ? 'shrink-0 rounded-full bg-brand-50 px-2 py-1 text-[10px] font-semibold text-brand-700'
+            : 'shrink-0 rounded-full bg-ink-50 px-2 py-1 text-[10px] font-semibold text-ink-500';
+        }
+        if (deepScrapeKeyStatus) deepScrapeKeyStatus.textContent = data.configured ? 'Connected' : 'Not saved';
+        firecrawlRemove?.classList.toggle('hidden', !data.configured);
+        const save = root.querySelector<HTMLButtonElement>('[data-firecrawl-save]');
+        if (save) save.textContent = data.configured ? 'Replace key' : 'Save key';
+      } catch (error) {
+        if (firecrawlStatus) firecrawlStatus.textContent = 'Unavailable';
+        if (deepScrapeKeyStatus) deepScrapeKeyStatus.textContent = 'Unavailable';
+        showFirecrawlFeedback(error instanceof Error ? error.message : 'Could not load Firecrawl settings.');
+      }
+    };
+    root.querySelector('[data-firecrawl-save]')?.addEventListener('click', async (event) => {
+      const button = event.currentTarget as HTMLButtonElement;
+      const apiKey = firecrawlKey?.value.trim() ?? '';
+      if (!apiKey) { showFirecrawlFeedback('Enter your Firecrawl API key first.'); firecrawlKey?.focus(); return; }
+      button.disabled = true;
+      try {
+        await request('/api/account/scraper', { method: 'PUT', body: JSON.stringify({ api_key: apiKey }) });
+        if (firecrawlKey) firecrawlKey.value = '';
+        showFirecrawlFeedback('Firecrawl key saved securely. It will not be shown again.');
+        await refreshFirecrawlSettings();
+      } catch (error) { showFirecrawlFeedback(error instanceof Error ? error.message : 'Could not save your Firecrawl key.'); }
+      finally { button.disabled = false; }
+    });
+    firecrawlRemove?.addEventListener('click', async () => {
+      if (!confirm('Remove your saved Firecrawl key? Deep Scrape will no longer be available.')) return;
+      firecrawlRemove.disabled = true;
+      try {
+        await request('/api/account/scraper', { method: 'DELETE' });
+        showFirecrawlFeedback('Firecrawl key removed.');
+        await refreshFirecrawlSettings();
+      } catch (error) { showFirecrawlFeedback(error instanceof Error ? error.message : 'Could not remove your Firecrawl key.'); }
+      finally { firecrawlRemove.disabled = false; }
+    });
+
     const showAiFeedback = (message: string) => {
       if (!aiFeedback) return;
       aiFeedback.textContent = message;
@@ -208,7 +534,7 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
           if (aiModel) aiModel.value = data.model ?? '';
           if (aiStatus) aiStatus.textContent = `Personal AI key connected: ${data.provider} · ${data.model}. Its secret stays hidden.`;
         } else if (aiStatus) {
-          aiStatus.textContent = 'No personal AI key saved. x-web will use its built-in answer engine when available.';
+          aiStatus.textContent = 'No personal AI key saved. Add one to enable AI-generated answers; otherwise cited search-result answers are used.';
         }
         aiRemove?.classList.toggle('hidden', !data.configured);
         const save = root.querySelector<HTMLButtonElement>('[data-ai-save]');
@@ -230,7 +556,7 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
       finally { button.disabled = false; }
     });
     aiRemove?.addEventListener('click', async () => {
-      if (!confirm('Remove your personal AI key? x-web will use its built-in answer engine when available.')) return;
+      if (!confirm('Remove your personal AI key? AI-generated answers will be unavailable; cited search-result answers will still work.')) return;
       aiRemove.disabled = true;
       try {
         await request('/api/account/ai', { method: 'DELETE' });
@@ -252,9 +578,6 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
         const data = await request('/api/account/overview');
         setText('[data-welcome]', data.profile?.full_name ? `Welcome, ${data.profile.full_name}` : data.profile?.email ?? 'Welcome to x-web.');
         setText('[data-stat-email]', data.profile?.email ?? '—');
-        setText('[data-stat-plan]', data.profile?.plan_label ?? 'Free');
-        setText('[data-plan-name]', data.profile?.plan_label ?? 'Free');
-        setText('[data-stat-plan-note]', 'Plan billing is not enabled');
         setText('[data-stat-usage]', Number(data.usage?.requests_this_month ?? 0).toLocaleString());
         setText('[data-stat-keys]', String(data.keys?.length ?? 0));
         setText('[data-usage-month]', data.usage?.month_label ?? 'This month');
@@ -334,7 +657,7 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
       catch (error) { showError(error instanceof Error ? error.message : 'Could not revoke API key.'); }
     });
 
-    await Promise.all([load(), refreshProviderSettings(), refreshAiSettings()]);
+    await Promise.all([load(), refreshProviderSettings(), refreshFirecrawlSettings(), refreshAiSettings()]);
     supabase.auth.onAuthStateChange((_event, nextSession) => { if (!nextSession) location.replace('/login'); });
   }
 </script>

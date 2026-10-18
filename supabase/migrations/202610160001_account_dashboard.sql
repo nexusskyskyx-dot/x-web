@@ -5,7 +5,6 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text,
   full_name text,
-  plan text not null default 'free' check (plan in ('free', 'pro', 'team')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -85,7 +84,7 @@ drop policy if exists "Users can read their own x-web usage" on public.usage_eve
 create policy "Users can read their own x-web usage"
   on public.usage_events for select to authenticated using ((select auth.uid()) = user_id);
 
--- Users may read their profile and edit only their display name, never their plan.
+-- Users may read their profile and edit only their display name.
 revoke all on public.profiles from anon, authenticated;
 grant select on public.profiles to authenticated;
 grant update (full_name) on public.profiles to authenticated;

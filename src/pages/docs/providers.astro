@@ -64,7 +64,7 @@ const providers = [
 
 <Docs
   title="Search providers"
-  description="x-web routes every query across four independent search providers and normalises the answers into one response shape."
+  description="Connect Tavily, Brave, Serper or Exa; Standard searches one provider while Deep Research federates across your configured providers."
   toc={toc}
   updated="October 2026"
 >
@@ -127,9 +127,12 @@ const providers = [
 
   <h2 id="routing">How routing works</h2>
   <p>
-    Today each request uses the explicitly selected provider, the server's configured default, or
-    Tavily. Intent inference can add a news topic or recency window; x-web does not yet automatically
-    route or fail over between multiple provider accounts. The response names the provider used.
+    <strong>Standard</strong> uses one selected provider, the server default or Tavily. <strong>Deep
+    Research</strong> fans out across every search provider key saved to the account (or the explicit
+    allow-list), combines results and tolerates partial provider failures. <strong>Automatic</strong>
+    decides whether a question needs that deeper workflow; the account-wide mode is selected once in
+    the dashboard and carries into x-web API and MCP calls. Standard mode does not automatically fail
+    over if its selected provider is unavailable; the response names the provider used.
   </p>
   <p>Pin one explicitly when you need deterministic behaviour:</p>
   <CodeBlock

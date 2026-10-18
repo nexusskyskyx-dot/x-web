@@ -137,7 +137,7 @@ export class BodyError extends Error {
 /** Accept the same parameters on the query string as in the JSON body. */
 export function searchParamsToBody(url: URL): Record<string, unknown> {
   const body: Record<string, unknown> = {};
-  for (const key of ['query', 'q', 'provider', 'topic', 'search_depth', 'language', 'country', 'time_range', 'query_rewrite']) {
+  for (const key of ['query', 'q', 'mode', 'provider', 'topic', 'search_depth', 'language', 'country', 'time_range', 'query_rewrite']) {
     const value = url.searchParams.get(key);
     if (value !== null && value !== '') body[key === 'q' ? 'query' : key] = value;
   }

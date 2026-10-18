@@ -5,6 +5,10 @@ import { synthesizeAnswer, type AnswerSource } from './answer.ts';
 // No LLM key in tests — exercises the extractive path.
 delete process.env.OPENAI_API_KEY;
 delete process.env.ANTHROPIC_API_KEY;
+delete process.env.GROQ_API_KEY;
+delete process.env.CLOUDFLARE_ACCOUNT_ID;
+delete process.env.CLOUDFLARE_API_TOKEN;
+delete process.env.XWEB_ANSWER_MODEL;
 
 const sources: AnswerSource[] = [
   {
@@ -12,11 +16,15 @@ const sources: AnswerSource[] = [
     url: 'https://modelcontextprotocol.io',
     snippet:
       'The Model Context Protocol (MCP) is an open protocol that standardises how applications provide context to large language models. It was released by Anthropic in November 2024. MCP uses a client-server architecture.',
+    raw_content:
+      'The Model Context Protocol (MCP) is an open protocol that standardises how applications provide context to large language models. It was released by Anthropic in November 2024. MCP uses a client-server architecture.',
   },
   {
     title: 'Introducing MCP',
     url: 'https://www.anthropic.com/news/model-context-protocol',
     snippet:
+      'Today we are open-sourcing the Model Context Protocol. MCP lets you build secure, two-way connections between your data and AI-powered tools. The protocol is transport agnostic.',
+    raw_content:
       'Today we are open-sourcing the Model Context Protocol. MCP lets you build secure, two-way connections between your data and AI-powered tools. The protocol is transport agnostic.',
   },
   {
@@ -124,6 +132,172 @@ describe('answer synthesis', () => {
       assert.equal(requestBody.model, 'llama-test');
       assert.equal(requestBody.messages[0].content.startsWith('You are the answer engine'), true);
     } finally { globalThis.fetch = originalFetch; }
+  });
+
+  test('flags claims that do not match the cited scraped source text', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => new Response(JSON.stringify({
+      choices: [{ message: { content: 'The Model Context Protocol is an open protocol [1]. Satellite dishes have no effect on MCP [1].' } }],
+    }), { status: 200 })) as typeof fetch;
+    try {
+      const answer = await synthesizeAnswer('what is the model context protocol', sources, {
+        allowLlm: true,
+        aiConfig: { provider: 'groq', model: 'llama-test', apiKey: 'user-secret', source: 'byok' },
+      });
+      assert.ok(answer);
+      assert.equal(answer.mode, 'llm');
+      assert.match(answer.text, /Satellite dishes have no effect on MCP \[Unverified\]/);
+      assert.deepEqual(answer.citation_verification, {
+        status: 'flagged',
+        supported_claims: 1,
+        flagged_claims: 1,
+        method: 'source_text_overlap',
+      });
+      assert.deepEqual(answer.citations.map((citation) => citation.index), [1]);
+    } finally { globalThis.fetch = originalFetch; }
+  });
+
+  test('runs one optional semantic review through the saved BYOK model and validates its exact quote', async () => {
+    const originalFetch = globalThis.fetch;
+    let requests = 0;
+    const requestModels: string[] = [];
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      requests += 1;
+      const body = JSON.parse(String(init?.body ?? '{}'));
+      requestModels.push(body.model);
+      const content = requests === 1
+        ? 'MCP creates a standardized channel for software to transmit relevant context to AI systems [1]'
+        : JSON.stringify({ results: [{ id: 1, verdict: 'supported', quote: 'The Model Context Protocol (MCP) is an open protocol that standardises how applications provide context to large language models.' }] });
+      return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 });
+    }) as typeof fetch;
+    try {
+      const answer = await synthesizeAnswer('what is the model context protocol', [sources[0]], {
+        allowLlm: true,
+        semanticCitationCheck: true,
+        aiConfig: { provider: 'groq', model: 'llama-test', apiKey: 'user-secret', source: 'byok' },
+      });
+      assert.ok(answer);
+      assert.equal(requests, 2, 'one answer call and one batched semantic review call');
+      assert.deepEqual(requestModels, ['llama-test', 'llama-test']);
+      assert.match(answer.text, /\[1\]/);
+      assert.deepEqual(answer.citation_verification, {
+        status: 'supported',
+        supported_claims: 1,
+        flagged_claims: 0,
+        method: 'lexical_plus_semantic',
+        semantic_checked_claims: 1,
+        semantic_supported_claims: 1,
+      });
+    } finally { globalThis.fetch = originalFetch; }
+  });
+
+  test('does not accept a semantic verdict without an exact quote found in the cited page', async () => {
+    const originalFetch = globalThis.fetch;
+    let requests = 0;
+    globalThis.fetch = (async () => {
+      requests += 1;
+      const content = requests === 1
+        ? 'The Model Context Protocol is an open protocol [1]. MCP creates a standardized channel for software to transmit relevant context to AI systems [1]'
+        : JSON.stringify({ results: [{ id: 1, verdict: 'supported', quote: 'This claim is fully supported by magic.' }] });
+      return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 });
+    }) as typeof fetch;
+    try {
+      const answer = await synthesizeAnswer('what is the model context protocol', [sources[0]], {
+        allowLlm: true,
+        semanticCitationCheck: true,
+        aiConfig: { provider: 'groq', model: 'llama-test', apiKey: 'user-secret', source: 'byok' },
+      });
+      assert.ok(answer);
+      assert.equal(requests, 2);
+      assert.match(answer.text, /MCP creates a standardized channel.*\[Unverified\]/);
+      assert.deepEqual(answer.citations.map((citation) => citation.index), [1]);
+      assert.deepEqual(answer.citation_verification, {
+        status: 'flagged', supported_claims: 1, flagged_claims: 1,
+        method: 'lexical_plus_semantic', semantic_checked_claims: 1,
+      });
+    } finally { globalThis.fetch = originalFetch; }
+  });
+
+  test('routes OpenRouter BYOK through its OpenAI-compatible endpoint', async () => {
+    const originalFetch = globalThis.fetch;
+    let requestUrl = '';
+    let requestHeaders: HeadersInit | undefined;
+    let requestBody: any;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      requestUrl = String(input);
+      requestHeaders = init?.headers;
+      requestBody = JSON.parse(String(init?.body ?? '{}'));
+      return new Response(JSON.stringify({ choices: [{ message: { content: 'MCP is an open protocol for connected context. [1]' } }] }), { status: 200 });
+    }) as typeof fetch;
+    try {
+      const answer = await synthesizeAnswer('what is the model context protocol', sources, {
+        allowLlm: true,
+        aiConfig: { provider: 'openrouter', model: 'openai/gpt-5.2', apiKey: 'openrouter-user-key', source: 'byok' },
+      });
+      assert.ok(answer);
+      assert.equal(answer.mode, 'llm');
+      assert.equal(answer.ai_provider, 'openrouter');
+      assert.equal(answer.ai_key_source, 'byok');
+      assert.equal(requestUrl, 'https://openrouter.ai/api/v1/chat/completions');
+      assert.equal(requestBody.model, 'openai/gpt-5.2');
+      assert.equal(new Headers(requestHeaders).get('authorization'), 'Bearer openrouter-user-key');
+      assert.equal(new Headers(requestHeaders).get('x-openrouter-title'), 'x-web');
+    } finally { globalThis.fetch = originalFetch; }
+  });
+
+  test('routes xKiro BYOK through its OpenAI-compatible endpoint', async () => {
+    const originalFetch = globalThis.fetch;
+    let requestUrl = '';
+    let requestBody: any;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      requestUrl = String(input);
+      requestBody = JSON.parse(String(init?.body ?? '{}'));
+      return new Response(JSON.stringify({ choices: [{ message: { content: 'MCP is an open protocol for connected context. [1]' } }] }), { status: 200 });
+    }) as typeof fetch;
+    try {
+      const answer = await synthesizeAnswer('what is the model context protocol', sources, {
+        allowLlm: true,
+        aiConfig: { provider: 'xkiro', model: 'openai/gpt-5.6-sol', apiKey: 'xkiro-user-key', source: 'byok' },
+      });
+      assert.ok(answer);
+      assert.equal(answer.mode, 'llm');
+      assert.equal(answer.ai_provider, 'xkiro');
+      assert.equal(answer.ai_key_source, 'byok');
+      assert.equal(requestUrl, 'https://api.xkiro.com/v1/chat/completions');
+      assert.equal(requestBody.model, 'openai/gpt-5.6-sol');
+    } finally { globalThis.fetch = originalFetch; }
+  });
+
+  test('does not use server-managed model credentials; AI synthesis requires BYOK', async () => {
+    const oldEnv = {
+      openai: process.env.OPENAI_API_KEY,
+      anthropic: process.env.ANTHROPIC_API_KEY,
+      groq: process.env.GROQ_API_KEY,
+      cloudflareAccountId: process.env.CLOUDFLARE_ACCOUNT_ID,
+      cloudflareToken: process.env.CLOUDFLARE_API_TOKEN,
+    };
+    process.env.OPENAI_API_KEY = 'server-openai-secret';
+    process.env.ANTHROPIC_API_KEY = 'server-anthropic-secret';
+    process.env.GROQ_API_KEY = 'server-groq-secret';
+    process.env.CLOUDFLARE_ACCOUNT_ID = 'cloudflare-account';
+    process.env.CLOUDFLARE_API_TOKEN = 'cloudflare-secret';
+    try {
+      const answer = await synthesizeAnswer('what is the model context protocol', sources, {
+        allowLlm: true,
+      });
+      assert.ok(answer);
+      assert.notEqual(answer.mode, 'llm');
+    } finally {
+      for (const [key, value] of Object.entries({
+        OPENAI_API_KEY: oldEnv.openai,
+        ANTHROPIC_API_KEY: oldEnv.anthropic,
+        GROQ_API_KEY: oldEnv.groq,
+        CLOUDFLARE_ACCOUNT_ID: oldEnv.cloudflareAccountId,
+        CLOUDFLARE_API_TOKEN: oldEnv.cloudflareToken,
+      })) {
+        if (value === undefined) delete process.env[key]; else process.env[key] = value;
+      }
+    }
   });
 
   test('does not carry the LLM path when no model is configured', async () => {

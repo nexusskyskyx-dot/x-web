@@ -10,7 +10,7 @@ const heroTabs = [
     label: 'cURL',
     lang: 'bash',
     code: `curl -X POST "$XWEB_BASE/api/v1/search" \\
-  -H "X-XWeb-Key: $TAVILY_API_KEY" \\
+  -H "X-XWeb-Key: $XWEB_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "query": "What is the latest on the Model Context Protocol?",
@@ -25,7 +25,7 @@ const heroTabs = [
   method: "POST",
   headers: {
     "Content-Type": "application/json",
-    "X-XWeb-Key": process.env.TAVILY_API_KEY,
+    "X-XWeb-Key": process.env.XWEB_API_KEY,
   },
   body: JSON.stringify({
     query: "What is the latest on the Model Context Protocol?",
@@ -52,6 +52,24 @@ const capabilities = [
     accent: 'from-brand-400 to-brand-600',
   },
   {
+    icon: 'layers' as const,
+    title: 'Deep Research',
+    body: 'Plan research queries, search every configured provider, read up to 10 public pages and return a cited report using your saved AI key.',
+    accent: 'from-brand-500 to-brand-800',
+  },
+  {
+    icon: 'shield' as const,
+    title: 'One-tap mode sync',
+    body: 'Choose Automatic, Standard or Deep Research in your dashboard. Connected x-web agents follow your saved preference without code changes.',
+    accent: 'from-brand-400 to-brand-700',
+  },
+  {
+    icon: 'check' as const,
+    title: 'Citation evidence checks',
+    body: 'Deep reports are checked against fetched page text. Unsupported citation markers are removed and claims are labeled Unverified; the text-overlap check is not a proof of truth.',
+    accent: 'from-brand-500 to-brand-700',
+  },
+  {
     icon: 'globe' as const,
     title: 'Multi-language',
     body: 'Detect query language and pass it through where the chosen provider supports language filtering.',
@@ -74,6 +92,12 @@ const capabilities = [
     title: 'Image search',
     body: 'Search Brave Images or Serper Images and get image and thumbnail URLs, source pages, titles and available dimensions.',
     accent: 'from-brand-500 to-brand-800',
+  },
+  {
+    icon: 'code' as const,
+    title: 'Plug-and-play MCP',
+    body: 'Connect compatible AI clients to x-web’s hosted MCP server with your account key—no adapter code or local server required.',
+    accent: 'from-brand-400 to-brand-700',
   },
 ];
 
@@ -103,11 +127,11 @@ const features = [
 const steps = [
   {
     title: 'Connect a provider',
-    body: 'Add a Tavily, Brave Search, Serper or Exa key in your account dashboard, then call search with your x-web API key.'
+    body: 'Save a search-provider key and, for Deep Research, an AI key in your account dashboard. Create an x-web API key for your agent.'
   },
   {
-    title: 'Call the search API',
-    body: 'Send a natural-language query to /api/v1/search from your server-side application.',
+    title: 'Choose your search mode',
+    body: 'Pick Automatic, Standard or Deep Research in the dashboard. The saved mode carries over to your connected agent; no mode flag is needed.',
   },
   {
     title: 'Use current, cited results',
@@ -126,11 +150,15 @@ const faqs = [
   },
   {
     q: 'Does every answer use an LLM?',
-    a: 'No. If you configure an OpenAI-compatible or Anthropic model, x-web can synthesize from sources. Otherwise it uses an upstream provider answer or extractive synthesis. The response says which mode ran.',
+    a: 'Only when you save your own AI provider key. Without it, x-web uses an upstream provider answer or cited source sentences; it never calls a server-managed AI model.'
   },
   {
-    q: 'Can I create an account or select a payment plan?',
-    a: 'Not yet. We are building the API capabilities first. Accounts, plan selection and payments are the next product milestone.',
+    q: 'Will my dashboard mode apply to my AI agent?',
+    a: 'Yes. When your agent uses your x-web account key or the hosted MCP connection, it follows the mode saved in your dashboard. Automatic keeps routine lookups standard and escalates research-heavy questions; Standard and Deep Research are explicit account-wide choices.',
+  },
+  {
+    q: 'Is x-web free?',
+    a: 'Yes. x-web itself is free to use, with no paid tiers or subscriptions. You bring your own search and AI provider keys, and those providers may charge you directly.'
   },
 ];
 
@@ -166,8 +194,9 @@ const integrations = ['Tavily', 'Brave Search', 'Serper', 'Exa'];
           </h1>
 
           <p class="mt-6 max-w-xl text-lg leading-relaxed text-ink-600">
-            x-web gives your agent one API for live web search, cited answers, page text and query
-            understanding — so it can look up what happened today, not guess from training data.
+            x-web gives your agent live web search, cited answers, page text and Deep Research. Choose
+            Automatic, Standard or Deep Research once in your dashboard—the connected agent follows
+            your preference, with no mode code to write.
           </p>
 
           <div class="mt-8 flex flex-wrap items-center gap-3">
@@ -176,6 +205,7 @@ const integrations = ['Tavily', 'Brave Search', 'Serper', 'Exa'];
               <Icon name="arrowRight" class="h-4 w-4" />
             </a>
             <a href="/docs" class="btn-secondary">Read the docs</a>
+            <a href="/docs/mcp" class="text-sm font-semibold text-brand-700 hover:text-brand-800">Connect an MCP client</a>
           </div>
 
           <ul class="mt-10 flex flex-wrap gap-x-6 gap-y-2.5">
@@ -183,8 +213,8 @@ const integrations = ['Tavily', 'Brave Search', 'Serper', 'Exa'];
               [
                 'Live provider results',
                 '4 search integrations',
-                'Optional cited answers',
-                'No x-web account needed yet',
+                'Automatic, Standard & Deep modes',
+                'Remote MCP, no adapter code',
               ].map((item) => (
                 <li class="flex items-center gap-2 text-sm text-ink-500">
                   <span class="grid h-5 w-5 place-items-center rounded-full bg-brand-50 text-brand-600">
@@ -294,10 +324,9 @@ const integrations = ['Tavily', 'Brave Search', 'Serper', 'Exa'];
       <div class="grid gap-12 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
         <div>
           <p class="text-sm font-semibold text-brand-600">Why x-web</p>
-          <h2 class="mt-2 text-3xl sm:text-4xl">Built for agents, not dashboards</h2>
+          <h2 class="mt-2 text-3xl sm:text-4xl">Powerful for agents. Simple in your dashboard.</h2>
           <p class="mt-4 text-lg leading-relaxed text-ink-600">
-            Most search APIs were designed for humans clicking through ten blue links. x-web was
-            designed for a model deciding what to read next.
+            Connect x-web to an agent over hosted MCP, then manage its search provider, AI key and search mode visually from the dashboard.
           </p>
           <a href="/docs" class="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:text-brand-800">
             See the API reference
@@ -393,7 +422,7 @@ const integrations = ['Tavily', 'Brave Search', 'Serper', 'Exa'];
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-XWeb-Key": process.env.TAVILY_API_KEY
+      "X-XWeb-Key": process.env.XWEB_API_KEY
     },
     body: JSON.stringify({ query, include_answer: true })
   });
@@ -430,9 +459,10 @@ const integrations = ['Tavily', 'Brave Search', 'Serper', 'Exa'];
       <h2 class="mt-2 text-3xl sm:text-4xl">Your API keys and usage, in one place</h2>
       <p class="mt-4 max-w-2xl leading-relaxed text-ink-600">
         Create an account, connect your Tavily, Brave Search, Serper and/or Exa keys, issue and revoke
-        x-web API keys, and review usage on your dashboard. Searches authenticated with your x-web key
-        use saved search-provider credentials and your AI summary settings. Connect OpenAI, Claude,
-        or Groq for BYOK control; paid upgrades are not enabled yet.
+        x-web API keys, and review usage on your dashboard. x-web is free to use with no paid tiers
+        or subscriptions. Searches authenticated with your x-web key use saved search-provider
+        credentials and your AI settings. Connect OpenAI, Claude, Groq, OpenRouter, or xKiro with BYOK;
+        those third-party providers may charge for their API usage. Choose Automatic, Standard or Deep Research once in the dashboard and connected agents inherit that preference.
       </p>
       <a href="/login" class="btn-primary mt-6 inline-flex">Create your account</a>
     </div>

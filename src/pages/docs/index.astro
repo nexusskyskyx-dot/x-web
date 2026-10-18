@@ -18,19 +18,22 @@ const capabilities = [
   { icon: 'extract' as const, title: 'Snippets & page text', body: 'Get provider snippets, or ask x-web to fetch public result pages and return cleaned readable content.' },
   { icon: 'globe' as const, title: 'Multi-language', body: 'Detect query language locally and pass language preferences through where the selected provider supports them.' },
   { icon: 'crawl' as const, title: 'Query understanding', body: 'Infer intent, keywords, entities, country and freshness from natural-language questions; inspect the rules and signals in the response.' },
+  { icon: 'layers' as const, title: 'Deep Research', body: 'Plan several searches, search configured providers, read up to 10 public pages and generate a cited report with your saved AI key.' },
+  { icon: 'shield' as const, title: 'Account-wide mode', body: 'Choose Automatic, Standard or Deep Research once in the Dashboard. Account-key requests and your connected MCP agent follow that preference.' },
+  { icon: 'code' as const, title: 'Hosted MCP', body: 'Connect an AI client with your x-web account key—no adapter or mode parameter to write. The Dashboard setting controls the tool.' },
 ];
 ---
 
 <Docs
   title="Introduction"
-  description="A real web-search API for AI agents: current results, cited answers, extracted text, multilingual queries and inspectable query understanding."
+  description="Live web search for AI agents: cited answers, Automatic and Deep Research modes, page extraction and a hosted MCP connection controlled from your Dashboard."
   toc={toc}
 >
   <h2 id="what-is-x-web">What is x-web?</h2>
   <p>
     x-web is a server-side web access layer for AI agents. It accepts a natural-language query,
-    searches a live third-party index, and returns a consistent response with source URLs, snippets,
-    optional cited answers, language detection and the interpretation used to search.
+    searches one provider or federates across configured providers in Deep Research, and returns a
+    consistent response with source URLs, snippets, cited reports, language detection and query metadata.
   </p>
   <p>
     Search is powered by Tavily, Brave Search, Serper or Exa. Sign in, save one or more provider keys
@@ -52,25 +55,27 @@ const capabilities = [
       </div>
     ))}
   </div>
-  <Callout type="note" title="Built-in AI and Bring Your Own Key">
-    Save an OpenAI, Anthropic (Claude), or Groq key in your account dashboard to choose the model
-    yourself; x-web encrypts it and sends it only to that provider. Without a personal key, x-web
-    uses its server-managed default AI model when enabled, then falls back to a provider answer or
-    cited source sentences. The response reports the actual answer mode and AI key source.
+  <Callout type="note" title="AI answers require your own key">
+    Save an OpenAI, Anthropic (Claude), Groq, OpenRouter, or xKiro key in your account dashboard; x-web encrypts it and
+    sends it only to that provider for answer synthesis. Without a saved key, x-web uses a provider
+    answer when available or cited source sentences—it does not use a built-in AI model. The response
+    reports the answer mode and BYOK provider.
   </Callout>
 
   <h2 id="base-url">Base URL &amp; authentication</h2>
   <p>
     Use your deployment URL as the base (for example <code>https://your-project.vercel.app</code>).
-    For search, send a provider key in <code>X-XWeb-Key</code> or <code>Authorization: Bearer …</code>.
-    The intent endpoint does not require a provider key; extraction does not currently require an
-    x-web key but only fetches public URLs.
+    For account search, send your x-web account key in <code>X-XWeb-Key</code> or
+    <code>Authorization: Bearer …</code>. That lets x-web use your saved provider/AI credentials and
+    Dashboard mode preference. Direct provider keys are supported for one-off standard searches;
+    they do not carry account preferences or saved AI credentials. Intent needs no key; extraction
+    only fetches public URLs.
   </p>
   <CodeBlock
     lang="bash"
     title="request"
     code={`curl -X POST "$XWEB_BASE/api/v1/search" \\
-  -H "X-XWeb-Key: $TAVILY_API_KEY" \\
+  -H "X-XWeb-Key: $XWEB_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{"query":"What is the latest on MCP?","include_answer":true}'`}
   />
@@ -82,15 +87,17 @@ const capabilities = [
     <li><code>POST /api/v1/intent</code> — query classification, language detection, entities and rewrite.</li>
     <li><code>POST /api/v1/extract</code> — extract readable text and optional embedded images from 1–10 public URLs.</li>
     <li><code>POST /api/v1/images</code> — live image search through Brave Images or Serper Images.</li>
+    <li><code>/api/mcp</code> — remote MCP server with the <code>xweb_search</code> tool for compatible AI clients; it follows the Dashboard mode.</li>
+    <li><code>GET/PUT /api/account/search-preference</code> — read or save the account-wide Automatic, Standard or Deep Research choice.</li>
   </ul>
-  <p>See the <a href="/docs/api">API reference</a> for fields, errors and examples.</p>
+  <p>See the <a href="/docs/api">API reference</a> for fields, errors and examples, or the <a href="/docs/mcp">MCP setup guide</a> to connect an AI client without writing integration code.</p>
 
   <h2 id="next">Accounts and dashboard</h2>
   <p>
     Sign in at <a href="/login">/login</a> to add provider keys for Tavily, Brave Search, Serper
-    and Exa, create or revoke x-web API keys, and view your plan and monthly usage. Use your x-web
-    API key for searches; the server uses the provider credentials saved to your account. Paid plan
-    selection, subscriptions and quota enforcement are not enabled. See the <a href="/docs/api#accounts">account setup</a>
-    section in the API reference.
+    and Exa, create or revoke x-web API keys, and view informational monthly usage. x-web is free:
+    there are no paid tiers, subscriptions or x-web usage charges. Your search and AI providers may
+    charge you directly for API usage. See the <a href="/docs/api#accounts">account setup</a> section
+    in the API reference.
   </p>
 </Docs>

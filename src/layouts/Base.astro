@@ -16,6 +16,7 @@ const {
 } = Astro.props;
 
 const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
+const socialImage = new URL('/images/x-web-logo.webp', Astro.site ?? Astro.url.origin);
 ---
 
 <!doctype html>
@@ -26,6 +27,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/webp" href="/images/x-web-logo.webp" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="theme-color" content="#7c3aed" />
     <meta name="generator" content={Astro.generator} />
@@ -35,7 +37,10 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
     <meta property="og:site_name" content="x-web" />
+    <meta property="og:image" content={socialImage} />
+    <meta property="og:image:alt" content="The x-web logo in purple and black" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content={socialImage} />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
   </head>

@@ -27,7 +27,7 @@ export async function PUT({ request }: APIContext) {
     if (error instanceof BodyError) return invalidRequest(error.message, undefined, 'invalid_json');
     return invalidRequest('Request body must be valid JSON.', undefined, 'invalid_json');
   }
-  if (!isAiProvider(body.provider)) return invalidRequest('`provider` must be openai, anthropic, or groq.', 'provider', 'invalid_ai_provider');
+  if (!isAiProvider(body.provider)) return invalidRequest('`provider` must be openai, anthropic, groq, openrouter, or xkiro.', 'provider', 'invalid_ai_provider');
   const provider = body.provider as AiProvider;
   const apiKey = typeof body.api_key === 'string' ? body.api_key.trim() : '';
   const model = typeof body.model === 'string' && body.model.trim() ? body.model.trim() : AI_DEFAULT_MODELS[provider];
