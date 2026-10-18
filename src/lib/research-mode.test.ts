@@ -10,6 +10,7 @@ test('automatic mode keeps ordinary lookups standard', () => {
 test('automatic mode escalates research-heavy questions', () => {
   assert.equal(resolveResearchMode('Compare the latest AI model releases and their pros and cons', 'automatic'), 'deep');
   assert.equal(resolveResearchMode('Compara las tendencias recientes de energía solar en profundidad', 'automatic'), 'deep');
+  assert.equal(resolveResearchMode('Current best app for making videos', 'automatic'), 'deep');
 });
 
 test('explicit standard and deep preferences are honored', () => {

@@ -12,6 +12,9 @@ export function resolveResearchMode(query: string, preference: ResearchModePrefe
     /\b(compare|comparison|versus|\bvs\.?\b|pros and cons|trade-?offs?)\b/,
     /\b(comprehensive|in[- ]depth|deep dive|thorough|investigate|research|analysis|analyze|analyse)\b/,
     /\b(latest|recent|current state|over time|history|trend|impact|outlook|forecast)\b/,
+    /\b(best|top|leading|recommended)\b.{0,60}\b(apps?|tools?|software|platforms?|services?)\b/,
+    /\b(current|latest)\s+(best|top|leading)\b/,
+    /\b(mejores?|recomendad[oa]s?)\b.{0,60}\b(apps?|aplicaciones|herramientas|software|plataformas?)\b/,
     /\b(compara|comparación|versus|ventajas y desventajas|a fondo|en profundidad|investiga|análisis|analiza|tendencias|impacto|historia|actualizado|reciente)\b/,
   ];
   const hasMultipleQuestions = (query.match(/[?？]/g)?.length ?? 0) > 1;
