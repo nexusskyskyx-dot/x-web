@@ -73,15 +73,19 @@ const toc = [
     each request. It is stateless, so clients do not need a separate session setup.
   </p>
 
+  <h2 id="modes">Search modes</h2>
+  <p>The <code>xweb_search</code> tool accepts an optional <code>mode</code>: <code>standard</code> (default) searches one configured provider for quick snippets, while <code>deep</code> plans 2–4 research queries, fans out across configured provider keys, reads up to 10 public pages, and returns a Markdown report in <code>report</code> (and <code>answer</code>) with inline citations and a structured <code>citations</code> list. The structured tool result includes results, citations, providers used and <code>research</code> metadata (subqueries, pages attempted/read). Deep mode requires the account's saved AI BYOK key; no server-managed model fallback is used.</p>
+  <CodeBlock lang="json" title="deep tool arguments" code={`{ "query": "Compare…", "mode": "deep", "max_results": 10 }`} />
+
   <h2 id="credentials">Required credentials</h2>
   <ul>
     <li><strong>x-web API key:</strong> authenticates your account and records usage.</li>
     <li><strong>Search-provider key:</strong> saved in your dashboard; powers live web search.</li>
-    <li><strong>AI-provider key:</strong> optional, but required for AI-generated answer synthesis. x-web never substitutes a server-owned model key.</li>
+    <li><strong>AI-provider key:</strong> optional in standard mode, but required for AI-generated answers and mandatory in deep mode. x-web never substitutes a server-owned model key.</li>
   </ul>
   <p>
-    Without an AI key, x-web can still return live search results and any answer provided by the
-    search provider; it does not call an AI model as a fallback. See the
+    Without an AI key, standard mode can still return live search results and any answer provided by the
+    search provider; deep mode rejects the request. x-web does not call an AI model as a fallback. See the
     <a href="/docs/providers">provider guide</a> for supported search providers.
   </p>
 

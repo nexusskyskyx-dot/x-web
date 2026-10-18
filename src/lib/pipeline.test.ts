@@ -47,7 +47,7 @@ describe('search pipeline', () => {
   test('returns the full v1 contract', async () => {
     const calls = mockProvider(TAVILY_PAYLOAD);
     const result = await runPipeline(
-      { query: 'what is the model context protocol' },
+      { query: 'what is the model context protocol', include_answer: true },
       { apiKey: 'tvly-test' },
     );
 
@@ -173,6 +173,13 @@ describe('search pipeline', () => {
     assert.equal(new Headers(calls[0].init.headers).get('X-Subscription-Token'), 'account-brave-secret');
   });
 
+  test('chooses an available saved provider when mode is standard and none is explicitly selected', async () => {
+    const calls = mockProvider({ web: { results: [{ title: 'MCP', url: 'https://example.com/mcp', description: 'Protocol overview.' }] } });
+    const result = await runPipeline({ query: 'MCP', mode: 'standard' }, { providerKeys: { brave: 'brave-account-key' } });
+    assert.equal(result.provider, 'brave');
+    assert.equal(calls.length, 1);
+  });
+
   test('integrates configured secondary keys into one federated pipeline result', async () => {
     const keys = ['TAVILY_API_KEY', 'BRAVE_API_KEY', 'SERPER_API_KEY', 'EXA_API_KEY', 'XWEB_SEARCH_API_KEY', 'XWEB_SEARCH_PROVIDER'] as const;
     const previousEnv = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
@@ -200,6 +207,54 @@ describe('search pipeline', () => {
         if (value === undefined) delete process.env[key];
         else process.env[key] = value;
       }
+    }
+  });
+
+  test('deep mode plans queries, searches concurrently, extracts pages and returns a BYOK report', async () => {
+    const previousFetch = globalThis.fetch;
+    const aiCalls: any[] = [];
+    const providerQueries: string[] = [];
+    const aiConfig = { provider: 'openai' as const, model: 'test-model', apiKey: 'byok-secret', source: 'byok' as const };
+    globalThis.fetch = (async (input: any, init: any = {}) => {
+      const url = String(input);
+      if (url.includes('api.openai.com')) {
+        const body = JSON.parse(String(init.body));
+        aiCalls.push(body);
+        const system = body.messages?.[0]?.content ?? body.system ?? '';
+        const content = String(system).includes('research planner')
+          ? JSON.stringify({ queries: ['MCP architecture and protocol', 'MCP adoption and security'] })
+          : '## Overview\nThe Model Context Protocol standardizes connections between AI applications and tools [1].\n## Key findings\nIt is an open protocol [1].';
+        return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { headers: { 'Content-Type': 'application/json' } });
+      }
+      if (url.includes('api.tavily.com')) {
+        const body = JSON.parse(String(init.body));
+        providerQueries.push(body.query);
+        return new Response(JSON.stringify({ results: [{ title: `Source for ${body.query}`, url: `https://modelcontextprotocol.io/research/${providerQueries.length}`, content: 'The Model Context Protocol is an open standard connecting AI applications with tools and data sources.' }] }), { headers: { 'Content-Type': 'application/json' } });
+      }
+      if (url.startsWith('https://modelcontextprotocol.io/research/')) {
+        return new Response('<html><title>Research source</title><article><p>The Model Context Protocol is an open standard connecting AI applications with tools and data sources. It defines a structured way for systems to communicate and exchange context.</p></article></html>', { headers: { 'Content-Type': 'text/html' } });
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    }) as typeof fetch;
+    try {
+      const result = await runPipeline({ query: 'Research the Model Context Protocol', mode: 'deep' }, {
+        providerKeys: { tavily: 'tvly-saved' }, aiConfig,
+      });
+      assert.deepEqual(providerQueries, ['Research the Model Context Protocol', 'MCP architecture and protocol', 'MCP adoption and security']);
+      assert.equal(aiCalls.length, 2, 'the saved BYOK model should plan and write the report');
+      assert.equal(result.mode, 'deep');
+      assert.equal(result.meta.research?.mode, 'deep');
+      assert.equal(result.report, result.answer?.text);
+      assert.ok(result.citations?.length);
+      assert.equal(result.meta.research?.subqueries.length, 3);
+      assert.equal(result.meta.research?.pages_read, 3);
+      assert.equal(result.answer?.format, 'markdown_report');
+      assert.match(result.answer?.text ?? '', /## Key findings/);
+      assert.equal(result.answer?.ai_key_source, 'byok');
+      assert.ok(result.answer?.citations.length);
+      assert.equal(result.results.length, 3);
+    } finally {
+      globalThis.fetch = previousFetch;
     }
   });
 
@@ -237,6 +292,14 @@ describe('pipeline validation', () => {
         return true;
       });
     }
+  });
+
+  test('requires the caller saved AI BYOK key for deep mode', async () => {
+    await assert.rejects(() => runPipeline({ query: 'research', mode: 'deep' }, { apiKey: 'tvly-test' }), (error: unknown) => {
+      assert.ok(error instanceof PipelineError);
+      assert.equal(error.code, 'deep_mode_requires_ai_key');
+      return true;
+    });
   });
 
   test('rejects an over-long query', async () => {

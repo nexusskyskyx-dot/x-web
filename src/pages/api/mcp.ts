@@ -73,13 +73,14 @@ async function handleMcp({ request, clientAddress }: APIContext): Promise<Respon
     description: 'Search current web sources through the x-web pipeline and return a grounded answer with citations and source links.',
     inputSchema: {
       query: z.string().trim().min(1).max(500).describe('The question or topic to search for.'),
+      mode: z.enum(['standard', 'deep']).optional().describe('standard uses one provider and snippets; deep plans multiple queries, searches all configured providers, reads up to 10 pages, and writes a cited Markdown report using your saved BYOK AI credential.'),
       max_results: z.number().int().min(1).max(20).optional().describe('Maximum number of web results to return (1–20).'),
-      include_answer: z.boolean().optional().describe('Include an answer grounded in the search results. Defaults to true.'),
+      include_answer: z.boolean().optional().describe('Include a short grounded answer in standard mode (default false). Deep mode always returns its report.'),
       language: z.string().max(35).optional().describe('Optional BCP-47 language tag for the answer and results.'),
       provider: z.enum(['tavily', 'brave', 'serper', 'exa']).optional().describe('Optional search provider to use.'),
     },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: true },
-  }, async ({ query, max_results, include_answer, language, provider }) => {
+  }, async ({ query, mode, max_results, include_answer, language, provider }) => {
     try {
       const admin = createAdminClient();
       const [providerResult, aiResult] = await Promise.all([
@@ -97,8 +98,9 @@ async function handleMcp({ request, clientAddress }: APIContext): Promise<Respon
 
       const result = await runPipeline({
         query,
+        mode: mode ?? 'standard',
         max_results,
-        include_answer: include_answer ?? true,
+        include_answer: mode === 'deep' ? true : (include_answer ?? false),
         language,
         provider,
       }, { providerKeys, aiConfig });
@@ -112,10 +114,13 @@ async function handleMcp({ request, clientAddress }: APIContext): Promise<Respon
       const payload = {
         query: result.query,
         answer: result.answer?.text ?? null,
-        citations: result.answer?.citations ?? [],
+        report: result.report ?? null,
+        citations: result.citations ?? result.answer?.citations ?? [],
         results: result.results.map(({ title, url, snippet, published_date }) => ({ title, url, snippet, published_date })),
         providers_used: result.providers_used,
         effective_query: result.meta.effective_query,
+        mode: mode ?? 'standard',
+        research: result.meta.research,
       };
       return { content: [{ type: 'text' as const, text: JSON.stringify(payload) }] };
     } catch (error) {

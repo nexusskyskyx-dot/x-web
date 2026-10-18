@@ -26,13 +26,14 @@ describe('HTTP request helpers', () => {
 
   test('parses simple GET search options and comma-separated arrays', () => {
     const body = searchParamsToBody(
-      new URL('https://x.test/api?q=latest+MCP&max_results=3&time_range=week&include_answer=false&multi_source=0&providers=brave,exa&include_domains=a.com,b.com'),
+      new URL('https://x.test/api?q=latest+MCP&mode=deep&max_results=3&time_range=week&include_answer=false&multi_source=0&providers=brave,exa&include_domains=a.com,b.com'),
     );
     assert.deepEqual(body, {
       query: 'latest MCP',
       max_results: 3,
       time_range: 'week',
       include_answer: false,
+      mode: 'deep',
       multi_source: false,
       providers: ['brave', 'exa'],
       include_domains: ['a.com', 'b.com'],

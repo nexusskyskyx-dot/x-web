@@ -121,7 +121,10 @@ async function runSearchRequest(request: Request, body: Record<string, unknown>)
   }
 
   try {
-    const result = await runPipeline({ ...body, provider: body.provider ?? provider }, { apiKey: accountKey ? undefined : key, providerKeys, aiConfig });
+    const pipelineBody = accountKey && body.provider === undefined
+      ? { ...body }
+      : { ...body, provider: body.provider ?? provider };
+    const result = await runPipeline(pipelineBody, { apiKey: accountKey ? undefined : key, providerKeys, aiConfig });
     if (accountKey) {
       await recordApiUsage(accountKey, { endpoint: '/api/v1/search', provider: result.provider, resultCount: result.results.length, durationMs: result.took_ms });
     }

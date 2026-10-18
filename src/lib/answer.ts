@@ -42,6 +42,7 @@ export interface Answer {
   declined?: boolean;
   ai_provider?: string;
   ai_key_source?: 'byok';
+  format?: 'markdown_report';
 }
 
 export interface AnswerSource {
@@ -69,9 +70,10 @@ function collectSentences(query: string, sources: AnswerSource[], useRaw: boolea
   const out: Scored[] = [];
 
   sources.forEach((source, sourceIndex) => {
-    const body = useRaw && source.raw_content
-      ? `${source.snippet ?? ''} ${source.raw_content}`
-      : (source.snippet ?? '');
+    const body =
+      useRaw && source.raw_content
+        ? `${source.snippet ?? ''} ${source.raw_content}`
+        : (source.snippet ?? '');
 
     if (!body.trim()) return;
 
@@ -196,7 +198,11 @@ interface LlmConfig {
   key: string;
   model: string;
   headers: Record<string, string>;
-  body: (query: string, prompt: string) => unknown;
+  body: (
+    query: string,
+    prompt: string,
+    options?: { system?: string; maxTokens?: number },
+  ) => unknown;
   parse: (payload: any) => string | undefined;
   provider: string;
   source: 'byok';
@@ -208,33 +214,61 @@ function llmConfig(byok?: AiRuntimeConfig): LlmConfig | undefined {
     const provider = byok.provider;
     if (provider === 'anthropic') {
       return {
-        url: 'https://api.anthropic.com/v1/messages', key: byok.apiKey, model: byok.model,
-        provider, source: byok.source,
-        headers: { 'Content-Type': 'application/json', 'x-api-key': byok.apiKey, 'anthropic-version': '2023-06-01' },
-        body: (_query, prompt) => ({ model: byok.model, max_tokens: 400, system: SYSTEM_PROMPT, messages: [{ role: 'user', content: prompt }] }),
-        parse: (payload) => Array.isArray(payload?.content) ? payload.content.find((b: any) => b.type === 'text')?.text : undefined,
+        url: 'https://api.anthropic.com/v1/messages',
+        key: byok.apiKey,
+        model: byok.model,
+        provider,
+        source: byok.source,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': byok.apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: (_query, prompt, options) => ({
+          model: byok.model,
+          max_tokens: options?.maxTokens ?? 400,
+          system: options?.system ?? SYSTEM_PROMPT,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+        parse: (payload) =>
+          Array.isArray(payload?.content)
+            ? payload.content.find((b: any) => b.type === 'text')?.text
+            : undefined,
       };
     }
-    const base = provider === 'groq'
-      ? 'https://api.groq.com/openai/v1'
-      : provider === 'openrouter'
-        ? 'https://openrouter.ai/api/v1'
-        : provider === 'xkiro'
-          ? 'https://api.xkiro.com/v1'
-          : (byok.baseUrl ?? 'https://api.openai.com/v1').replace(/\/$/, '');
+    const base =
+      provider === 'groq'
+        ? 'https://api.groq.com/openai/v1'
+        : provider === 'openrouter'
+          ? 'https://openrouter.ai/api/v1'
+          : provider === 'xkiro'
+            ? 'https://api.xkiro.com/v1'
+            : (byok.baseUrl ?? 'https://api.openai.com/v1').replace(/\/$/, '');
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${byok.apiKey}`,
     };
     if (provider === 'openrouter') headers['X-OpenRouter-Title'] = 'x-web';
     return {
-      url: `${base}/chat/completions`, key: byok.apiKey, model: byok.model,
-      provider, source: byok.source,
+      url: `${base}/chat/completions`,
+      key: byok.apiKey,
+      model: byok.model,
+      provider,
+      source: byok.source,
       headers,
-      body: (query, prompt) => ({ model: byok.model, temperature: 0.2, max_tokens: 400, messages: [
-        { role: 'system', content: `${SYSTEM_PROMPT}\n\nQuestion language: ${query.slice(0, 200)}` },
-        { role: 'user', content: prompt },
-      ] }),
+      body: (query, prompt, options) => ({
+        model: byok.model,
+        temperature: 0.2,
+        max_tokens: options?.maxTokens ?? 400,
+        messages: [
+          {
+            role: 'system',
+            content:
+              options?.system ?? `${SYSTEM_PROMPT}\n\nQuestion language: ${query.slice(0, 200)}`,
+          },
+          { role: 'user', content: prompt },
+        ],
+      }),
       parse: (payload) => payload?.choices?.[0]?.message?.content,
     };
   }
@@ -278,16 +312,106 @@ async function synthesizeWithLlm(
       confidence: 0.82,
       ai_provider: config.provider,
       ai_key_source: config.source,
-      citations: indices.sort((a, b) => a - b).map((n) => ({
-        index: n,
-        title: sources[n - 1]?.title ?? 'Untitled',
-        url: sources[n - 1]?.url ?? '',
-        result: n - 1,
-      })),
+      citations: indices
+        .sort((a, b) => a - b)
+        .map((n) => ({
+          index: n,
+          title: sources[n - 1]?.title ?? 'Untitled',
+          url: sources[n - 1]?.url ?? '',
+          result: n - 1,
+        })),
     };
   } catch {
     // Network failure, timeout, malformed response — the extractive path is a
     // perfectly good answer and we should never fail a search because of it.
+    return undefined;
+  }
+}
+
+/** Ask the caller's BYOK model for focused, search-ready subqueries. */
+export async function planResearchQueries(
+  query: string,
+  aiConfig?: AiRuntimeConfig,
+): Promise<string[]> {
+  const config = llmConfig(aiConfig);
+  if (!config) return [query];
+  const system =
+    'You are a web research planner. Return only a JSON object with a "queries" array of 2 to 4 concise, distinct search queries. Keep the original research question represented. No prose or markdown.';
+  const prompt = `Research question: ${query}\n\nReturn JSON: {"queries":["..."]}`;
+  try {
+    const response = await fetch(config.url, {
+      method: 'POST',
+      headers: config.headers,
+      body: JSON.stringify(config.body(query, prompt, { system, maxTokens: 350 })),
+      signal: AbortSignal.timeout(Number(env('XWEB_DEEP_PLAN_TIMEOUT_MS') ?? 15_000)),
+    });
+    if (!response.ok) return [query];
+    const payload = await response.json();
+    let raw = (config.parse(payload) ?? '').trim().replace(/^```(?:json)?\s*|\s*```$/g, '');
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed?.queries)) return [query];
+    const planned: string[] = [
+      ...new Set<string>(
+        parsed.queries
+          .filter((item: unknown): item is string => typeof item === 'string')
+          .map((item: string) => item.trim())
+          .filter(Boolean),
+      ),
+    ].slice(0, 4);
+    if (!planned.length) return [query];
+    return planned.some((item) => item.toLocaleLowerCase() === query.toLocaleLowerCase())
+      ? planned
+      : [query, ...planned.slice(0, 3)];
+  } catch {
+    // A malformed/failed planner is non-fatal: the original prompt remains a valid query.
+    return [query];
+  }
+}
+
+/** Produce a longer, citation-grounded report from up to ten extracted pages. */
+export async function synthesizeResearchReport(
+  query: string,
+  sources: AnswerSource[],
+  aiConfig?: AiRuntimeConfig,
+): Promise<Answer | undefined> {
+  const config = llmConfig(aiConfig);
+  if (!config || sources.length === 0) return undefined;
+  const system = `You are x-web's research report writer. Use only the supplied numbered sources; do not use outside knowledge. Write a useful Markdown report with these headings: ## Overview, ## Key findings, ## Details and specifications, ## Conclusion. Cite every factual claim inline with [n], where n is a supplied source number. Never invent citations or facts. If the sources are insufficient, say so clearly. Write in the question's language.`;
+  const prompt = buildUserPrompt(
+    query,
+    sources.slice(0, 10),
+    Number(env('XWEB_DEEP_CONTEXT_CHARS') ?? 48_000),
+  );
+  try {
+    const response = await fetch(config.url, {
+      method: 'POST',
+      headers: config.headers,
+      body: JSON.stringify(config.body(query, prompt, { system, maxTokens: 2800 })),
+      signal: AbortSignal.timeout(Number(env('XWEB_DEEP_REPORT_TIMEOUT_MS') ?? 45_000)),
+    });
+    if (!response.ok) return undefined;
+    const payload = await response.json();
+    const text = (config.parse(payload) ?? '').trim();
+    if (!text) return undefined;
+    const indices = [...new Set([...text.matchAll(/\[(\d+)\]/g)].map((match) => Number(match[1])))]
+      .filter((n) => n >= 1 && n <= sources.length)
+      .sort((a, b) => a - b);
+    if (!indices.length) return undefined;
+    return {
+      text,
+      mode: 'llm',
+      format: 'markdown_report',
+      confidence: 0.82,
+      ai_provider: config.provider,
+      ai_key_source: config.source,
+      citations: indices.map((index) => ({
+        index,
+        title: sources[index - 1]?.title ?? 'Untitled',
+        url: sources[index - 1]?.url ?? '',
+        result: index - 1,
+      })),
+    };
+  } catch {
     return undefined;
   }
 }

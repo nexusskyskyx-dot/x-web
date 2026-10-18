@@ -22,21 +22,34 @@ import {
 } from './intent.ts';
 import {
   isProvider,
+  PROVIDERS,
+  PROVIDER_META,
   type ProviderId,
   type SearchHit,
   type SearchRequest,
 } from './search.ts';
-import { synthesizeAnswer, type Answer } from './answer.ts';
+import {
+  planResearchQueries,
+  synthesizeAnswer,
+  synthesizeResearchReport,
+  type Answer,
+} from './answer.ts';
 import type { AiRuntimeConfig } from './ai-credentials.ts';
 import { extractPages, type ExtractedPage } from './extract.ts';
-import { searchAcrossProviders, type ProviderFailure } from './federation.ts';
+import {
+  searchAcrossProviders,
+  type FederatedSearchResponse,
+  type ProviderFailure,
+} from './federation.ts';
+import { rankAndBlend } from './ranking.ts';
 
 export type QueryRewrite = 'auto' | 'off' | 'force';
 
 export interface PipelineRequest {
   query: string;
+  mode?: 'standard' | 'deep';
   provider?: ProviderId;
-  /** Fan out to all configured provider keys (default true). */
+  /** Legacy fan-out control when mode is omitted; explicit deep mode always federates. */
   multi_source?: boolean;
   /** Optional provider allow-list for a federated search. */
   providers?: ProviderId[];
@@ -68,6 +81,13 @@ export interface PipelineMeta {
   time_sensitive: boolean;
   extracted_count: number;
   stages_ms: Record<string, number>;
+  research?: {
+    mode: 'standard' | 'deep';
+    subqueries: string[];
+    pages_attempted: number;
+    pages_read: number;
+    failed_subqueries?: string[];
+  };
 }
 
 export interface PipelineResponse {
@@ -75,6 +95,11 @@ export interface PipelineResponse {
   object: 'search';
   /** Echo of the caller's query. */
   query: string;
+  mode: 'standard' | 'deep';
+  /** Present for deep mode; Markdown report with inline citation markers. */
+  report?: string;
+  /** Inline citations referenced by `report`. */
+  citations?: Answer['citations'];
   provider: string;
   providers_used: ProviderId[];
   provider_errors?: ProviderFailure[];
@@ -121,7 +146,13 @@ function cleanDomainList(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) return undefined;
   const list = value
     .filter((item): item is string => typeof item === 'string')
-    .map((item) => item.trim().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, ''))
+    .map((item) =>
+      item
+        .trim()
+        .replace(/^https?:\/\//, '')
+        .replace(/^www\./, '')
+        .replace(/\/.*$/, ''),
+    )
     .filter(Boolean);
   return list.length > 0 ? [...new Set(list)].slice(0, 50) : undefined;
 }
@@ -134,15 +165,22 @@ function cleanDomainList(value: unknown): string[] | undefined {
  * `auto` therefore rewrites only when the original is wordy and the rewrite
  * keeps enough signal to be safe.
  */
-function chooseQuery(original: string, intent: Intent, mode: QueryRewrite): { query: string; rewritten: boolean } {
+function chooseQuery(
+  original: string,
+  intent: Intent,
+  mode: QueryRewrite,
+): { query: string; rewritten: boolean } {
   const rewritten = intent.rewritten_query.trim();
   if (mode === 'off' || !rewritten) return { query: original, rewritten: false };
   if (mode === 'force') return { query: rewritten, rewritten: true };
 
   const originalTokens = original.trim().split(/\s+/).length;
   const rewrittenTokens = rewritten.split(/\s+/).length;
-  const worthRewriting = originalTokens >= 5 && rewrittenTokens >= 2 && rewrittenTokens < originalTokens;
-  return worthRewriting ? { query: rewritten, rewritten: true } : { query: original, rewritten: false };
+  const worthRewriting =
+    originalTokens >= 5 && rewrittenTokens >= 2 && rewrittenTokens < originalTokens;
+  return worthRewriting
+    ? { query: rewritten, rewritten: true }
+    : { query: original, rewritten: false };
 }
 
 export async function runPipeline(
@@ -160,12 +198,33 @@ export async function runPipeline(
   /* ---------------- validate ---------------- */
   const query = typeof raw.query === 'string' ? raw.query.trim() : '';
   if (!query) {
-    throw new PipelineError('`query` is required.', 400, 'invalid_request_error', 'missing_query', 'query');
+    throw new PipelineError(
+      '`query` is required.',
+      400,
+      'invalid_request_error',
+      'missing_query',
+      'query',
+    );
   }
   if (query.length > 2000) {
-    throw new PipelineError('`query` must be 2000 characters or fewer.', 400, 'invalid_request_error', 'query_too_long', 'query');
+    throw new PipelineError(
+      '`query` must be 2000 characters or fewer.',
+      400,
+      'invalid_request_error',
+      'query_too_long',
+      'query',
+    );
   }
 
+  if (raw.mode !== undefined && raw.mode !== 'standard' && raw.mode !== 'deep') {
+    throw new PipelineError(
+      '`mode` must be \"standard\" or \"deep\".',
+      400,
+      'invalid_request_error',
+      'invalid_mode',
+      'mode',
+    );
+  }
   if (raw.provider !== undefined && !isProvider(raw.provider)) {
     throw new PipelineError(
       `\`provider\` must be one of: tavily, brave, serper, exa.`,
@@ -176,10 +235,25 @@ export async function runPipeline(
     );
   }
   if (raw.multi_source !== undefined && typeof raw.multi_source !== 'boolean') {
-    throw new PipelineError('`multi_source` must be a boolean.', 400, 'invalid_request_error', 'invalid_multi_source', 'multi_source');
+    throw new PipelineError(
+      '`multi_source` must be a boolean.',
+      400,
+      'invalid_request_error',
+      'invalid_multi_source',
+      'multi_source',
+    );
   }
-  if (raw.providers !== undefined && (!Array.isArray(raw.providers) || raw.providers.some((p) => !isProvider(p)))) {
-    throw new PipelineError('`providers` must contain only supported provider names.', 400, 'invalid_request_error', 'invalid_providers', 'providers');
+  if (
+    raw.providers !== undefined &&
+    (!Array.isArray(raw.providers) || raw.providers.some((p) => !isProvider(p)))
+  ) {
+    throw new PipelineError(
+      '`providers` must contain only supported provider names.',
+      400,
+      'invalid_request_error',
+      'invalid_providers',
+      'providers',
+    );
   }
   if (raw.time_range !== undefined && !isTimeRange(raw.time_range)) {
     throw new PipelineError(
@@ -199,7 +273,11 @@ export async function runPipeline(
       'topic',
     );
   }
-  if (raw.search_depth !== undefined && raw.search_depth !== 'basic' && raw.search_depth !== 'advanced') {
+  if (
+    raw.search_depth !== undefined &&
+    raw.search_depth !== 'basic' &&
+    raw.search_depth !== 'advanced'
+  ) {
     throw new PipelineError(
       '`search_depth` must be "basic" or "advanced".',
       400,
@@ -209,14 +287,39 @@ export async function runPipeline(
     );
   }
 
+  const mode = (raw.mode ?? 'standard') as 'standard' | 'deep';
+  if (mode === 'deep' && !options.aiConfig) {
+    throw new PipelineError(
+      'Deep mode requires a saved BYOK AI provider credential for query planning and report generation.',
+      400,
+      'invalid_request_error',
+      'deep_mode_requires_ai_key',
+      'mode',
+    );
+  }
   const understand = raw.understand !== false;
-  const includeAnswer = raw.include_answer !== false;
-  const includeRaw = raw.include_raw_content === true;
+  const includeAnswer =
+    mode === 'deep' ||
+    (raw.mode === undefined ? raw.include_answer !== false : raw.include_answer === true);
+  const includeRaw = raw.include_raw_content === true || mode === 'deep';
   const includeImages = raw.include_images === true;
-  const maxResults = clampInt(raw.max_results, 5, 1, MAX_RESULTS);
+  const maxResults = clampInt(raw.max_results, mode === 'deep' ? 10 : 5, 1, MAX_RESULTS);
 
   const provider = (isProvider(raw.provider) ? raw.provider : undefined) as ProviderId | undefined;
-  const resolvedProvider = provider ?? 'tavily';
+  const configuredDefault = env('XWEB_SEARCH_PROVIDER');
+  const configuredDefaultWithKey =
+    isProvider(configuredDefault) &&
+    Boolean(env('XWEB_SEARCH_API_KEY') || env(PROVIDER_META[configuredDefault].envVar))
+      ? configuredDefault
+      : undefined;
+  const firstAvailableProvider = PROVIDERS.find((id) =>
+    Boolean(options.providerKeys?.[id] || env(PROVIDER_META[id].envVar)),
+  );
+  const resolvedProvider =
+    provider ??
+    configuredDefaultWithKey ??
+    (options.apiKey ? 'tavily' : firstAvailableProvider) ??
+    (isProvider(configuredDefault) ? configuredDefault : 'tavily');
 
   /* ---------------- stage 1: understand ---------------- */
   let stageStart = Date.now();
@@ -236,7 +339,12 @@ export async function runPipeline(
         exclude_domains: cleanDomainList(raw.exclude_domains),
       })
     : {
-        topic: raw.topic === 'news' ? ('news' as const) : raw.topic === 'general' ? ('general' as const) : undefined,
+        topic:
+          raw.topic === 'news'
+            ? ('news' as const)
+            : raw.topic === 'general'
+              ? ('general' as const)
+              : undefined,
         time_range: isTimeRange(raw.time_range) ? raw.time_range : undefined,
         country: typeof raw.country === 'string' ? raw.country : undefined,
         include_domains: cleanDomainList(raw.include_domains),
@@ -248,10 +356,9 @@ export async function runPipeline(
       ? raw.query_rewrite
       : (options.queryRewriteDefault ?? 'auto');
 
-  const { query: effectiveQuery, rewritten } =
-    intent
-      ? chooseQuery(query, intent, rewriteMode)
-      : { query, rewritten: false };
+  const { query: effectiveQuery, rewritten } = intent
+    ? chooseQuery(query, intent, rewriteMode)
+    : { query, rewritten: false };
 
   /* ---------------- stage 3: retrieve ---------------- */
   const providerRequest: SearchRequest = {
@@ -269,16 +376,104 @@ export async function runPipeline(
     time_range: filters.time_range,
   };
 
+  const planStart = Date.now();
+  const subqueries =
+    mode === 'deep' ? await planResearchQueries(query, options.aiConfig) : [effectiveQuery];
+  stages.plan = Date.now() - planStart;
   stageStart = Date.now();
-  const search = await searchAcrossProviders(providerRequest, {
+  const searchOptions = {
     apiBase: env('XWEB_API_BASE'),
     primaryProvider: resolvedProvider,
     primaryKey: options.apiKey ?? '',
-    multiSource: raw.multi_source !== false,
-    explicitLanguage: typeof raw.language === 'string' && Boolean(raw.language.trim()) && raw.language.toLowerCase() !== 'auto',
-    requestedProviders: Array.isArray(raw.providers) ? raw.providers as ProviderId[] : undefined,
+    multiSource: mode === 'deep' || (raw.mode === undefined && raw.multi_source !== false),
+    explicitLanguage:
+      typeof raw.language === 'string' &&
+      Boolean(raw.language.trim()) &&
+      raw.language.toLowerCase() !== 'auto',
+    requestedProviders:
+      (mode === 'deep' || raw.mode === undefined) && Array.isArray(raw.providers)
+        ? (raw.providers as ProviderId[])
+        : undefined,
     providerKeys: options.providerKeys,
-  });
+  };
+  let search: FederatedSearchResponse;
+  let failedSubqueries: string[] = [];
+  if (mode === 'deep') {
+    const perQueryRequest = {
+      ...providerRequest,
+      max_results: Math.max(maxResults, 10),
+    };
+    const outcomes = await Promise.allSettled(
+      subqueries.map((subquery) =>
+        searchAcrossProviders({ ...perQueryRequest, query: subquery }, searchOptions),
+      ),
+    );
+    const successful = outcomes.flatMap((outcome) =>
+      outcome.status === 'fulfilled' ? [outcome.value] : [],
+    );
+    failedSubqueries = outcomes.flatMap((outcome, index) =>
+      outcome.status === 'rejected' ? [subqueries[index]] : [],
+    );
+    if (!successful.length) {
+      const failed = outcomes.find((outcome) => outcome.status === 'rejected');
+      if (failed?.status === 'rejected') throw failed.reason;
+      throw new Error('All research searches failed.');
+    }
+    const hitsByProvider = new Map<ProviderId, SearchHit[]>();
+    for (const response of successful) {
+      for (const hit of response.results) {
+        for (const providerId of hit.providers ?? response.providers_used) {
+          const hits = hitsByProvider.get(providerId) ?? [];
+          hits.push(hit);
+          hitsByProvider.set(providerId, hits);
+        }
+      }
+    }
+    const providers_used = [...new Set(successful.flatMap((response) => response.providers_used))];
+    const results = rankAndBlend(
+      query,
+      [...hitsByProvider].map(([providerId, hits]) => ({
+        provider: providerId,
+        results: hits,
+      })),
+      { maxResults },
+    );
+    const provider_errors = [
+      ...new Map(
+        successful
+          .flatMap((response) => response.provider_errors ?? [])
+          .map((failure) => [`${failure.provider}:${failure.message}`, failure]),
+      ).values(),
+    ];
+    const unavailable_providers = [
+      ...new Set(successful.flatMap((response) => response.unavailable_providers ?? [])),
+    ];
+    search = {
+      id: `xweb_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`,
+      query: effectiveQuery,
+      provider: providers_used.length > 1 ? 'multi' : providers_used[0],
+      providers_used,
+      ...(provider_errors.length ? { provider_errors } : {}),
+      ...(unavailable_providers.length ? { unavailable_providers } : {}),
+      ...(successful.find((response) => response.answer)?.answer
+        ? { answer: successful.find((response) => response.answer)?.answer }
+        : {}),
+      results,
+      took_ms: Math.max(...successful.map((response) => response.took_ms)),
+      ...(successful.some((response) => response.unsupported_params?.length)
+        ? {
+            unsupported_params: [
+              ...new Set(successful.flatMap((response) => response.unsupported_params ?? [])),
+            ],
+          }
+        : {}),
+    };
+  } else {
+    search = await searchAcrossProviders(providerRequest, {
+      ...searchOptions,
+      multiSource: raw.mode === undefined ? raw.multi_source !== false : false,
+    });
+  }
   stages.search = Date.now() - stageStart;
 
   // Only filtering preferences count as unsupported: answer synthesis and page
@@ -288,15 +483,17 @@ export async function runPipeline(
 
   /* ---------------- stage 4: extract full content ---------------- */
   let extracted: ExtractedPage[] | undefined;
+  let pagesAttempted = 0;
   stageStart = Date.now();
 
   if (includeRaw || includeImages) {
-    const depth = clampInt(raw.extract_depth, 3, 1, 10);
+    const depth = mode === 'deep' ? 10 : clampInt(raw.extract_depth, 3, 1, 10);
     const targets = results
-      .filter((hit) => includeImages || (hit.raw_content?.length ?? 0) <= 200)
+      .filter((hit) => mode === 'deep' || includeImages || (hit.raw_content?.length ?? 0) <= 200)
       .slice(0, depth)
       .map((hit) => hit.url)
       .filter((url) => /^https?:\/\//.test(url));
+    pagesAttempted = targets.length;
 
     if (targets.length > 0) {
       const pages = await extractPages(targets, {
@@ -316,7 +513,11 @@ export async function runPipeline(
         results = results.map((hit) => {
           const page = byUrl.get(hit.url);
           if (!page?.text) return hit;
-          return { ...hit, raw_content: page.text, language: hit.language ?? page.language };
+          return {
+            ...hit,
+            raw_content: page.text,
+            language: hit.language ?? page.language,
+          };
         });
       }
     }
@@ -333,12 +534,24 @@ export async function runPipeline(
       snippet: hit.snippet,
       raw_content: hit.raw_content,
     }));
-    const synthesized = await synthesizeAnswer(query, sources, {
-      providerAnswer: search.answer,
-      allowLlm: env('XWEB_DISABLE_LLM') !== '1',
-      aiConfig: options.aiConfig,
-    });
+    const synthesized =
+      mode === 'deep'
+        ? await synthesizeResearchReport(query, sources.slice(0, 10), options.aiConfig)
+        : await synthesizeAnswer(query, sources, {
+            providerAnswer: search.answer,
+            allowLlm: env('XWEB_DISABLE_LLM') !== '1',
+            aiConfig: options.aiConfig,
+          });
     if (synthesized && !synthesized.declined && synthesized.text) answer = synthesized;
+    if (mode === 'deep' && !answer) {
+      throw new PipelineError(
+        'Deep Research could not generate a cited report from the available sources. Try again or check your saved BYOK model configuration.',
+        502,
+        'upstream_error',
+        'deep_report_generation_failed',
+        'mode',
+      );
+    }
   }
   stages.answer = Date.now() - stageStart;
 
@@ -346,10 +559,14 @@ export async function runPipeline(
     id: search.id,
     object: 'search',
     query,
+    mode,
+    ...(mode === 'deep' && answer ? { report: answer.text, citations: answer.citations } : {}),
     provider: search.provider,
     providers_used: search.providers_used,
     ...(search.provider_errors ? { provider_errors: search.provider_errors } : {}),
-    ...(search.unavailable_providers ? { unavailable_providers: search.unavailable_providers } : {}),
+    ...(search.unavailable_providers
+      ? { unavailable_providers: search.unavailable_providers }
+      : {}),
     took_ms: Date.now() - started,
     language: {
       requested: requestedLanguage,
@@ -365,8 +582,27 @@ export async function runPipeline(
       effective_query: effectiveQuery,
       rewritten,
       time_sensitive: Boolean(filters.time_range),
-      extracted_count: extracted?.filter((page) => page.text || (page.images?.length ?? 0) > 0).length ?? 0,
+      extracted_count:
+        extracted?.filter((page) => page.text || (page.images?.length ?? 0) > 0).length ?? 0,
       stages_ms: stages,
+      ...(mode === 'deep'
+        ? {
+            research: {
+              mode,
+              subqueries,
+              pages_attempted: pagesAttempted,
+              pages_read: extracted?.filter((page) => Boolean(page.text)).length ?? 0,
+              failed_subqueries: failedSubqueries,
+            },
+          }
+        : {
+            research: {
+              mode,
+              subqueries: [],
+              pages_attempted: 0,
+              pages_read: 0,
+            },
+          }),
     },
   };
 }

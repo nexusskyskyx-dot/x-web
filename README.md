@@ -78,7 +78,7 @@ Additional endpoints and integrations:
 Supported search providers — `tavily`, `brave`, `serper`, `exa` — are implemented in
 [`src/lib/search.ts`](src/lib/search.ts). Multi-source fan-out uses each configured provider-specific
 environment key and the visitor's key only for the visitor-selected provider. Set
-`multi_source: false` to use just the selected provider. Each returned result includes provider
+`multi_source: false` to use just the selected provider. Explicit `mode: "standard"` is a fast single-provider search; `mode: "deep"` plans multiple queries, searches configured providers concurrently, reads up to ten pages and writes a cited Markdown report (`report` plus structured `citations`) using the account’s saved BYOK AI key. Deep mode is available in both REST and MCP. Each returned result includes provider
 provenance, corroboration count, and an explainable ranking score. That score is an ordering heuristic,
 not a confidence probability; confidence scoring and personalized ranking are deferred.
 
