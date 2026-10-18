@@ -126,11 +126,29 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
           <select data-dashboard-mode name="mode" class="mt-1.5 w-full rounded-lg border border-ink-200 bg-white px-3 py-3 text-base text-ink-900 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 sm:py-2.5 sm:text-sm">
             <option value="automatic">Automatic — choose based on the question</option>
             <option value="standard">Standard — fast snippets</option>
-            <option value="deep">Deep Research — cited report</option>
           </select>
         </label>
         <button data-dashboard-search-submit type="submit" class="btn-primary">Search</button>
-        <p data-dashboard-mode-help class="text-xs leading-relaxed text-ink-500 sm:col-span-3">Standard searches one saved provider and returns snippets. Deep Research uses your saved AI key, searches all configured providers, reads up to 10 pages, and generates a cited Markdown report.</p>
+        <p data-dashboard-mode-help class="text-xs leading-relaxed text-ink-500 sm:col-span-3">Automatic keeps simple lookups fast and escalates research-heavy questions. Standard searches one saved provider. The selected mode is shared with connected agents.</p>
+        <section class="rounded-2xl border border-brand-200 bg-brand-50/50 p-4 sm:col-span-3 sm:p-5" aria-labelledby="deep-search-title">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div class="min-w-0 flex-1">
+              <h3 id="deep-search-title" class="text-sm font-semibold text-ink-950">Deep search</h3>
+              <details class="group mt-1 max-w-3xl text-xs text-ink-500">
+                <summary class="inline-flex cursor-pointer list-none items-center gap-1 font-semibold text-brand-700 hover:text-brand-900">More info <span aria-hidden="true">↓</span></summary>
+                <p class="mt-2 leading-relaxed">Plans several focused queries, searches configured providers, reads up to ten public pages, and generates a cited report with your saved AI model. Requires your AI BYOK key. Search and AI providers may charge for usage. This preference also applies to connected agents.</p>
+              </details>
+              <p class="mt-2 text-[11px] font-medium text-ink-500">Deep Research mode: <span data-deep-search-status>Off</span></p>
+            </div>
+            <label class="relative inline-flex h-7 w-[4.25rem] shrink-0 cursor-pointer items-center" aria-label="Deep search">
+              <input data-deep-search type="checkbox" role="switch" aria-label="Deep search" class="peer sr-only" />
+              <span class="absolute inset-0 rounded-full bg-rose-600 transition-colors peer-checked:bg-emerald-600 peer-focus-visible:outline-none peer-focus-visible:ring-4 peer-focus-visible:ring-brand-200" aria-hidden="true"></span>
+              <span class="pointer-events-none absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-[2.5rem]" aria-hidden="true"></span>
+              <span class="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-white transition-opacity peer-checked:opacity-0" aria-hidden="true">Off</span>
+              <span class="pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-white opacity-0 transition-opacity peer-checked:opacity-100" aria-hidden="true">On</span>
+            </label>
+          </div>
+        </section>
         <section class="rounded-2xl border border-brand-200 bg-brand-50/50 p-4 sm:col-span-3 sm:p-5" aria-labelledby="deep-scrape-title">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div class="min-w-0 flex-1">
@@ -150,8 +168,25 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
             </label>
           </div>
         </section>
-        <label class="flex items-start gap-2 text-xs font-medium text-ink-700 sm:col-span-3"><input data-semantic-citation-check type="checkbox" class="mt-0.5 h-4 w-4 rounded border-ink-300 text-brand-700 focus:ring-brand-500" />Enable optional semantic citation review</label>
-        <p class="-mt-3 text-xs leading-relaxed text-ink-500 sm:col-span-3">When enabled, x-web sends claims flagged by the text-overlap check in one extra batch to your saved BYOK AI model. This may use tokens and incur charges from your provider. It can improve paraphrase handling, but cannot guarantee that every claim is correct. Off by default.</p>
+        <section class="rounded-2xl border border-brand-200 bg-brand-50/50 p-4 sm:col-span-3 sm:p-5" aria-labelledby="semantic-review-title">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div class="min-w-0 flex-1">
+              <h3 id="semantic-review-title" class="text-sm font-semibold text-ink-950">Semantic citation review</h3>
+              <details class="group mt-1 max-w-3xl text-xs text-ink-500">
+                <summary class="inline-flex cursor-pointer list-none items-center gap-1 font-semibold text-brand-700 hover:text-brand-900">More info <span aria-hidden="true">↓</span></summary>
+                <p class="mt-2 leading-relaxed">Claims flagged by the text-overlap check are sent in one batch to your saved BYOK AI model. A claim is accepted only when the model provides an exact quote found in the cited page. This may use tokens and incur provider charges; it can improve paraphrase handling but cannot guarantee correctness.</p>
+              </details>
+              <p class="mt-2 text-[11px] font-medium text-ink-500">Semantic review: <span data-semantic-review-status>Off</span></p>
+            </div>
+            <label class="relative inline-flex h-7 w-[4.25rem] shrink-0 cursor-pointer items-center" aria-label="Semantic citation review">
+              <input data-semantic-citation-check type="checkbox" role="switch" aria-label="Semantic citation review" class="peer sr-only" />
+              <span class="absolute inset-0 rounded-full bg-rose-600 transition-colors peer-checked:bg-emerald-600 peer-focus-visible:outline-none peer-focus-visible:ring-4 peer-focus-visible:ring-brand-200" aria-hidden="true"></span>
+              <span class="pointer-events-none absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-[2.5rem]" aria-hidden="true"></span>
+              <span class="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-white transition-opacity peer-checked:opacity-0" aria-hidden="true">Off</span>
+              <span class="pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-white opacity-0 transition-opacity peer-checked:opacity-100" aria-hidden="true">On</span>
+            </label>
+          </div>
+        </section>
       </form>
       <div data-dashboard-search-output class="hidden border-t border-ink-100"></div>
     </section>
@@ -257,24 +292,45 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
 
     const searchForm = root.querySelector<HTMLFormElement>('[data-dashboard-search-form]');
     const searchMode = root.querySelector<HTMLSelectElement>('[data-dashboard-mode]');
+    const deepSearchToggle = root.querySelector<HTMLInputElement>('[data-deep-search]');
+    const deepSearchStatus = root.querySelector<HTMLElement>('[data-deep-search-status]');
     const deepScrapeToggle = root.querySelector<HTMLInputElement>('[data-deep-scrape]');
     const semanticCitationCheck = root.querySelector<HTMLInputElement>('[data-semantic-citation-check]');
+    const semanticReviewStatus = root.querySelector<HTMLElement>('[data-semantic-review-status]');
     const searchModeHelp = root.querySelector<HTMLElement>('[data-dashboard-mode-help]');
     const searchOutput = root.querySelector<HTMLElement>('[data-dashboard-search-output]');
     const searchButton = root.querySelector<HTMLButtonElement>('[data-dashboard-search-submit]');
+    let modeBeforeDeep: 'automatic' | 'standard' = 'automatic';
+    const syncDeepSearchUi = () => {
+      const enabled = deepSearchToggle?.checked === true;
+      if (searchMode) searchMode.disabled = enabled;
+      if (deepSearchStatus) deepSearchStatus.textContent = enabled ? 'On · Deep Research' : 'Off';
+    };
+    const syncSemanticReviewUi = () => {
+      if (semanticReviewStatus) semanticReviewStatus.textContent = semanticCitationCheck?.checked ? 'On' : 'Off';
+    };
     const syncSearchModeHelp = () => {
       if (!searchModeHelp) return;
-      searchModeHelp.textContent = searchMode?.value === 'deep'
-        ? 'Deep Research creates a cited report, checks citation evidence against fetched pages, and flags unsupported claims. The Dashboard choice also controls connected agents.'
+      searchModeHelp.textContent = deepSearchToggle?.checked
+        ? 'Deep Research plans multiple searches, reads up to 10 pages, and creates a cited report. This saved preference also controls connected agents.'
         : searchMode?.value === 'standard'
-          ? 'Standard searches one saved provider and returns snippets. This preference is also used by connected x-web AI agents.'
-          : 'Automatic keeps simple lookups fast and uses Deep Research for research-heavy questions. Connected x-web AI agents use this preference too.';
+          ? 'Standard searches one saved provider and returns quick snippets. This preference is also used by connected x-web AI agents.'
+          : 'Automatic keeps simple lookups fast and escalates research-heavy questions. Connected x-web AI agents use this preference too.';
     };
     const loadSearchPreference = async () => {
       try {
         const preference = await request('/api/account/search-preference');
-        if (searchMode && ['automatic', 'standard', 'deep'].includes(preference.mode)) searchMode.value = preference.mode;
+        if (searchMode && (preference.mode === 'automatic' || preference.mode === 'standard')) {
+          modeBeforeDeep = preference.mode;
+          searchMode.value = preference.mode;
+        } else if (preference.mode === 'deep') {
+          modeBeforeDeep = 'automatic';
+          if (searchMode) searchMode.value = 'automatic';
+          if (deepSearchToggle) deepSearchToggle.checked = true;
+        }
         if (semanticCitationCheck) semanticCitationCheck.checked = preference.semantic_citation_check === true;
+        syncDeepSearchUi();
+        syncSemanticReviewUi();
       } catch (error) {
         if (searchOutput) {
           searchOutput.classList.remove('hidden');
@@ -284,10 +340,11 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
       syncSearchModeHelp();
     };
     searchMode?.addEventListener('change', () => {
+      modeBeforeDeep = searchMode.value === 'standard' ? 'standard' : 'automatic';
       syncSearchModeHelp();
       void request('/api/account/search-preference', {
         method: 'PUT',
-        body: JSON.stringify({ mode: searchMode.value }),
+        body: JSON.stringify({ mode: modeBeforeDeep }),
       }).catch((error) => {
         if (searchOutput) {
           searchOutput.classList.remove('hidden');
@@ -295,18 +352,40 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
         }
       });
     });
+    deepSearchToggle?.addEventListener('change', () => {
+      const enabled = deepSearchToggle.checked;
+      if (enabled) modeBeforeDeep = searchMode?.value === 'standard' ? 'standard' : 'automatic';
+      syncDeepSearchUi();
+      syncSearchModeHelp();
+      void request('/api/account/search-preference', {
+        method: 'PUT',
+        body: JSON.stringify({ mode: enabled ? 'deep' : modeBeforeDeep }),
+      }).catch((error) => {
+        deepSearchToggle.checked = !enabled;
+        syncDeepSearchUi();
+        syncSearchModeHelp();
+        if (searchOutput) {
+          searchOutput.classList.remove('hidden');
+          searchOutput.innerHTML = `<p class="px-5 py-4 text-xs text-rose-700">Could not save Deep search for connected agents. ${escapeHtml(error instanceof Error ? error.message : '')}</p>`;
+        }
+      });
+    });
     semanticCitationCheck?.addEventListener('change', () => {
+      syncSemanticReviewUi();
       void request('/api/account/search-preference', {
         method: 'PUT',
         body: JSON.stringify({ semantic_citation_check: semanticCitationCheck.checked }),
       }).catch((error) => {
         semanticCitationCheck.checked = !semanticCitationCheck.checked;
+        syncSemanticReviewUi();
         if (searchOutput) {
           searchOutput.classList.remove('hidden');
           searchOutput.innerHTML = `<p class="px-5 py-4 text-xs text-rose-700">Could not save the semantic citation preference. ${escapeHtml(error instanceof Error ? error.message : '')}</p>`;
         }
       });
     });
+    syncDeepSearchUi();
+    syncSemanticReviewUi();
     syncSearchModeHelp();
     void loadSearchPreference();
 
@@ -323,7 +402,9 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
       const queryInput = searchForm.querySelector<HTMLInputElement>('[name="query"]');
       const query = queryInput?.value.trim() ?? '';
       if (!query || !searchOutput) return;
-      const mode = searchMode?.value === 'deep' || searchMode?.value === 'standard' ? searchMode.value : 'automatic';
+      const mode = deepSearchToggle?.checked
+        ? 'deep'
+        : searchMode?.value === 'standard' ? 'standard' : 'automatic';
       const deepScrape = deepScrapeToggle?.checked === true;
       if (searchButton) {
         searchButton.disabled = true;
