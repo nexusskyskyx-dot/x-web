@@ -18,6 +18,7 @@ const toc = [
   { id: 'quick-connect', text: 'Quick connect' },
   { id: 'client-config', text: 'Client configuration' },
   { id: 'tool', text: 'Available tool' },
+  { id: 'modes', text: 'Dashboard search modes' },
   { id: 'credentials', text: 'Required credentials' },
   { id: 'security', text: 'Security' },
 ];
@@ -25,7 +26,7 @@ const toc = [
 
 <Docs
   title="MCP integration"
-  description="Connect an MCP-compatible AI client to x-web's live web search tool with a hosted Streamable HTTP endpoint."
+  description="Connect an AI client to x-web's hosted MCP search tool; its Standard, Deep Research or Automatic mode follows your Dashboard preference."
   toc={toc}
   updated="October 2026"
 >
@@ -74,8 +75,8 @@ const toc = [
   </p>
 
   <h2 id="modes">Search modes</h2>
-  <p>The <code>xweb_search</code> tool accepts an optional <code>mode</code>. If omitted, it carries over the mode selected in the Dashboard. <code>automatic</code> (the default) keeps routine lookups lightweight and escalates research-heavy questions; <code>standard</code> searches one configured provider for quick snippets; <code>deep</code> plans 2–4 research queries, searches configured providers, reads up to 10 public pages, and returns a cited Markdown report. The structured result includes citations, providers used and research metadata. Deep mode requires the account's saved AI BYOK key; no server-managed model fallback is used.</p>
-  <CodeBlock lang="json" title="deep tool arguments" code={`{ "query": "Compare…", "mode": "deep", "max_results": 10 }`} />
+  <p>Choose <strong>Automatic</strong>, <strong>Standard</strong> or <strong>Deep Research</strong> once in your Dashboard. The connected <code>xweb_search</code> tool automatically follows that saved preference—there is no mode field to code or configure in the agent. Automatic keeps routine lookups lightweight and escalates research-heavy questions; Standard returns quick snippets from one provider; Deep Research plans multiple queries, searches configured providers, reads up to 10 public pages, and returns a cited Markdown report. Deep mode requires the account's saved AI BYOK key; x-web never uses a server-managed model.</p>
+  <CodeBlock lang="json" title="xweb_search input" code={`{ "query": "Compare the current leading video editors" }`} />
 
   <h2 id="credentials">Required credentials</h2>
   <ul>

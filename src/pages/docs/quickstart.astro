@@ -78,14 +78,15 @@ const agentSnippet = `async function webSearch(query) {
 >
   <h2 id="before-you-start">Before you start</h2>
   <p>
-    Create an account, save a key for Tavily, Brave Search, Serper or Exa in your dashboard, and
-    create an x-web API key. Use that x-web key to authenticate search requests; x-web securely
-    retrieves your saved provider credential server-side. For a one-off request, you can instead
-    pass a provider key directly.
+    Create an account, save a Tavily, Brave Search, Serper or Exa key in your dashboard, and create
+    an x-web API key for your app or agent. Save an AI-provider key as well if you want Deep Research.
+    Use the dashboard’s Automatic, Standard or Deep Research preference to control account-key and
+    connected-agent searches without changing your request code. For a one-off call, you can pass a
+    search-provider key directly.
   </p>
   <ul>
     <li>A server-side runtime that can make HTTP requests.</li>
-    <li>An x-web account/API key and a saved provider key (or a provider key for a one-off request).</li>
+    <li>An x-web account/API key and a saved search-provider key; add a saved AI-provider key for Deep Research.</li>
     <li>Your x-web deployment URL as <code>XWEB_BASE</code>.</li>
   </ul>
 
@@ -98,9 +99,10 @@ const agentSnippet = `async function webSearch(query) {
   <h2 id="step-1">Step 1 — Connect a provider and create your x-web key</h2>
   <p>
     Sign in at <a href="/login">/login</a>, open your <a href="/dashboard">dashboard</a>, and
-    save a key under Search providers for Tavily, Brave Search, Serper and/or Exa. Create an x-web
-    API key in the dashboard; that is the key your application sends to authenticate searches.
-    You may also send a provider key directly for one-off requests.
+    save one or more keys under Search providers. Create an x-web API key; that is the key your
+    application or agent sends to authenticate. For Deep Research, also save an AI provider and key
+    under AI summaries. Then select Automatic, Standard or Deep Research in Search—the preference
+    is saved to your account and carried into account-key API and MCP searches.
   </p>
   <CodeBlock
     lang="bash"
@@ -155,8 +157,8 @@ export XWEB_API_KEY="xweb_…"`}
   <Callout type="note" title="Answer modes are explicit">
     <code>llm</code> means a configured OpenAI-compatible or Anthropic model synthesized the answer.
     <code>provider</code> means the search provider supplied it. <code>extractive</code> means x-web
-    selected relevant sentences and attached citations. Add an answer-model key on the server if you
-    specifically need LLM synthesis.
+    selected relevant sentences and attached citations. For AI synthesis and Deep Research, save your
+    own AI-provider key in the Dashboard; x-web never uses a server-managed AI model.
   </Callout>
 
   <h2 id="step-4">Step 4 — Add it to your agent</h2>
@@ -164,10 +166,15 @@ export XWEB_API_KEY="xweb_…"`}
   <CodeBlock lang="javascript" title="web-search-tool.js" code={agentSnippet} />
   <p>
     The response includes <code>intent</code> (what x-web inferred), <code>language</code>, live
-    <code>results</code> and optional <code>extracted</code> page text. See the
+    <code>results</code> and optional <code>extracted</code> page text. The Dashboard search mode
+    carries into account-key requests when you omit <code>mode</code>. See the
     <a href="/docs/api">API reference</a> for the full request/response contract and standalone
     intent and extraction endpoints.
   </p>
+  <Callout type="tip" title="Prefer no-code agent setup?">
+    Connect a compatible client to the <a href="/docs/mcp">hosted x-web MCP server</a> using your
+    x-web account key. Choose the search mode in your Dashboard; the agent inherits it automatically.
+  </Callout>
 
   <div class="not-prose mt-10 flex flex-wrap items-center gap-3 rounded-2xl border border-brand-200 bg-brand-50/70 p-6">
     <span class="ring-gradient grid h-11 w-11 place-items-center rounded-xl text-white">

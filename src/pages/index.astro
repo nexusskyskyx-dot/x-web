@@ -10,7 +10,7 @@ const heroTabs = [
     label: 'cURL',
     lang: 'bash',
     code: `curl -X POST "$XWEB_BASE/api/v1/search" \\
-  -H "X-XWeb-Key: $TAVILY_API_KEY" \\
+  -H "X-XWeb-Key: $XWEB_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "query": "What is the latest on the Model Context Protocol?",
@@ -25,7 +25,7 @@ const heroTabs = [
   method: "POST",
   headers: {
     "Content-Type": "application/json",
-    "X-XWeb-Key": process.env.TAVILY_API_KEY,
+    "X-XWeb-Key": process.env.XWEB_API_KEY,
   },
   body: JSON.stringify({
     query: "What is the latest on the Model Context Protocol?",
@@ -50,6 +50,18 @@ const capabilities = [
     title: 'Cited answers',
     body: 'Get answers with source citations. x-web reports whether synthesis came from an LLM, the provider or extractive selection.',
     accent: 'from-brand-400 to-brand-600',
+  },
+  {
+    icon: 'layers' as const,
+    title: 'Deep Research',
+    body: 'Plan research queries, search every configured provider, read up to 10 public pages and return a cited report using your saved AI key.',
+    accent: 'from-brand-500 to-brand-800',
+  },
+  {
+    icon: 'shield' as const,
+    title: 'One-tap mode sync',
+    body: 'Choose Automatic, Standard or Deep Research in your dashboard. Connected x-web agents follow your saved preference without code changes.',
+    accent: 'from-brand-400 to-brand-700',
   },
   {
     icon: 'globe' as const,
@@ -109,11 +121,11 @@ const features = [
 const steps = [
   {
     title: 'Connect a provider',
-    body: 'Add a Tavily, Brave Search, Serper or Exa key in your account dashboard, then call search with your x-web API key.'
+    body: 'Save a search-provider key and, for Deep Research, an AI key in your account dashboard. Create an x-web API key for your agent.'
   },
   {
-    title: 'Call the search API',
-    body: 'Send a natural-language query to /api/v1/search from your server-side application.',
+    title: 'Choose your search mode',
+    body: 'Pick Automatic, Standard or Deep Research in the dashboard. The saved mode carries over to your connected agent; no mode flag is needed.',
   },
   {
     title: 'Use current, cited results',
@@ -133,6 +145,10 @@ const faqs = [
   {
     q: 'Does every answer use an LLM?',
     a: 'Only when you save your own AI provider key. Without it, x-web uses an upstream provider answer or cited source sentences; it never calls a server-managed AI model.'
+  },
+  {
+    q: 'Will my dashboard mode apply to my AI agent?',
+    a: 'Yes. When your agent uses your x-web account key or the hosted MCP connection, it follows the mode saved in your dashboard. Automatic keeps routine lookups standard and escalates research-heavy questions; Standard and Deep Research are explicit account-wide choices.',
   },
   {
     q: 'Is x-web free?',
@@ -172,8 +188,9 @@ const integrations = ['Tavily', 'Brave Search', 'Serper', 'Exa'];
           </h1>
 
           <p class="mt-6 max-w-xl text-lg leading-relaxed text-ink-600">
-            x-web gives your agent one API for live web search, cited answers, page text and query
-            understanding — so it can look up what happened today, not guess from training data.
+            x-web gives your agent live web search, cited answers, page text and Deep Research. Choose
+            Automatic, Standard or Deep Research once in your dashboard—the connected agent follows
+            your preference, with no mode code to write.
           </p>
 
           <div class="mt-8 flex flex-wrap items-center gap-3">
@@ -190,7 +207,7 @@ const integrations = ['Tavily', 'Brave Search', 'Serper', 'Exa'];
               [
                 'Live provider results',
                 '4 search integrations',
-                'Optional cited answers',
+                'Automatic, Standard & Deep modes',
                 'Remote MCP, no adapter code',
               ].map((item) => (
                 <li class="flex items-center gap-2 text-sm text-ink-500">
@@ -301,10 +318,9 @@ const integrations = ['Tavily', 'Brave Search', 'Serper', 'Exa'];
       <div class="grid gap-12 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
         <div>
           <p class="text-sm font-semibold text-brand-600">Why x-web</p>
-          <h2 class="mt-2 text-3xl sm:text-4xl">Built for agents, not dashboards</h2>
+          <h2 class="mt-2 text-3xl sm:text-4xl">Powerful for agents. Simple in your dashboard.</h2>
           <p class="mt-4 text-lg leading-relaxed text-ink-600">
-            Most search APIs were designed for humans clicking through ten blue links. x-web was
-            designed for a model deciding what to read next.
+            Connect x-web to an agent over hosted MCP, then manage its search provider, AI key and search mode visually from the dashboard.
           </p>
           <a href="/docs" class="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:text-brand-800">
             See the API reference
@@ -400,7 +416,7 @@ const integrations = ['Tavily', 'Brave Search', 'Serper', 'Exa'];
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-XWeb-Key": process.env.TAVILY_API_KEY
+      "X-XWeb-Key": process.env.XWEB_API_KEY
     },
     body: JSON.stringify({ query, include_answer: true })
   });
@@ -440,7 +456,7 @@ const integrations = ['Tavily', 'Brave Search', 'Serper', 'Exa'];
         x-web API keys, and review usage on your dashboard. x-web is free to use with no paid tiers
         or subscriptions. Searches authenticated with your x-web key use saved search-provider
         credentials and your AI settings. Connect OpenAI, Claude, Groq, OpenRouter, or xKiro with BYOK;
-        those third-party providers may charge for their API usage.
+        those third-party providers may charge for their API usage. Choose Automatic, Standard or Deep Research once in the dashboard and connected agents inherit that preference.
       </p>
       <a href="/login" class="btn-primary mt-6 inline-flex">Create your account</a>
     </div>

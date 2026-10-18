@@ -60,7 +60,7 @@ const errorRows = [
 
 <Docs
   title="API reference"
-  description="Live web search, query understanding and page extraction — the current x-web API surface."
+  description="Live search, deep research, account-wide mode preferences, query understanding and page extraction — the current x-web API surface."
   toc={toc}
   updated="October 2026"
 >
@@ -206,7 +206,6 @@ Content-Type: application/json`}
   <ParamTable
     params={[
       { name: 'query', type: 'string', required: true, description: 'Image query, up to 400 characters.' },
-      { name: 'mode', type: '"standard" | "deep"', default: '"standard" when supplied', description: 'standard uses one selected provider and snippets by default. deep uses your saved AI BYOK to plan 2–4 queries, search all configured/selected providers concurrently, extract up to 10 pages and write a cited Markdown report. Deep requires an x-web account key and saved AI credential. If omitted, legacy multi_source behavior is preserved.' },
   { name: 'provider', type: '"brave" | "serper"', default: '"brave"', description: 'Image search provider. Requires its own provider API key.' },
       { name: 'max_results', type: 'integer', default: '20', description: 'Results to return, clamped to 1–50.' },
       { name: 'safe_search', type: '"strict" | "off"', default: '"strict"', description: 'SafeSearch mode. Brave supports this; Serper reports it as unsupported.' },
