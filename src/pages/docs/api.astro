@@ -111,7 +111,8 @@ Content-Type: application/json`}
   <p>
     Dashboard APIs use the Supabase access token as a Bearer token:
     <code>GET /api/account/overview</code>, <code>POST /api/account/keys</code>,
-    <code>DELETE /api/account/keys/:id</code>, and provider-key management at
+    <code>DELETE /api/account/keys/:id</code>, authenticated dashboard search at
+    <code>POST /api/account/search</code>, and provider-key management at
     <code>/api/account/providers</code>. New x-web keys are shown only once and stored as
     SHA-256 hashes. Use one with <code>X-XWeb-Key</code> to call search. Searches can use your saved
     provider credentials from the dashboard, or fall back to provider keys configured on the x-web server.
