@@ -79,7 +79,7 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
         </div>
         <div data-firecrawl-feedback role="status" aria-live="polite" class="mt-3 hidden rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-800"></div>
         <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
-          <label class="block min-w-0 flex-1 text-xs font-medium text-ink-600">Firecrawl API key
+          <label class="block min-w-0 flex-1 text-xs font-medium text-ink-600">Firecrawl_Key
             <input data-firecrawl-key type="password" autocomplete="off" spellcheck="false" placeholder="Paste key to connect or replace" class="mt-1.5 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm text-ink-900 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100" />
           </label>
           <div class="flex gap-2"><button type="button" data-firecrawl-save class="btn-primary btn-sm">Save key</button><button type="button" data-firecrawl-remove class="btn-ghost btn-sm hidden">Remove</button></div>
@@ -131,8 +131,25 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
         </label>
         <button data-dashboard-search-submit type="submit" class="btn-primary">Search</button>
         <p data-dashboard-mode-help class="text-xs leading-relaxed text-ink-500 sm:col-span-3">Standard searches one saved provider and returns snippets. Deep Research uses your saved AI key, searches all configured providers, reads up to 10 pages, and generates a cited Markdown report.</p>
-        <label class="flex items-start gap-2 text-xs font-medium text-ink-700 sm:col-span-3"><input data-deep-scrape type="checkbox" class="mt-0.5 h-4 w-4 rounded border-ink-300 text-brand-700 focus:ring-brand-500" />Deep Scrape the top three pages with Firecrawl</label>
-        <p class="-mt-3 text-xs leading-relaxed text-ink-500 sm:col-span-3">Requires your Firecrawl key above. The browser actions are best-effort and may incur Firecrawl charges; pages that cannot be enhanced fall back to regular extraction.</p>
+        <section class="rounded-2xl border border-brand-200 bg-brand-50/50 p-4 sm:col-span-3 sm:p-5" aria-labelledby="deep-scrape-title">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div class="min-w-0 flex-1">
+              <h3 id="deep-scrape-title" class="text-sm font-semibold text-ink-950">Deep scrape</h3>
+              <details class="group mt-1 max-w-3xl text-xs text-ink-500">
+                <summary class="inline-flex cursor-pointer list-none items-center gap-1 font-semibold text-brand-700 hover:text-brand-900">More info <span aria-hidden="true">↓</span></summary>
+                <p class="mt-2 leading-relaxed">Uses your Firecrawl_Key to browser-render the top three pages, try common “Read more” and accordion controls, and scroll for lazy content. This is best-effort—not complete page coverage. Firecrawl may charge per page; unsuccessful pages fall back to regular extraction.</p>
+              </details>
+              <p class="mt-2 text-[11px] font-medium text-ink-500">Firecrawl_Key: <span data-deep-scrape-key-status>Checking…</span> <a href="#provider-settings" class="ml-1 font-semibold text-brand-700 underline decoration-brand-300 underline-offset-2">Manage key</a></p>
+            </div>
+            <label class="relative inline-flex h-7 w-[4.25rem] shrink-0 cursor-pointer items-center" aria-label="Deep scrape">
+              <input data-deep-scrape type="checkbox" role="switch" aria-label="Deep scrape" class="peer sr-only" />
+              <span class="absolute inset-0 rounded-full bg-rose-600 transition-colors peer-checked:bg-emerald-600 peer-focus-visible:outline-none peer-focus-visible:ring-4 peer-focus-visible:ring-brand-200" aria-hidden="true"></span>
+              <span class="pointer-events-none absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-[2.5rem]" aria-hidden="true"></span>
+              <span class="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-white transition-opacity peer-checked:opacity-0" aria-hidden="true">Off</span>
+              <span class="pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-white opacity-0 transition-opacity peer-checked:opacity-100" aria-hidden="true">On</span>
+            </label>
+          </div>
+        </section>
         <label class="flex items-start gap-2 text-xs font-medium text-ink-700 sm:col-span-3"><input data-semantic-citation-check type="checkbox" class="mt-0.5 h-4 w-4 rounded border-ink-300 text-brand-700 focus:ring-brand-500" />Enable optional semantic citation review</label>
         <p class="-mt-3 text-xs leading-relaxed text-ink-500 sm:col-span-3">When enabled, x-web sends claims flagged by the text-overlap check in one extra batch to your saved BYOK AI model. This may use tokens and incur charges from your provider. It can improve paraphrase handling, but cannot guarantee that every claim is correct. Off by default.</p>
       </form>
@@ -180,6 +197,7 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
   const providerFeedback = root.querySelector<HTMLElement>('[data-provider-feedback]');
   const firecrawlKey = root.querySelector<HTMLInputElement>('[data-firecrawl-key]');
   const firecrawlStatus = root.querySelector<HTMLElement>('[data-firecrawl-status]');
+  const deepScrapeKeyStatus = root.querySelector<HTMLElement>('[data-deep-scrape-key-status]');
   const firecrawlFeedback = root.querySelector<HTMLElement>('[data-firecrawl-feedback]');
   const firecrawlRemove = root.querySelector<HTMLButtonElement>('[data-firecrawl-remove]');
   const aiFeedback = root.querySelector<HTMLElement>('[data-ai-feedback]');
@@ -387,11 +405,13 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
             ? 'shrink-0 rounded-full bg-brand-50 px-2 py-1 text-[10px] font-semibold text-brand-700'
             : 'shrink-0 rounded-full bg-ink-50 px-2 py-1 text-[10px] font-semibold text-ink-500';
         }
+        if (deepScrapeKeyStatus) deepScrapeKeyStatus.textContent = data.configured ? 'Connected' : 'Not saved';
         firecrawlRemove?.classList.toggle('hidden', !data.configured);
         const save = root.querySelector<HTMLButtonElement>('[data-firecrawl-save]');
         if (save) save.textContent = data.configured ? 'Replace key' : 'Save key';
       } catch (error) {
         if (firecrawlStatus) firecrawlStatus.textContent = 'Unavailable';
+        if (deepScrapeKeyStatus) deepScrapeKeyStatus.textContent = 'Unavailable';
         showFirecrawlFeedback(error instanceof Error ? error.message : 'Could not load Firecrawl settings.');
       }
     };
