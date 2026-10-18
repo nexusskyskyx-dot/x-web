@@ -224,7 +224,7 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
     const syncSearchModeHelp = () => {
       if (!searchModeHelp) return;
       searchModeHelp.textContent = searchMode?.value === 'deep'
-        ? 'Deep Research always runs a full cited report. This preference is also used by connected x-web AI agents.'
+        ? 'Deep Research creates a cited report, checks citation evidence against fetched pages, and flags unsupported claims. The Dashboard choice also controls connected agents.'
         : searchMode?.value === 'standard'
           ? 'Standard searches one saved provider and returns snippets. This preference is also used by connected x-web AI agents.'
           : 'Automatic keeps simple lookups fast and uses Deep Research for research-heavy questions. Connected x-web AI agents use this preference too.';
@@ -283,13 +283,20 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? import.meta.
         });
         const citations = Array.isArray(result.citations) ? result.citations : (result.answer?.citations ?? []);
         const report = typeof result.report === 'string' ? result.report : '';
+        const verification = result.answer?.citation_verification ?? result.meta?.research?.citation_verification;
+        const verificationNote = verification
+          ? `<p class="mt-3 rounded-lg border border-brand-200 bg-white px-3 py-2 text-xs leading-relaxed text-brand-800">Citation evidence check: ${escapeHtml(verification.supported_claims)} claim(s) matched retrieved page text; ${escapeHtml(verification.flagged_claims)} flagged as unverified. This checks source-text overlap, not semantic truth.</p>`
+          : '';
         const reportBlock = report
-          ? `<section class="border-b border-ink-100 bg-brand-50/50 p-5"><h3 class="text-sm font-semibold text-ink-900">Research report</h3><pre class="mt-3 whitespace-pre-wrap font-sans text-sm leading-relaxed text-ink-700">${escapeHtml(report)}</pre>${citations.length ? `<h4 class="mt-4 text-xs font-semibold tracking-wide text-ink-500 uppercase">Sources</h4><ol class="mt-2 flex flex-wrap gap-x-4 gap-y-2">${citations.map((item: any) => `<li><a class="text-xs font-semibold text-brand-700 hover:underline" href="${escapeHtml(safeHref(item.url))}" target="_blank" rel="noreferrer noopener">[${escapeHtml(item.index)}] ${escapeHtml(item.title || item.url)}</a></li>`).join('')}</ol>` : ''}</section>`
+          ? `<section class="border-b border-ink-100 bg-brand-50/50 p-5"><h3 class="text-sm font-semibold text-ink-900">Research report</h3>${verificationNote}<pre class="mt-3 whitespace-pre-wrap font-sans text-sm leading-relaxed text-ink-700">${escapeHtml(report)}</pre>${citations.length ? `<h4 class="mt-4 text-xs font-semibold tracking-wide text-ink-500 uppercase">Sources</h4><ol class="mt-2 flex flex-wrap gap-x-4 gap-y-2">${citations.map((item: any) => `<li><a class="text-xs font-semibold text-brand-700 hover:underline" href="${escapeHtml(safeHref(item.url))}" target="_blank" rel="noreferrer noopener">[${escapeHtml(item.index)}] ${escapeHtml(item.title || item.url)}</a></li>`).join('')}</ol>` : ''}</section>`
+          : '';
+        const standardAnswer = !report && typeof result.answer?.text === 'string'
+          ? `<section class="border-b border-ink-100 bg-brand-50/50 p-5"><h3 class="text-sm font-semibold text-ink-900">Cited answer</h3>${verificationNote}<p class="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-ink-700">${escapeHtml(result.answer.text)}</p>${citations.length ? `<ol class="mt-3 flex flex-wrap gap-x-4 gap-y-2">${citations.map((item: any) => `<li><a class="text-xs font-semibold text-brand-700 hover:underline" href="${escapeHtml(safeHref(item.url))}" target="_blank" rel="noreferrer noopener">[${escapeHtml(item.index)}] ${escapeHtml(item.title || item.url)}</a></li>`).join('')}</ol>` : ''}</section>`
           : '';
         const results = Array.isArray(result.results) ? result.results : [];
         const resultList = results.map((item: any, index: number) => `<li class="flex gap-3 border-t border-ink-100 px-5 py-4 first:border-0"><span class="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-brand-50 font-mono text-xs font-semibold text-brand-700">${index + 1}</span><div class="min-w-0"><a class="text-sm font-semibold text-ink-900 hover:text-brand-700" href="${escapeHtml(safeHref(item.url))}" target="_blank" rel="noreferrer noopener">${escapeHtml(item.title)}</a><p class="mt-1 text-sm leading-relaxed text-ink-600">${escapeHtml(item.snippet)}</p></div></li>`).join('');
         const info = `${escapeHtml(result.mode ?? mode)} · ${escapeHtml(result.providers_used?.join(', ') ?? result.provider ?? 'provider')} · ${results.length} results${result.meta?.research?.mode === 'deep' ? ` · ${escapeHtml(result.meta.research.pages_read)} pages read` : ''}`;
-        searchOutput.innerHTML = `<div class="flex flex-wrap items-center gap-2 bg-ink-50 px-5 py-3 font-mono text-xs text-ink-500">${info}</div>${reportBlock}<ul>${resultList || '<li class="px-5 py-6 text-sm text-ink-500">No results returned.</li>'}</ul>`;
+        searchOutput.innerHTML = `<div class="flex flex-wrap items-center gap-2 bg-ink-50 px-5 py-3 font-mono text-xs text-ink-500">${info}</div>${reportBlock}${standardAnswer}<ul>${resultList || '<li class="px-5 py-6 text-sm text-ink-500">No results returned.</li>'}</ul>`;
       } catch (error) {
         searchOutput.innerHTML = `<div class="p-5"><p class="text-sm font-semibold text-rose-800">Search failed</p><p class="mt-1 text-sm text-rose-700">${escapeHtml(error instanceof Error ? error.message : 'Could not complete search.')}</p></div>`;
       } finally {

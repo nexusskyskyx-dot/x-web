@@ -22,6 +22,7 @@
 import { splitSentences, termCoverage, isNearDuplicate, truncateSentences } from './text.ts';
 import { env } from './env.ts';
 import type { AiRuntimeConfig } from './ai-credentials.ts';
+import { verifyCitedClaims, type CitationVerification } from './citation-verification.ts';
 
 export interface Citation {
   /** 1-based, matches the `[n]` markers in `text`. */
@@ -43,6 +44,8 @@ export interface Answer {
   ai_provider?: string;
   ai_key_source?: 'byok';
   format?: 'markdown_report';
+  /** Deterministic source-text check; not a semantic entailment guarantee. */
+  citation_verification?: CitationVerification;
 }
 
 export interface AnswerSource {
@@ -300,26 +303,24 @@ async function synthesizeWithLlm(
     const raw = (config.parse(payload) ?? '').trim();
     if (!raw || raw === 'NO_ANSWER') return undefined;
 
-    // Keep only citations that point at sources we actually supplied.
-    const indices = [...new Set([...raw.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])))].filter(
-      (n) => n >= 1 && n <= sources.length,
-    );
-    if (indices.length === 0) return undefined;
+    const suppliedIndices = [...new Set([...raw.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])))];
+    if (suppliedIndices.length === 0) return undefined;
+    const checked = verifyCitedClaims(raw, sources);
+    if (checked.indices.length === 0) return undefined;
 
     return {
-      text: raw,
+      text: checked.text,
       mode: 'llm',
       confidence: 0.82,
       ai_provider: config.provider,
       ai_key_source: config.source,
-      citations: indices
-        .sort((a, b) => a - b)
-        .map((n) => ({
-          index: n,
-          title: sources[n - 1]?.title ?? 'Untitled',
-          url: sources[n - 1]?.url ?? '',
-          result: n - 1,
-        })),
+      citation_verification: checked.verification,
+      citations: checked.indices.map((index) => ({
+        index,
+        title: sources[index - 1]?.title ?? 'Untitled',
+        url: sources[index - 1]?.url ?? '',
+        result: index - 1,
+      })),
     };
   } catch {
     // Network failure, timeout, malformed response — the extractive path is a
@@ -393,18 +394,19 @@ export async function synthesizeResearchReport(
     const payload = await response.json();
     const text = (config.parse(payload) ?? '').trim();
     if (!text) return undefined;
-    const indices = [...new Set([...text.matchAll(/\[(\d+)\]/g)].map((match) => Number(match[1])))]
-      .filter((n) => n >= 1 && n <= sources.length)
-      .sort((a, b) => a - b);
+    const indices = [...new Set([...text.matchAll(/\[(\d+)\]/g)].map((match) => Number(match[1])))];
     if (!indices.length) return undefined;
+    const checked = verifyCitedClaims(text, sources);
+    if (!checked.indices.length) return undefined;
     return {
-      text,
+      text: checked.text,
       mode: 'llm',
       format: 'markdown_report',
       confidence: 0.82,
       ai_provider: config.provider,
       ai_key_source: config.source,
-      citations: indices.map((index) => ({
+      citation_verification: checked.verification,
+      citations: checked.indices.map((index) => ({
         index,
         title: sources[index - 1]?.title ?? 'Untitled',
         url: sources[index - 1]?.url ?? '',

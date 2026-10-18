@@ -75,7 +75,7 @@ const toc = [
   </p>
 
   <h2 id="modes">Search modes</h2>
-  <p>Choose <strong>Automatic</strong>, <strong>Standard</strong> or <strong>Deep Research</strong> once in your Dashboard. The connected <code>xweb_search</code> tool automatically follows that saved preference—there is no mode field to code or configure in the agent. Automatic keeps routine lookups lightweight and escalates research-heavy questions; Standard returns quick snippets from one provider; Deep Research plans multiple queries, searches configured providers, reads up to 10 public pages, and returns a cited Markdown report. Deep mode requires the account's saved AI BYOK key; x-web never uses a server-managed model.</p>
+  <p>Choose <strong>Automatic</strong>, <strong>Standard</strong> or <strong>Deep Research</strong> once in your Dashboard. The connected <code>xweb_search</code> tool automatically follows that saved preference—there is no mode field to code or configure in the agent. Automatic keeps routine lookups lightweight and escalates research-heavy questions; Standard returns quick snippets from one provider; Deep Research plans multiple queries, searches configured providers, reads up to 10 public pages, and returns a cited Markdown report. Deep mode checks citations against fetched page text, removes unsupported markers and labels those claims <code>[Unverified]</code>. This is a source-text overlap screen, not a mathematical proof of semantic truth. Deep mode requires the account's saved AI BYOK key; x-web never uses a server-managed model.</p>
   <CodeBlock lang="json" title="xweb_search input" code={`{ "query": "Compare the current leading video editors" }`} />
 
   <h2 id="credentials">Required credentials</h2>

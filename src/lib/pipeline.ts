@@ -87,6 +87,7 @@ export interface PipelineMeta {
     pages_attempted: number;
     pages_read: number;
     failed_subqueries?: string[];
+    citation_verification?: NonNullable<Answer['citation_verification']>;
   };
 }
 
@@ -593,6 +594,7 @@ export async function runPipeline(
               pages_attempted: pagesAttempted,
               pages_read: extracted?.filter((page) => Boolean(page.text)).length ?? 0,
               failed_subqueries: failedSubqueries,
+              ...(answer?.citation_verification ? { citation_verification: answer.citation_verification } : {}),
             },
           }
         : {

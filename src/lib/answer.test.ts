@@ -16,11 +16,15 @@ const sources: AnswerSource[] = [
     url: 'https://modelcontextprotocol.io',
     snippet:
       'The Model Context Protocol (MCP) is an open protocol that standardises how applications provide context to large language models. It was released by Anthropic in November 2024. MCP uses a client-server architecture.',
+    raw_content:
+      'The Model Context Protocol (MCP) is an open protocol that standardises how applications provide context to large language models. It was released by Anthropic in November 2024. MCP uses a client-server architecture.',
   },
   {
     title: 'Introducing MCP',
     url: 'https://www.anthropic.com/news/model-context-protocol',
     snippet:
+      'Today we are open-sourcing the Model Context Protocol. MCP lets you build secure, two-way connections between your data and AI-powered tools. The protocol is transport agnostic.',
+    raw_content:
       'Today we are open-sourcing the Model Context Protocol. MCP lets you build secure, two-way connections between your data and AI-powered tools. The protocol is transport agnostic.',
   },
   {
@@ -127,6 +131,29 @@ describe('answer synthesis', () => {
       assert.equal(requestUrl, 'https://api.groq.com/openai/v1/chat/completions');
       assert.equal(requestBody.model, 'llama-test');
       assert.equal(requestBody.messages[0].content.startsWith('You are the answer engine'), true);
+    } finally { globalThis.fetch = originalFetch; }
+  });
+
+  test('flags claims that do not match the cited scraped source text', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => new Response(JSON.stringify({
+      choices: [{ message: { content: 'The Model Context Protocol is an open protocol [1]. Satellite dishes have no effect on MCP [1].' } }],
+    }), { status: 200 })) as typeof fetch;
+    try {
+      const answer = await synthesizeAnswer('what is the model context protocol', sources, {
+        allowLlm: true,
+        aiConfig: { provider: 'groq', model: 'llama-test', apiKey: 'user-secret', source: 'byok' },
+      });
+      assert.ok(answer);
+      assert.equal(answer.mode, 'llm');
+      assert.match(answer.text, /Satellite dishes have no effect on MCP \[Unverified\]/);
+      assert.deepEqual(answer.citation_verification, {
+        status: 'flagged',
+        supported_claims: 1,
+        flagged_claims: 1,
+        method: 'source_text_overlap',
+      });
+      assert.deepEqual(answer.citations.map((citation) => citation.index), [1]);
     } finally { globalThis.fetch = originalFetch; }
   });
 
